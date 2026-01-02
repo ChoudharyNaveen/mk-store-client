@@ -52,6 +52,27 @@ Preview the production build locally:
 npm run preview
 ```
 
+## Environment Configuration
+
+The application supports multiple environments: `local`, `staging`, and `production`.
+
+### Environment Variables
+
+Create a `.env.local`, `.env.staging`, or `.env.production` file in the root directory:
+
+```bash
+# API Base URL
+VITE_API_BASE_URL=https://apionline.mkonlinestore.co.in/api
+```
+
+### Environment Detection
+
+- **Local**: Default when running `npm run dev` (MODE=development)
+- **Staging**: Set `VITE_ENV=staging` or use `MODE=staging`
+- **Production**: Set `VITE_ENV=production` or use `MODE=production`
+
+The environment is automatically detected based on Vite's `MODE` or the `VITE_ENV` variable.
+
 ## Project Structure
 
 ```
@@ -74,11 +95,59 @@ src/
 ├── hooks/              # Custom React hooks
 │   └── useTable.ts     # Table data management hook
 ├── types/              # TypeScript type definitions
-│   └── table.ts
+│   ├── table.ts
+│   └── auth.ts         # Authentication types
+├── config/             # Configuration files
+│   └── env.ts          # Environment configuration
+├── constants/          # Application constants
+│   └── urls.ts         # API URL constants
+├── utils/              # Utility functions
+│   └── http.ts         # HTTP client utilities
+├── services/           # API service layer
+│   └── auth.service.ts # Authentication service
 ├── App.tsx             # Main app component with routing
 ├── main.tsx            # Application entry point
 ├── theme.ts            # MUI theme configuration
 └── globals.css         # Global styles
+```
+
+## API Integration
+
+### HTTP Utilities
+
+The application uses a centralized HTTP utility (`src/utils/http.ts`) that provides:
+
+- Automatic token management
+- Request/response interceptors
+- Error handling
+- Timeout management
+- Automatic redirect on 401 errors
+
+### Services
+
+Entity-wise services are organized in the `src/services/` directory:
+
+- **auth.service.ts**: Authentication operations (login, logout)
+
+### URL Constants
+
+All API endpoints are centralized in `src/constants/urls.ts` for easy maintenance.
+
+### Usage Example
+
+```typescript
+import authService from '@/services/auth.service';
+
+// Login
+const response = await authService.login({
+  email: 'admin@vendor.com',
+  password: 'SecurePassword123'
+});
+
+// Check authentication
+if (authService.isAuthenticated()) {
+  // User is logged in
+}
 ```
 
 ## Available Routes

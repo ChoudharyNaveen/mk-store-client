@@ -1,6 +1,5 @@
-
-
 import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -10,8 +9,50 @@ import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
+import CircularProgress from '@mui/material/CircularProgress';
+import authService from '../../services/auth.service';
+import { showSuccessToast } from '../../utils/toast';
 
 export default function LoginForm() {
+    const navigate = useNavigate();
+    const [email, setEmail] = React.useState('');
+    const [password, setPassword] = React.useState('');
+    const [rememberMe, setRememberMe] = React.useState(false);
+    const [loading, setLoading] = React.useState(false);
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setLoading(true);
+
+        try {
+            const response = await authService.login({
+                email: email.trim(),
+                password,
+            });
+
+            if (response.doc?.token && response.doc?.user) {
+                // Show success toast
+                showSuccessToast('Login successful!', 'Welcome');
+                // Navigate to dashboard on successful login
+                navigate('/', { replace: true });
+            } else {
+                // This shouldn't happen, but handle it just in case
+                showSuccessToast('Login failed. Please try again.', 'Error');
+            }
+        } catch {
+            // Error toast is automatically shown by HTTP utilities
+            // No need to handle it here
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Check if user is already authenticated
+    React.useEffect(() => {
+        if (authService.isAuthenticated()) {
+            navigate('/', { replace: true });
+        }
+    }, [navigate]);
     return (
         <Box
             sx={{
@@ -90,7 +131,7 @@ export default function LoginForm() {
                     </Typography>
                 </Box>
 
-                <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                     <Box>
                         <Typography
                             variant="subtitle2"
@@ -102,10 +143,15 @@ export default function LoginForm() {
                         </Typography>
                         <TextField
                             id="email"
+                            type="email"
                             fullWidth
-                            placeholder="esteban_schiller@gmail.com"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="admin@vendor.com"
                             variant="outlined"
                             size="small"
+                            disabled={loading}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
                                     backgroundColor: '#f5f7fa',
@@ -132,9 +178,13 @@ export default function LoginForm() {
                             id="password"
                             type="password"
                             fullWidth
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
                             variant="outlined"
                             size="small"
                             placeholder="••••••••"
+                            disabled={loading}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
                                     backgroundColor: '#f5f7fa',
@@ -144,7 +194,15 @@ export default function LoginForm() {
                     </Box>
 
                     <FormControlLabel
-                        control={<Checkbox size="small" sx={{ color: '#ccc' }} />}
+                        control={
+                            <Checkbox 
+                                size="small" 
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                                disabled={loading}
+                                sx={{ color: '#ccc' }} 
+                            />
+                        }
                         label={
                             <Typography variant="body2" color="text.secondary">
                                 Remember Password
@@ -154,20 +212,27 @@ export default function LoginForm() {
                     />
 
                     <Button
+                        type="submit"
                         variant="contained"
                         size="large"
                         disableElevation
                         color="primary"
+                        disabled={loading}
                         sx={{
                             textTransform: 'none',
                             fontWeight: 'bold',
                             py: 1.5,
+                            position: 'relative',
                             '&:hover': {
                                 // MUI handles hover based on primary color, but we can tune if needed
                             },
                         }}
                     >
-                        Sign In
+                        {loading ? (
+                            <CircularProgress size={24} color="inherit" />
+                        ) : (
+                            'Sign In'
+                        )}
                     </Button>
 
                     <Box sx={{ textAlign: 'center', mt: 1 }}>

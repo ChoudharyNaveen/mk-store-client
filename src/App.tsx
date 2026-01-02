@@ -5,7 +5,9 @@ import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
 import './globals.css';
 
+import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import UserList from './pages/users/UserList';
 import NewUserForm from './pages/users/NewUserForm';
@@ -32,31 +34,35 @@ function App() {
     return (
         <ThemeProvider theme={theme}>
             <CssBaseline />
-            <BrowserRouter>
+            <ToastProvider>
+                <BrowserRouter>
                 <Routes>
                     {/* Login page without layout */}
                     <Route path="/login" element={<LoginForm />} />
                     
-                    {/* All other pages with layout */}
-                    <Route element={<Layout isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/users" element={<UserList />} />
-                        <Route path="/users/new" element={<NewUserForm />} />
-                        <Route path="/category" element={<CategoryPage />} />
-                        <Route path="/category/new" element={<NewCategoryForm />} />
-                        <Route path="/sub-category" element={<SubCategoryList />} />
-                        <Route path="/sub-category/new" element={<NewSubCategoryForm />} />
-                        <Route path="/products" element={<ProductList />} />
-                        <Route path="/products/new" element={<NewProductForm />} />
-                        <Route path="/promo-code" element={<PromocodeList />} />
-                        <Route path="/promo-code/new" element={<NewPromocodeForm />} />
-                        <Route path="/offers" element={<OfferList />} />
-                        <Route path="/offers/new" element={<NewOfferForm />} />
-                        <Route path="/orders" element={<OrderList />} />
-                        <Route path="*" element={<Navigate to="/" replace />} />
+                    {/* All other pages with layout - protected routes */}
+                    <Route element={<ProtectedRoute />}>
+                        <Route element={<Layout isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}>
+                            <Route path="/" element={<Dashboard />} />
+                            <Route path="/users" element={<UserList />} />
+                            <Route path="/users/new" element={<NewUserForm />} />
+                            <Route path="/category" element={<CategoryPage />} />
+                            <Route path="/category/new" element={<NewCategoryForm />} />
+                            <Route path="/sub-category" element={<SubCategoryList />} />
+                            <Route path="/sub-category/new" element={<NewSubCategoryForm />} />
+                            <Route path="/products" element={<ProductList />} />
+                            <Route path="/products/new" element={<NewProductForm />} />
+                            <Route path="/promo-code" element={<PromocodeList />} />
+                            <Route path="/promo-code/new" element={<NewPromocodeForm />} />
+                            <Route path="/offers" element={<OfferList />} />
+                            <Route path="/offers/new" element={<NewOfferForm />} />
+                            <Route path="/orders" element={<OrderList />} />
+                            <Route path="*" element={<Navigate to="/" replace />} />
+                        </Route>
                     </Route>
                 </Routes>
-            </BrowserRouter>
+                </BrowserRouter>
+            </ToastProvider>
         </ThemeProvider>
     );
 }
