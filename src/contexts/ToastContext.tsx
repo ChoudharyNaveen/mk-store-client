@@ -3,7 +3,16 @@
  * Provides toast notification functionality using MUI Snackbar
  */
 
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo, useRef } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import AlertTitle from '@mui/material/AlertTitle';
@@ -19,12 +28,11 @@ export interface ToastOptions {
   action?: ReactNode;
 }
 
-// Default durations for different toast types (in milliseconds)
 const DEFAULT_DURATIONS: Record<ToastSeverity, number> = {
-  success: 5000,  // 5 seconds
-  error: 6000,    // 6 seconds (errors need more time to read)
-  warning: 5500,   // 5.5 seconds
-  info: 5000,      // 5 seconds
+  success: 5000,
+  error: 6000,
+  warning: 5500,
+  info: 5000,
 };
 
 interface ToastContextType {
@@ -37,19 +45,16 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
-// Global toast service instance
+// Global toast service
 let globalToastService: ToastContextType | null = null;
-
-export const getToastService = (): ToastContextType | null => {
-  return globalToastService;
-};
+export const getToastService = () => globalToastService;
 
 export const useToast = (): ToastContextType => {
-  const context = useContext(ToastContext);
-  if (!context) {
+  const ctx = useContext(ToastContext);
+  if (!ctx) {
     throw new Error('useToast must be used within a ToastProvider');
   }
-  return context;
+  return ctx;
 };
 
 interface ToastState {
@@ -61,31 +66,37 @@ interface ToastState {
   action?: ReactNode;
 }
 
-interface ToastProviderProps {
-  children: ReactNode;
-}
-
-export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
+export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toast, setToast] = useState<ToastState>({
     open: false,
     message: '',
     severity: 'info',
-    duration: 5000, // Default 5 seconds
+    duration: 5000,
   });
+
   const [progress, setProgress] = useState(100);
-  const [isHovered, setIsHovered] = useState(false);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = useRef<number | null>(null);
-  const remainingTimeRef = useRef<number>(5000);
-  const isInitializedRef = useRef<boolean>(false);
+  const endTimeRef = useRef<number | null>(null);
+  const remainingTimeRef = useRef<number>(0);
+  const isHoveredRef = useRef<boolean>(false);
+
+  /* =========================
+     Toast triggers
+  ========================== */
 
   const showToast = useCallback((message: string, options?: ToastOptions) => {
-    const severity = options?.severity || 'info';
+    const severity = options?.severity ?? 'info';
     const duration = options?.duration ?? DEFAULT_DURATIONS[severity];
-    // Reset all timer refs when showing new toast
-    startTimeRef.current = null;
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    endTimeRef.current = Date.now() + duration;
     remainingTimeRef.current = duration;
-    isInitializedRef.current = false;
+
     setToast({
       open: true,
       message,
@@ -94,84 +105,71 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
       duration,
       action: options?.action,
     });
+
     setProgress(100);
-    setIsHovered(false);
+    isHoveredRef.current = false;
   }, []);
 
-  const showSuccessToast = useCallback((message: string, title?: string) => {
-    showToast(message, { severity: 'success', title, duration: DEFAULT_DURATIONS.success });
-  }, [showToast]);
+  const showSuccessToast = useCallback(
+    (message: string, title?: string) =>
+      showToast(message, { severity: 'success', title }),
+    [showToast]
+  );
 
-  const showErrorToast = useCallback((message: string, title?: string) => {
-    showToast(message, { severity: 'error', title, duration: DEFAULT_DURATIONS.error });
-  }, [showToast]);
+  const showErrorToast = useCallback(
+    (message: string, title?: string) =>
+      showToast(message, { severity: 'error', title }),
+    [showToast]
+  );
 
-  const showWarningToast = useCallback((message: string, title?: string) => {
-    showToast(message, { severity: 'warning', title, duration: DEFAULT_DURATIONS.warning });
-  }, [showToast]);
+  const showWarningToast = useCallback(
+    (message: string, title?: string) =>
+      showToast(message, { severity: 'warning', title }),
+    [showToast]
+  );
 
-  const showInfoToast = useCallback((message: string, title?: string) => {
-    showToast(message, { severity: 'info', title, duration: DEFAULT_DURATIONS.info });
-  }, [showToast]);
+  const showInfoToast = useCallback(
+    (message: string, title?: string) =>
+      showToast(message, { severity: 'info', title }),
+    [showToast]
+  );
 
-  const handleClose = useCallback((_event?: React.SyntheticEvent | Event, reason?: string) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    // Clear timer
+  /* =========================
+     Close handler
+  ========================== */
+
+  const handleClose = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    setToast((prev) => ({ ...prev, open: false }));
-    setIsHovered(false);
+    setToast((p) => ({ ...p, open: false }));
+    isHoveredRef.current = false;
   }, []);
 
-  // Handle progress bar and auto-close timer
+  /* =========================
+     Progress timer
+  ========================== */
+
   useEffect(() => {
-    if (!toast.open) {
-      // Cleanup when toast closes
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      isInitializedRef.current = false;
-      return;
-    }
+    if (!toast.open) return;
 
-    // Only initialize timer when toast first opens, not on hover changes
-    if (!isInitializedRef.current) {
-      startTimeRef.current = Date.now();
-      remainingTimeRef.current = toast.duration;
-      isInitializedRef.current = true;
-    }
+    const tick = () => {
+      if (isHoveredRef.current || !endTimeRef.current) return;
 
-    const updateProgress = () => {
-      if (isHovered) {
-        // Pause timer when hovered - don't update progress
-        return;
-      }
+      const now = Date.now();
+      const remaining = Math.max(0, endTimeRef.current - now);
+      const percent = (remaining / toast.duration) * 100;
 
-      if (!startTimeRef.current) {
-        // Should not happen, but handle it
-        startTimeRef.current = Date.now();
-        return;
-      }
-
-      const elapsed = Date.now() - startTimeRef.current;
-      const remaining = Math.max(0, remainingTimeRef.current - elapsed);
-      const progressPercent = (remaining / toast.duration) * 100;
-
-      setProgress(progressPercent);
+      setProgress(percent);
 
       if (remaining <= 0) {
-        // Close toast when time is up
         handleClose();
       }
     };
 
-    // Update progress every 50ms for smooth animation
-    timerRef.current = setInterval(updateProgress, 50);
+    timerRef.current = setInterval(tick, 50);
+    tick();
 
     return () => {
       if (timerRef.current) {
@@ -179,36 +177,42 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
         timerRef.current = null;
       }
     };
-  }, [toast.open, toast.duration, isHovered, handleClose]);
+  }, [toast.open, toast.duration, handleClose]);
 
-  const handleMouseEnter = useCallback(() => {
-    if (toast.open && startTimeRef.current) {
-      // Calculate and save remaining time when pausing
-      const elapsed = Date.now() - startTimeRef.current;
-      remainingTimeRef.current = Math.max(0, remainingTimeRef.current - elapsed);
-      // Clear start time to indicate we're paused
-      startTimeRef.current = null;
-    }
-    setIsHovered(true);
-  }, [toast.open]);
+  /* =========================
+     Hover pause / resume
+  ========================== */
 
-  const handleMouseLeave = useCallback(() => {
-    setIsHovered(false);
-    // Reset start time when resuming - this will continue from remainingTimeRef.current
-    if (toast.open) {
-      startTimeRef.current = Date.now();
-    }
-  }, [toast.open]);
+  const handleMouseEnter = () => {
+    if (!endTimeRef.current) return;
 
-  const value: ToastContextType = useMemo(() => ({
-    showToast,
-    showSuccessToast,
-    showErrorToast,
-    showWarningToast,
-    showInfoToast,
-  }), [showToast, showSuccessToast, showErrorToast, showWarningToast, showInfoToast]);
+    remainingTimeRef.current = Math.max(0, endTimeRef.current - Date.now());
+    endTimeRef.current = null;
 
-  // Register global toast service
+    isHoveredRef.current = true;
+  };
+
+  const handleMouseLeave = () => {
+    endTimeRef.current = Date.now() + remainingTimeRef.current;
+
+    isHoveredRef.current = false;
+  };
+
+  /* =========================
+     Context value
+  ========================== */
+
+  const value = useMemo(
+    () => ({
+      showToast,
+      showSuccessToast,
+      showErrorToast,
+      showWarningToast,
+      showInfoToast,
+    }),
+    [showToast, showSuccessToast, showErrorToast, showWarningToast, showInfoToast]
+  );
+
   useEffect(() => {
     globalToastService = value;
     return () => {
@@ -216,31 +220,53 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     };
   }, [value]);
 
+  const PROGRESS_COLORS: Record<ToastSeverity, { track: string; bar: string }> = {
+    success: {
+      track: 'rgba(76, 175, 80, 0.25)',
+      bar: 'rgba(76, 175, 80, 0.9)',
+    },
+    error: {
+      track: 'rgba(244, 67, 54, 0.25)',
+      bar: 'rgba(244, 67, 54, 0.9)',
+    },
+    warning: {
+      track: 'rgba(255, 152, 0, 0.25)',
+      bar: 'rgba(255, 152, 0, 0.9)',
+    },
+    info: {
+      track: 'rgba(33, 150, 243, 0.25)',
+      bar: 'rgba(33, 150, 243, 0.9)',
+    },
+  };
+
+
+  /* =========================
+     Render
+  ========================== */
+
   return (
     <ToastContext.Provider value={value}>
       {children}
       <Snackbar
         open={toast.open}
-        onClose={handleClose}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         sx={{ mt: 8 }}
-        // Disable auto-hide since we're handling it manually
-        autoHideDuration={null}
       >
         <Box
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          sx={{ width: '100%', minWidth: 300 }}
+          sx={{ minWidth: 320 }}
         >
           <Alert
-            onClose={handleClose}
             severity={toast.severity}
             variant="filled"
-            sx={{ width: '100%', position: 'relative', overflow: 'hidden' }}
+            onClose={handleClose}
+            sx={{ position: 'relative', overflow: 'hidden' }}
             action={toast.action}
           >
             {toast.title && <AlertTitle>{toast.title}</AlertTitle>}
             {toast.message}
+
             <LinearProgress
               variant="determinate"
               value={progress}
@@ -250,18 +276,9 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
                 left: 0,
                 right: 0,
                 height: 3,
-                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                backgroundColor: PROGRESS_COLORS[toast.severity].track,
                 '& .MuiLinearProgress-bar': {
-                  backgroundColor: (() => {
-                    // Different progress bar colors based on severity
-                    const colorMap: Record<ToastSeverity, string> = {
-                      success: 'rgba(76, 175, 80, 0.9)',    // Green for success
-                      error: 'rgba(244, 67, 54, 0.9)',      // Red for error
-                      warning: 'rgba(255, 152, 0, 0.9)',      // Orange for warning
-                      info: 'rgba(33, 150, 243, 0.9)',       // Blue for info
-                    };
-                    return colorMap[toast.severity] || 'rgba(255, 255, 255, 0.8)';
-                  })(),
+                  backgroundColor: PROGRESS_COLORS[toast.severity].bar,
                 },
               }}
             />
@@ -271,4 +288,3 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     </ToastContext.Provider>
   );
 };
-

@@ -15,7 +15,7 @@ const getEnvironment = (): Environment => {
   if (env === 'staging' || env === 'stage') {
     return 'staging';
   }
-  return 'staging';
+  return 'local';
 };
 
 const currentEnv = getEnvironment();
@@ -24,7 +24,7 @@ const metaEnv = import.meta.env as { VITE_API_BASE_URL?: string };
 
 const envConfig = {
   local: {
-    apiBaseUrl: metaEnv.VITE_API_BASE_URL || 'http://localhost:3000/api',
+    apiBaseUrl: metaEnv.VITE_API_BASE_URL || 'http://localhost:4000/api',
     apiTimeout: 30000,
   },
   staging: {

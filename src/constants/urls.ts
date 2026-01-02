@@ -26,10 +26,10 @@ export const API_URLS = {
   
   // Category endpoints
   CATEGORIES: {
-    LIST: `${API_PREFIX}/categories`,
-    CREATE: `${API_PREFIX}/categories`,
+    LIST: `${API_PREFIX}/get-category`,
+    CREATE: `${API_PREFIX}/save-category`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/categories/${id}`,
-    UPDATE: (id: string | number) => `${API_PREFIX}/categories/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-category/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/categories/${id}`,
   },
   

@@ -1,8 +1,7 @@
 
-
 import React from 'react';
 import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar } from '@mui/material';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -10,162 +9,160 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
-import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
-import { useTable } from '../../hooks/useTable';
-import { DataFetchParams } from '../../types/table';
-
-interface Category {
-    id: number;
-    image: string;
-    category: string;
-    createdDate: string;
-}
-
-const mockCategories: Category[] = Array.from({ length: 50 }, (_, i) => ({
-    id: i + 1,
-    image: '/static/images/category/vegetables.jpg',
-    category: i % 2 === 0 ? 'Vegetables' : 'Fruits',
-    createdDate: new Date(Date.now() - Math.floor(Math.random() * 10000000000)).toISOString(),
-}));
-
-const columns = [
-    {
-        id: 'image' as keyof Category,
-        label: 'Image',
-        minWidth: 80,
-        render: (row: Category) => (
-            <Avatar
-                src={row.image}
-                alt={row.category}
-                variant="rounded"
-                sx={{ width: 50, height: 50 }}
-            />
-        )
-    },
-    { id: 'category' as keyof Category, label: 'Category', minWidth: 150 },
-    {
-        id: 'createdDate' as keyof Category,
-        label: 'Created Date',
-        minWidth: 150,
-        render: (row: Category) => format(new Date(row.createdDate), 'MMM dd, yyyy')
-    },
-    {
-        id: 'action' as keyof Category,
-        label: 'Action',
-        minWidth: 100,
-        align: 'center' as const,
-        render: () => (
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                <IconButton
-                    size="small"
-                    sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        color: 'text.secondary',
-                        '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                    }}
-                >
-                    <EditIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                    size="small"
-                    sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        color: 'error.main',
-                        bgcolor: '#ffebee',
-                        '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                    }}
-                >
-                    <DeleteIcon fontSize="small" />
-                </IconButton>
-            </Box>
-        )
-    },
-];
+import { useServerPagination } from '../../hooks/useServerPagination';
+import { fetchCategories } from '../../services/category.service';
+import type { Category } from '../../types/category';
+import type { ServerFilter } from '../../types/filter';
+import { getLastNDaysRangeForDatePicker } from '../../utils/date';
+import { buildFiltersFromDateRangeAndAdvanced } from '../../utils/filterBuilder';
 
 export default function CategoryPage() {
-    const [dateRange, setDateRange] = React.useState([
+    const navigate = useNavigate();
+    
+    const columns = [
         {
-            startDate: new Date('2024-01-01'),
-            endDate: new Date('2025-12-31'),
-            key: 'selection'
-        }
-    ]);
+            id: 'image' as keyof Category,
+            label: 'Image',
+            minWidth: 80,
+            render: (row: Category) => (
+                <Avatar
+                    src={row.image}
+                    alt={row.title}
+                    variant="rounded"
+                    sx={{ width: 50, height: 50 }}
+                />
+            )
+        },
+        { id: 'title' as keyof Category, label: 'Category', minWidth: 150 },
+        { id: 'description' as keyof Category, label: 'Description', minWidth: 200 },
+        { id: 'status' as keyof Category, label: 'Status', minWidth: 100 },
+        {
+            id: 'action' as keyof Category,
+            label: 'Action',
+            minWidth: 100,
+            align: 'center' as const,
+            render: (row: Category) => (
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                    <IconButton
+                        size="small"
+                        onClick={() => navigate(`/category/edit/${row.id}`)}
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'text.secondary',
+                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
+                        }}
+                    >
+                        <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        size="small"
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'error.main',
+                            bgcolor: '#ffebee',
+                            '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
+                        }}
+                    >
+                        <DeleteIcon fontSize="small" />
+                    </IconButton>
+                </Box>
+            )
+        },
+    ];
+    
+    const [dateRange, setDateRange] = React.useState(getLastNDaysRangeForDatePicker(30));
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
     const [advancedFilters, setAdvancedFilters] = React.useState({
         categoryName: ''
     });
 
-    const fetchData = React.useCallback(async (params: DataFetchParams) => {
-        // Simulate API call with mock data
-        return new Promise<{ data: Category[]; total: number }>((resolve) => {
-            setTimeout(() => {
-                let filtered = [...mockCategories];
-
-                // Global Search
-                if (params.search) {
-                    filtered = filtered.filter(cat =>
-                        cat.category.toLowerCase().includes(params.search.toLowerCase())
-                    );
-                }
-
-                // Advanced Filters
-                if (advancedFilters.categoryName) {
-                    filtered = filtered.filter(cat =>
-                        cat.category.toLowerCase().includes(advancedFilters.categoryName.toLowerCase())
-                    );
-                }
-
-                // Date Range Filter
-                if (dateRange[0].startDate && dateRange[0].endDate) {
-                    filtered = filtered.filter(cat => {
-                        const date = new Date(cat.createdDate);
-                        return isWithinInterval(date, {
-                            start: startOfDay(dateRange[0].startDate),
-                            end: endOfDay(dateRange[0].endDate)
-                        });
-                    });
-                }
-
-                // Sort
-                if (params.orderBy) {
-                    filtered.sort((a: Category, b: Category) => {
-                        const aValue = a[params.orderBy as keyof Category];
-                        const bValue = b[params.orderBy as keyof Category];
-                        if (aValue < bValue) return params.order === 'asc' ? -1 : 1;
-                        if (aValue > bValue) return params.order === 'asc' ? 1 : -1;
-                        return 0;
-                    });
-                }
-
-                const start = (params.page - 1) * params.rowsPerPage;
-                const end = start + params.rowsPerPage;
-                resolve({
-                    data: filtered.slice(start, end),
-                    total: filtered.length,
-                });
-            }, 500);
+    // Helper function to build filters array with date range
+    const buildFilters = React.useCallback((): ServerFilter[] => {
+        return buildFiltersFromDateRangeAndAdvanced({
+            dateRange,
+            dateField: 'createdAt',
+            advancedFilters,
+            filterMappings: {
+                categoryName: { field: 'title', operator: 'iLike' },
+            },
         });
     }, [dateRange, advancedFilters]);
 
-    const { state, handlers } = useTable<Category>({
-        fetchData,
-        initialRowsPerPage: 10,
+    // Use server pagination hook
+    const {
+        rows,
+        totalCount,
+        loading,
+        paginationModel,
+        setPaginationModel,
+        searchKeyword,
+        setSearchKeyword,
+        setFilters,
+        refresh,
+    } = useServerPagination<Category>({
+        fetchFunction: fetchCategories,
+        initialPageSize: 20,
+        enabled: true,
+        autoFetch: true,
+        filters: buildFilters(),
+        initialSorting: [
+            {
+                key: 'createdAt',
+                direction: 'DESC',
+            },
+        ],
+        searchDebounceMs: 500,
     });
+
+    // Update filters when advanced filters or date range changes
+    React.useEffect(() => {
+        setFilters(buildFilters());
+    }, [advancedFilters, dateRange, setFilters, buildFilters]);
+
+    // Adapt useServerPagination data to DataTable format
+    const state = {
+        data: rows,
+        total: totalCount,
+        page: paginationModel.page + 1, // Convert 0-based to 1-based
+        rowsPerPage: paginationModel.pageSize,
+        order: 'asc' as const,
+        orderBy: '',
+        loading,
+        search: searchKeyword,
+    };
+
+    const handlers = {
+        handleRequestSort: () => {
+            // Sorting can be handled via filters if API supports it
+        },
+        handleChangePage: (_event: unknown, newPage: number) => {
+            setPaginationModel((prev) => ({ ...prev, page: newPage - 1 })); // Convert 1-based to 0-based
+        },
+        handleChangeRowsPerPage: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+            const newPageSize = parseInt(event.target.value, 10);
+            setPaginationModel((prev) => ({ ...prev, pageSize: newPageSize, page: 0 }));
+        },
+        handleSearch: (event: React.ChangeEvent<HTMLInputElement>) => {
+            setSearchKeyword(event.target.value);
+        },
+        refresh,
+    };
 
     const handleApplyFilters = () => {
         setFilterAnchorEl(null);
-        handlers.refresh();
+        refresh();
     };
 
     const handleClearFilters = () => {
         setAdvancedFilters({ categoryName: '' });
-        handlers.refresh();
+        refresh();
     };
 
     const handleDateSelect = (ranges: RangeKeyDict) => {
@@ -186,8 +183,8 @@ export default function CategoryPage() {
                     placeholder="Search"
                     variant="outlined"
                     size="small"
-                    value={state.search}
-                    onChange={handlers.handleSearch}
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
                     sx={{
                         width: 300,
                         '& .MuiOutlinedInput-root': {
