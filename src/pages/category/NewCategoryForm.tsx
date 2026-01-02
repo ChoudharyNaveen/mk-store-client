@@ -13,8 +13,8 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import categoryService, { fetchCategories } from '../../services/category.service';
-import authService from '../../services/auth.service';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { useAppSelector } from '../../store/hooks';
 import { FormTextField, FormFileUpload, FormSelect } from '../../components/forms';
 import type { CategoryStatus, Category } from '../../types/category';
 
@@ -68,6 +68,10 @@ export default function CategoryForm() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const isEditMode = Boolean(id);
+    const { user, branchId } = useAppSelector((state) => state.auth);
+    
+    // Get user ID for update operations
+    const userId = user?.id || 1;
     
     const [loading, setLoading] = React.useState(false);
     const [fetchingCategory, setFetchingCategory] = React.useState(isEditMode);
@@ -161,7 +165,6 @@ export default function CategoryForm() {
 
         setLoading(true);
         try {
-            const user = authService.getCurrentUser();
             const commonData = {
                 title: data.title,
                 description: data.description || '',
@@ -170,7 +173,7 @@ export default function CategoryForm() {
             if (isEditMode) {
                 await categoryService.updateCategory(id!, {
                     ...commonData,
-                    updatedBy: user?.id || 1,
+                    updatedBy: userId,
                     concurrencyStamp: categoryData!.concurrencyStamp,
                     file: data.file || undefined,
                 });
@@ -178,7 +181,7 @@ export default function CategoryForm() {
             } else {
                 await categoryService.createCategory({
                     ...commonData,
-                    branchId: 1, // TODO: Get from user context or form
+                    branchId: branchId || 1,
                     vendorId: user?.vendorId || 1,
                     status: data.status as CategoryStatus,
                     file: data.file!,

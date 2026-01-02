@@ -12,9 +12,12 @@ import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import authService from '../../services/auth.service';
 import { showSuccessToast } from '../../utils/toast';
+import { useAppDispatch } from '../../store/hooks';
+import { setAuth } from '../../store/authSlice';
 
 export default function LoginForm() {
     const navigate = useNavigate();
+    const dispatch = useAppDispatch();
     const [email, setEmail] = React.useState('');
     const [password, setPassword] = React.useState('');
     const [rememberMe, setRememberMe] = React.useState(false);
@@ -31,6 +34,13 @@ export default function LoginForm() {
             });
 
             if (response.doc?.token && response.doc?.user) {
+                // Set auth data in Redux store
+                dispatch(setAuth({
+                    user: response.doc.user,
+                    token: response.doc.token,
+                    branchId: 1, // TODO: Get branchId from API response or user data
+                }));
+                
                 // Show success toast
                 showSuccessToast('Login successful!', 'Welcome');
                 // Navigate to dashboard on successful login

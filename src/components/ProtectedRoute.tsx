@@ -5,10 +5,10 @@
 
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
-import authService from '../services/auth.service';
+import { useAppSelector } from '../store/hooks';
 
 export default function ProtectedRoute() {
-  const isAuthenticated = authService.isAuthenticated();
+  const { isAuthenticated } = useAppSelector((state) => state.auth);
 
   if (!isAuthenticated) {
     // Redirect to login if not authenticated

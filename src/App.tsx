@@ -1,10 +1,13 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Provider } from 'react-redux';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
 import './globals.css';
 
+import { store } from './store/store';
+import { initializeAuthFromStorage } from './store/authInit';
 import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -27,15 +30,21 @@ import LoginForm from './pages/login/LoginForm';
 function App() {
     const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
 
+    // Initialize auth state from localStorage on app mount
+    React.useEffect(() => {
+        initializeAuthFromStorage();
+    }, []);
+
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
     };
 
     return (
-        <ThemeProvider theme={theme}>
-            <CssBaseline />
-            <ToastProvider>
-            <BrowserRouter>
+        <Provider store={store}>
+            <ThemeProvider theme={theme}>
+                <CssBaseline />
+                <ToastProvider>
+                    <BrowserRouter>
                 <Routes>
                     {/* Login page without layout */}
                     <Route path="/login" element={<LoginForm />} />
@@ -61,10 +70,11 @@ function App() {
                         <Route path="*" element={<Navigate to="/" replace />} />
                         </Route>
                     </Route>
-                </Routes>
-            </BrowserRouter>
-            </ToastProvider>
-        </ThemeProvider>
+                    </Routes>
+                    </BrowserRouter>
+                </ToastProvider>
+            </ThemeProvider>
+        </Provider>
     );
 }
 

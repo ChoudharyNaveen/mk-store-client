@@ -22,6 +22,8 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/auth.service';
 import { showSuccessToast } from '../utils/toast';
+import { useAppDispatch } from '../store/hooks';
+import { clearAuth } from '../store/authSlice';
 
 const drawerWidth = 260;
 const closedDrawerWidth = 70;
@@ -33,6 +35,7 @@ interface HeaderProps {
 export default function Header({ open }: HeaderProps) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const navigate = useNavigate();
+    const dispatch = useAppDispatch();
 
     const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
@@ -46,11 +49,13 @@ export default function Header({ open }: HeaderProps) {
         setAnchorEl(null);
         try {
             await authService.logout();
+            dispatch(clearAuth());
             showSuccessToast('Logged out successfully');
             // Navigate to login after clearing auth data
             navigate('/login', { replace: true });
         } catch (error) {
             console.error('Logout error:', error);
+            dispatch(clearAuth());
             // Still navigate to login even if logout API fails
             navigate('/login', { replace: true });
         }
