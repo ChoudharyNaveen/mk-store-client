@@ -24,6 +24,7 @@ import authService from '../services/auth.service';
 import { showSuccessToast } from '../utils/toast';
 import { useAppDispatch } from '../store/hooks';
 import { clearAuth } from '../store/authSlice';
+import { clearBranches } from '../store/branchSlice';
 
 const drawerWidth = 260;
 const closedDrawerWidth = 70;
@@ -50,12 +51,14 @@ export default function Header({ open }: HeaderProps) {
         try {
             await authService.logout();
             dispatch(clearAuth());
+            dispatch(clearBranches());
             showSuccessToast('Logged out successfully');
             // Navigate to login after clearing auth data
             navigate('/login', { replace: true });
         } catch (error) {
             console.error('Logout error:', error);
             dispatch(clearAuth());
+            dispatch(clearBranches());
             // Still navigate to login even if logout API fails
             navigate('/login', { replace: true });
         }

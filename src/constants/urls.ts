@@ -77,6 +77,11 @@ export const API_URLS = {
     UPDATE: (id: string | number) => `${API_PREFIX}/orders/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/orders/${id}`,
   },
+  
+  // Branch endpoints
+  BRANCHES: {
+    LIST: `${API_PREFIX}/get-branch`,
+  },
 } as const;
 
 export default API_URLS;

@@ -68,7 +68,8 @@ export default function CategoryForm() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const isEditMode = Boolean(id);
-    const { user, branchId } = useAppSelector((state) => state.auth);
+    const { user } = useAppSelector((state) => state.auth);
+    const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     
     // Get user ID for update operations
     const userId = user?.id || 1;
@@ -179,9 +180,13 @@ export default function CategoryForm() {
                 });
                 showSuccessToast('Category updated successfully!');
             } else {
+                if (!selectedBranchId) {
+                    showErrorToast('No branch selected. Please select a branch.');
+                    return;
+                }
                 await categoryService.createCategory({
                     ...commonData,
-                    branchId: branchId || 1,
+                    branchId: selectedBranchId,
                     vendorId: user?.vendorId || 1,
                     status: data.status as CategoryStatus,
                     file: data.file!,

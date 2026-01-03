@@ -11,9 +11,11 @@ import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import authService from '../../services/auth.service';
+import branchService from '../../services/branch.service';
 import { showSuccessToast } from '../../utils/toast';
 import { useAppDispatch } from '../../store/hooks';
 import { setAuth } from '../../store/authSlice';
+import { setBranches, setSelectedBranch } from '../../store/branchSlice';
 
 export default function LoginForm() {
     const navigate = useNavigate();
@@ -34,11 +36,28 @@ export default function LoginForm() {
             });
 
             if (response.doc?.token && response.doc?.user) {
-                // Set auth data in Redux store
+                // Fetch branches after successful login
+                let selectedBranchId: number | null = null;
+                try {
+                    const branchResponse = await branchService.getBranches({ pageSize: 100 });
+                    if (branchResponse.success && branchResponse.doc && branchResponse.doc.length > 0) {
+                        // Store branches in Redux
+                        dispatch(setBranches(branchResponse.doc));
+                        
+                        // Set first branch as default
+                        selectedBranchId = branchResponse.doc[0].id;
+                        dispatch(setSelectedBranch(selectedBranchId));
+                    }
+                } catch (branchError) {
+                    // Log error but don't block login
+                    console.error('Error fetching branches:', branchError);
+                }
+                
+                // Set auth data in Redux store with branch ID
                 dispatch(setAuth({
                     user: response.doc.user,
                     token: response.doc.token,
-                    branchId: 1, // TODO: Get branchId from API response or user data
+                    branchId: selectedBranchId || undefined,
                 }));
                 
                 // Show success toast

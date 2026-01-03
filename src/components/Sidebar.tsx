@@ -32,7 +32,14 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 const drawerWidth = 260;
 const closedDrawerWidth = 70;
 
-const menuItems = [
+interface MenuItem {
+    text: string;
+    icon: React.ReactElement;
+    path: string;
+    children?: Array<{ text: string; path: string }>;
+}
+
+const menuItems: MenuItem[] = [
     {
         text: 'Dashboard',
         icon: <DashboardIcon />,
@@ -41,44 +48,50 @@ const menuItems = [
     {
         text: 'Users',
         icon: <PeopleIcon />,
-        children: [
-            { text: 'User List', path: '/users' },
-        ],
+        path: '/users',
+        // children: [
+        //     { text: 'User List', path: '/users' },
+        // ],
     },
     {
         text: 'Category',
         icon: <CategoryIcon />,
-        children: [
-            { text: 'Category List', path: '/category' },
-        ],
+        path: '/category',
+        // children: [
+        //     { text: 'Category List', path: '/category' },
+        // ],
     },
     {
         text: 'Sub Category',
         icon: <LayersIcon />,
-        children: [
-            { text: 'Sub Category List', path: '/sub-category' },
-        ],
+        path: '/sub-category',
+        // children: [
+        //     { text: 'Sub Category List', path: '/sub-category' },
+        // ],
     },
     {
         text: 'Products',
         icon: <InventoryIcon />,
-        children: [
-            { text: 'Product List', path: '/products' },
-        ],
+        path: '/products',
+        // children: [
+        //     { text: 'Product List', path: '/products' },
+        // ],
     },
     {
         text: 'Promocode',
         icon: <LocalOfferIcon />,
-        children: [
-            { text: 'Promocode List', path: '/promo-code' },
-        ],
+        path: '/promo-code',
+        // children: [
+        //     { text: 'Promocode List', path: '/promo-code' },
+        // ],
     },
     {
         text: 'Offers',
         icon: <DiscountIcon />,
-        children: [
-            { text: 'Offers List', path: '/offers' },
-        ],
+        path: '/offers',
+        // children: [
+        //     { text: 'Offers List', path: '/offers' },
+        // ],
     },
     {
         text: 'Orders List',
