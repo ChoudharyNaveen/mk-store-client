@@ -26,6 +26,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import CategoryIcon from '@mui/icons-material/Category';
 import LayersIcon from '@mui/icons-material/Layers';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import BrandingWatermarkIcon from '@mui/icons-material/BrandingWatermark';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import DiscountIcon from '@mui/icons-material/Discount';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -73,6 +74,14 @@ const menuItems: MenuItem[] = [
         path: '/sub-category',
         // children: [
         //     { text: 'Sub Category List', path: '/sub-category' },
+        // ],
+    },
+    {
+        text: 'Brands',
+        icon: <BrandingWatermarkIcon />,
+        path: '/brands',
+        // children: [
+        //     { text: 'Brand List', path: '/brands' },
         // ],
     },
     {

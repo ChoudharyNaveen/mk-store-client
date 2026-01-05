@@ -12,4 +12,5 @@ export { default as FormAutocomplete } from './FormAutocomplete';
 export { default as FormSwitch } from './FormSwitch';
 export { default as FormDatePicker } from './FormDatePicker';
 export { default as FormTextArea } from './FormTextArea';
+export { default as FormProvider } from './FormProvider';
 

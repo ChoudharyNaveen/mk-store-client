@@ -18,6 +18,8 @@ import CategoryPage from './pages/category/CategoryList';
 import NewCategoryForm from './pages/category/NewCategoryForm';
 import SubCategoryList from './pages/sub-category/SubCategoryList';
 import NewSubCategoryForm from './pages/sub-category/NewSubCategoryForm';
+import BrandList from './pages/brands/BrandList';
+import NewBrandForm from './pages/brands/NewBrandForm';
 import ProductList from './pages/products/ProductList';
 import NewProductForm from './pages/products/NewProductForm';
 import PromocodeList from './pages/promo-code/PromocodeList';
@@ -61,6 +63,9 @@ function App() {
                         <Route path="/sub-category" element={<SubCategoryList />} />
                         <Route path="/sub-category/new" element={<NewSubCategoryForm />} />
                         <Route path="/sub-category/edit/:id" element={<NewSubCategoryForm />} />
+                        <Route path="/brands" element={<BrandList />} />
+                        <Route path="/brands/new" element={<NewBrandForm />} />
+                        <Route path="/brands/edit/:id" element={<NewBrandForm />} />
                         <Route path="/products" element={<ProductList />} />
                         <Route path="/products/new" element={<NewProductForm />} />
                         <Route path="/products/edit/:id" element={<NewProductForm />} />

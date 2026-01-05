@@ -14,72 +14,17 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { fetchProducts } from '../../services/product.service';
-import type { Product } from '../../types/product';
+import { fetchBrands } from '../../services/brand.service';
+import type { Brand } from '../../types/brand';
 import type { ServerFilter } from '../../types/filter';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 
-// Helper function to format item details
-const formatItemDetails = (product: Product): string => {
-    const parts: string[] = [];
-    
-    // Quantity (units)
-    if (product.quantity !== undefined && product.quantity !== null) {
-        parts.push(`${product.quantity} unit${product.quantity !== 1 ? 's' : ''}`);
-    }
-    
-    // Items per unit
-    if (product.itemsPerUnit !== undefined && product.itemsPerUnit !== null) {
-        parts.push(`${product.itemsPerUnit} item${product.itemsPerUnit !== 1 ? 's' : ''}/unit`);
-    }
-    
-    // Item quantity + unit
-    if (product.itemQuantity !== undefined && product.itemQuantity !== null && product.itemUnit) {
-        parts.push(`${product.itemQuantity} ${product.itemUnit}`);
-    } else if (product.itemQuantity !== undefined && product.itemQuantity !== null) {
-        parts.push(`${product.itemQuantity}`);
-    } else if (product.itemUnit) {
-        parts.push(product.itemUnit);
-    }
-    
-    return parts.length > 0 ? parts.join(' × ') : 'N/A';
-};
-
-// Helper function to format expiry date with color coding
-const formatExpiryDate = (expiryDate: string | Date | undefined | null): { text: string; color: string } => {
-    if (!expiryDate) {
-        return { text: 'N/A', color: '#666' };
-    }
-    
-    try {
-        const date = typeof expiryDate === 'string' ? new Date(expiryDate) : expiryDate;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const expiry = new Date(date);
-        expiry.setHours(0, 0, 0, 0);
-        
-        const diffTime = expiry.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        const formattedDate = format(date, 'MMM dd, yyyy');
-        
-        if (diffDays < 0) {
-            return { text: formattedDate, color: '#d32f2f' }; // Red - expired
-        } else if (diffDays <= 7) {
-            return { text: formattedDate, color: '#ed6c02' }; // Orange - expiring soon
-        } else {
-            return { text: formattedDate, color: '#2e7d32' }; // Green - valid
-        }
-    } catch {
-        return { text: 'Invalid Date', color: '#666' };
-    }
-};
-
-export default function ProductList() {
+export default function BrandList() {
     const navigate = useNavigate();
+    
     const dispatch = useAppDispatch();
     
     // Get vendorId and branchId from store
@@ -93,104 +38,54 @@ export default function ProductList() {
     
     const columns = [
         {
-            id: 'image' as keyof Product,
-            label: 'Image',
+            id: 'logo' as keyof Brand,
+            label: 'Logo',
             minWidth: 80,
-            render: (row: Product) => (
-                <Avatar
-                    src={row.image}
-                    alt={row.title}
-                    variant="rounded"
-                    sx={{ width: 50, height: 50 }}
-                />
-            )
-        },
-        { id: 'title' as keyof Product, label: 'Product Name', minWidth: 150 },
-        { 
-            id: 'category' as keyof Product, 
-            label: 'Category', 
-            minWidth: 120,
-            render: (row: Product) => row.category?.title || 'N/A'
-        },
-        { 
-            id: 'subCategory' as keyof Product, 
-            label: 'Sub Category', 
-            minWidth: 120,
-            render: (row: Product) => row.subCategory?.title || 'N/A'
-        },
-        { 
-            id: 'brand' as keyof Product, 
-            label: 'Brand', 
-            minWidth: 120,
-            render: (row: Product) => row.brand?.name || 'N/A'
-        },
-        { 
-            id: 'price' as keyof Product, 
-            label: 'MRP', 
-            minWidth: 80,
-            render: (row: Product) => `₹${row.price}`
-        },
-        { 
-            id: 'selling_price' as keyof Product, 
-            label: 'Selling Price', 
-            minWidth: 100,
-            render: (row: Product) => `₹${row.selling_price}`
-        },
-        { 
-            id: 'quantity' as keyof Product, 
-            label: 'Quantity', 
-            minWidth: 80,
-            render: (row: Product) => row.quantity ?? 'N/A'
-        },
-        { 
-            id: 'itemDetails' as keyof Product, 
-            label: 'Item Details', 
-            minWidth: 120,
-            render: (row: Product) => (
-                <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {formatItemDetails(row)}
-                    </Typography>
-                    {row.quantity !== undefined && row.quantity !== null && 
-                     row.itemsPerUnit !== undefined && row.itemsPerUnit !== null && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-                            Total: {row.quantity * row.itemsPerUnit} items
-                        </Typography>
-                    )}
-                </Box>
-            )
-        },
-        { id: 'units' as keyof Product, label: 'Units', minWidth: 80 },
-        { 
-            id: 'expiryDate' as keyof Product, 
-            label: 'Expiry Date', 
-            minWidth: 120,
-            render: (row: Product) => {
-                const { text, color } = formatExpiryDate(row.expiryDate);
-                return (
-                    <Typography variant="body2" sx={{ color, fontWeight: 500 }}>
-                        {text}
-                    </Typography>
+            render: (row: Brand) => {
+                const logoUrl = row.logo || row.image;
+                return logoUrl ? (
+                    <Avatar
+                        src={logoUrl}
+                        alt={row.name}
+                        variant="rounded"
+                        sx={{ width: 50, height: 50 }}
+                    />
+                ) : (
+                    <Avatar
+                        variant="rounded"
+                        sx={{ 
+                            width: 50, 
+                            height: 50,
+                            bgcolor: 'primary.main',
+                            color: 'white',
+                            fontSize: '1.25rem',
+                            fontWeight: 600
+                        }}
+                    >
+                        {row.name?.charAt(0)?.toUpperCase() || 'B'}
+                    </Avatar>
                 );
             }
         },
-        { id: 'product_status' as keyof Product, label: 'Status', minWidth: 100 },
+        { id: 'name' as keyof Brand, label: 'Brand Name', minWidth: 150 },
+        { id: 'description' as keyof Brand, label: 'Description', minWidth: 200 },
+        { id: 'status' as keyof Brand, label: 'Status', minWidth: 100 },
         {
-            id: 'createdAt' as keyof Product,
+            id: 'createdAt' as keyof Brand,
             label: 'Created Date',
             minWidth: 120,
-            render: (row: Product) => row.createdAt ? format(new Date(row.createdAt), 'MMM dd, yyyy') : 'N/A'
+            render: (row: Brand) => row.createdAt ? format(new Date(row.createdAt), 'MMM dd, yyyy') : 'N/A'
         },
         {
-            id: 'action' as keyof Product,
+            id: 'action' as keyof Brand,
             label: 'Action',
             minWidth: 100,
             align: 'center' as const,
-            render: (row: Product) => (
+            render: (row: Brand) => (
                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                     <IconButton
                         size="small"
-                        onClick={() => navigate(`/products/edit/${row.id}`)}
+                        onClick={() => navigate(`/brands/edit/${row.id}`)}
                         sx={{
                             border: '1px solid #e0e0e0',
                             borderRadius: 2,
@@ -230,8 +125,7 @@ export default function ProductList() {
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
     const [advancedFilters, setAdvancedFilters] = React.useState({
-        productName: '',
-        category: '',
+        brandName: '',
     });
 
     // Helper function to build filters array with date range and default filters
@@ -241,8 +135,7 @@ export default function ProductList() {
             dateField: 'createdAt',
             advancedFilters,
             filterMappings: {
-                productName: { field: 'title', operator: 'iLike' },
-                category: { field: 'category.title', operator: 'iLike' },
+                brandName: { field: 'name', operator: 'iLike' },
             },
         });
         
@@ -257,8 +150,8 @@ export default function ProductList() {
         setFilters,
         tableState,
         tableHandlers,
-    } = useServerPagination<Product>({
-        fetchFunction: fetchProducts,
+    } = useServerPagination<Brand>({
+        fetchFunction: fetchBrands,
         initialPageSize: 20,
         enabled: true,
         autoFetch: true,
@@ -296,7 +189,7 @@ export default function ProductList() {
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ productName: '', category: '' });
+        setAdvancedFilters({ brandName: '' });
         tableHandlers.refresh();
     };
 
@@ -321,7 +214,7 @@ export default function ProductList() {
         <Box>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2, gap: 2 }}>
                 <TextField
-                    id="products-search"
+                    id="brands-search"
                     placeholder="Search"
                     variant="outlined"
                     size="small"
@@ -359,7 +252,7 @@ export default function ProductList() {
                     Advanced Search
                 </Button>
 
-                <Link to="/products/new" style={{ textDecoration: 'none' }}>
+                <Link to="/brands/new" style={{ textDecoration: 'none' }}>
                     <Button
                         variant="contained"
                         startIcon={<AddIcon />}
@@ -370,7 +263,7 @@ export default function ProductList() {
                             px: 3,
                         }}
                     >
-                        Add Product
+                        Add Brand
                     </Button>
                 </Link>
             </Box>
@@ -399,21 +292,13 @@ export default function ProductList() {
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
                 <Box sx={{ p: 3, width: 300 }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Products</Typography>
+                    <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Brands</Typography>
                     <TextField
                         fullWidth
                         size="small"
-                        label="Product Name"
-                        value={advancedFilters.productName}
-                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, productName: e.target.value })}
-                        sx={{ mb: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label="Category"
-                        value={advancedFilters.category}
-                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, category: e.target.value })}
+                        label="Brand Name"
+                        value={advancedFilters.brandName}
+                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, brandName: e.target.value })}
                         sx={{ mb: 2 }}
                     />
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
@@ -424,7 +309,7 @@ export default function ProductList() {
             </Popover>
 
             <DataTable 
-                key={`product-table-${paginationModel.page}-${paginationModel.pageSize}`}
+                key={`brand-table-${paginationModel.page}-${paginationModel.pageSize}`}
                 columns={columns} 
                 state={tableState} 
                 handlers={tableHandlers} 
@@ -432,3 +317,4 @@ export default function ProductList() {
         </Box>
     );
 }
+

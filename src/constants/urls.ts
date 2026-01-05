@@ -82,6 +82,15 @@ export const API_URLS = {
   BRANCHES: {
     LIST: `${API_PREFIX}/get-branch`,
   },
+  
+  // Brand endpoints
+  BRANDS: {
+    LIST: `${API_PREFIX}/get-brand`,
+    CREATE: `${API_PREFIX}/save-brand`,
+    GET_BY_ID: (id: string | number) => `${API_PREFIX}/brands/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-brand/${id}`,
+    DELETE: (id: string | number) => `${API_PREFIX}/brands/${id}`,
+  },
 } as const;
 
 export default API_URLS;

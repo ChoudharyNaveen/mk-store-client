@@ -1,19 +1,19 @@
 /**
- * Product Service
- * Handles all product-related API calls with server pagination support
+ * Brand Service
+ * Handles all brand-related API calls with server pagination support
  */
 
 import http from '../utils/http';
 import config from '../config/env';
 import { API_URLS } from '../constants/urls';
 import type { 
-  Product, 
-  ProductListResponse,
-  CreateProductRequest,
-  CreateProductResponse,
-  UpdateProductRequest,
-  UpdateProductResponse
-} from '../types/product';
+  Brand, 
+  BrandListResponse,
+  CreateBrandRequest,
+  CreateBrandResponse,
+  UpdateBrandRequest,
+  UpdateBrandResponse
+} from '../types/brand';
 import type { ServerFilter, ServerSorting } from '../types/filter';
 import { convertSimpleFiltersToServerFilters } from '../utils/filterBuilder';
 
@@ -32,7 +32,7 @@ export interface FetchParams {
 /**
  * Server pagination response format expected by the hook
  */
-export interface ServerPaginationResponse<T = Product> {
+export interface ServerPaginationResponse<T = Brand> {
   list: T[];
   totalCount: number;
   pageDetails?: {
@@ -43,12 +43,12 @@ export interface ServerPaginationResponse<T = Product> {
 }
 
 /**
- * Fetch products with server pagination support
+ * Fetch brands with server pagination support
  * Uses POST request with JSON body containing pagination, filters, and sorting
  */
-export const fetchProducts = async (
+export const fetchBrands = async (
   params: FetchParams
-): Promise<ServerPaginationResponse<Product>> => {
+): Promise<ServerPaginationResponse<Brand>> => {
   try {
     const page = params.page ?? 0;
     const pageSize = params.pageSize ?? 10;
@@ -86,14 +86,14 @@ export const fetchProducts = async (
         requestBody.filters = [];
       }
       requestBody.filters.push({
-        key: 'title',
+        key: 'name',
         iLike: params.searchKeyword,
       });
     }
 
     // Make POST API call with JSON body
-    const response = await http.post<ProductListResponse>(
-      API_URLS.PRODUCTS.LIST,
+    const response = await http.post<BrandListResponse>(
+      API_URLS.BRANDS.LIST,
       requestBody,
       {
         signal: params.signal,
@@ -101,19 +101,13 @@ export const fetchProducts = async (
     );
 
     // Transform API response to hook's expected format
-    // Map snake_case fields to camelCase and handle new fields
-    const mappedList = (response.doc || []).map((product: any) => ({
-      ...product,
-      createdAt: product.created_at || product.createdAt,
-      concurrencyStamp: product.concurrency_stamp || product.concurrencyStamp,
-      // Handle new fields - API may return in camelCase or snake_case
-      itemQuantity: product.itemQuantity ?? product.item_quantity ?? undefined,
-      itemUnit: product.itemUnit ?? product.item_unit ?? undefined,
-      itemsPerUnit: product.itemsPerUnit ?? product.items_per_unit ?? undefined,
-      expiryDate: product.expiryDate ?? product.expiry_date ?? undefined,
-      // Handle brand - API may return as object or null
-      brand: product.brand || null,
-      brandId: product.brand?.id || product.brandId || undefined,
+    // Map snake_case fields to camelCase
+    const mappedList = (response.doc || []).map((brand: any) => ({
+      ...brand,
+      logo: brand.logo || brand.image, // API returns 'logo', fallback to 'image' for backward compatibility
+      image: brand.logo || brand.image, // Keep image for backward compatibility
+      createdAt: brand.created_at || brand.createdAt,
+      concurrencyStamp: brand.concurrency_stamp || brand.concurrencyStamp,
     }));
 
     return {
@@ -126,7 +120,7 @@ export const fetchProducts = async (
       },
     };
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('Error fetching brands:', error);
     // Return empty response on error
     return {
       list: [],
@@ -139,52 +133,24 @@ export const fetchProducts = async (
 };
 
 /**
- * Create a new product
+ * Create a new brand
  * Handles multipart/form-data for file upload
  */
-export const createProduct = async (
-  data: CreateProductRequest
-): Promise<CreateProductResponse> => {
+export const createBrand = async (
+  data: CreateBrandRequest
+): Promise<CreateBrandResponse> => {
   try {
     // Create FormData for multipart/form-data
     const formData = new FormData();
-    formData.append('title', data.title);
+    formData.append('name', data.name);
     formData.append('description', data.description);
-    formData.append('price', String(data.price));
-    formData.append('sellingPrice', String(data.sellingPrice));
-    formData.append('quantity', String(data.quantity));
-    formData.append('units', data.units);
-    formData.append('categoryId', String(data.categoryId));
-    formData.append('subCategoryId', String(data.subCategoryId));
     formData.append('branchId', String(data.branchId));
     formData.append('vendorId', String(data.vendorId));
     formData.append('status', data.status);
     formData.append('file', data.file);
-    
-    // New/Updated fields - using camelCase as per API
-    if (data.itemQuantity !== undefined && data.itemQuantity !== null) {
-      formData.append('itemQuantity', String(data.itemQuantity));
-    }
-    if (data.itemUnit !== undefined && data.itemUnit !== null) {
-      formData.append('itemUnit', data.itemUnit);
-    }
-    if (data.itemsPerUnit !== undefined && data.itemsPerUnit !== null) {
-      formData.append('itemsPerUnit', String(data.itemsPerUnit));
-    }
-    if (data.expiryDate !== undefined && data.expiryDate !== null) {
-      // Ensure expiryDate is in YYYY-MM-DD format
-      const expiryDateStr = typeof data.expiryDate === 'string' 
-        ? data.expiryDate 
-        : new Date(data.expiryDate).toISOString().split('T')[0];
-      formData.append('expiryDate', expiryDateStr);
-    }
-    
-    if (data.brandId) {
-      formData.append('brandId', String(data.brandId));
-    }
 
     // Build full URL (same logic as http.ts buildUrl)
-    const endpoint = API_URLS.PRODUCTS.CREATE;
+    const endpoint = API_URLS.BRANDS.CREATE;
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
     const baseUrl = config.apiBaseUrl.endsWith('/') 
       ? config.apiBaseUrl.slice(0, -1) 
@@ -219,56 +185,28 @@ export const createProduct = async (
     }
 
     const result = await response.json();
-    return result as CreateProductResponse;
+    return result as CreateBrandResponse;
   } catch (error) {
-    console.error('Error creating product:', error);
+    console.error('Error creating brand:', error);
     throw error;
   }
 };
 
 /**
- * Update an existing product
+ * Update an existing brand
  * Handles multipart/form-data for file upload (file is optional)
  */
-export const updateProduct = async (
+export const updateBrand = async (
   id: string | number,
-  data: UpdateProductRequest
-): Promise<UpdateProductResponse> => {
+  data: UpdateBrandRequest
+): Promise<UpdateBrandResponse> => {
   try {
     // Create FormData for multipart/form-data
     const formData = new FormData();
-    formData.append('title', data.title);
+    formData.append('name', data.name);
     formData.append('description', data.description);
-    formData.append('price', String(data.price));
-    formData.append('sellingPrice', String(data.sellingPrice));
-    if (data.quantity !== undefined && data.quantity !== null) {
-      formData.append('quantity', String(data.quantity));
-    }
-    formData.append('units', data.units);
     formData.append('updatedBy', String(data.updatedBy));
     formData.append('concurrencyStamp', data.concurrencyStamp);
-    
-    // New/Updated fields - using camelCase as per API
-    if (data.itemQuantity !== undefined && data.itemQuantity !== null) {
-      formData.append('itemQuantity', String(data.itemQuantity));
-    }
-    if (data.itemUnit !== undefined && data.itemUnit !== null) {
-      formData.append('itemUnit', data.itemUnit);
-    }
-    if (data.itemsPerUnit !== undefined && data.itemsPerUnit !== null) {
-      formData.append('itemsPerUnit', String(data.itemsPerUnit));
-    }
-    if (data.expiryDate !== undefined && data.expiryDate !== null) {
-      // Ensure expiryDate is in YYYY-MM-DD format
-      const expiryDateStr = typeof data.expiryDate === 'string' 
-        ? data.expiryDate 
-        : new Date(data.expiryDate).toISOString().split('T')[0];
-      formData.append('expiryDate', expiryDateStr);
-    }
-    
-    if (data.brandId) {
-      formData.append('brandId', String(data.brandId));
-    }
     
     // Only append file if provided
     if (data.file) {
@@ -276,7 +214,7 @@ export const updateProduct = async (
     }
 
     // Build full URL
-    const endpoint = API_URLS.PRODUCTS.UPDATE(id);
+    const endpoint = API_URLS.BRANDS.UPDATE(id);
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
     const baseUrl = config.apiBaseUrl.endsWith('/') 
       ? config.apiBaseUrl.slice(0, -1) 
@@ -311,18 +249,18 @@ export const updateProduct = async (
     }
 
     const result = await response.json();
-    return result as UpdateProductResponse;
+    return result as UpdateBrandResponse;
   } catch (error) {
-    console.error('Error updating product:', error);
+    console.error('Error updating brand:', error);
     throw error;
   }
 };
 
-const productService = {
-  fetchProducts,
-  createProduct,
-  updateProduct,
+const brandService = {
+  fetchBrands,
+  createBrand,
+  updateBrand,
 };
 
-export default productService;
+export default brandService;
 

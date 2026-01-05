@@ -15,13 +15,19 @@ import * as yup from 'yup';
 import productService, { fetchProducts } from '../../services/product.service';
 import { fetchCategories } from '../../services/category.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
+import { fetchBrands } from '../../services/brand.service';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import { useAppSelector } from '../../store/hooks';
-import { FormTextField, FormFileUpload, FormSelect, FormAutocomplete } from '../../components/forms';
+import { FormTextField, FormFileUpload, FormSelect, FormAutocomplete, FormNumberField, FormDatePicker, FormProvider } from '../../components/forms';
 import { mergeWithDefaultFilters } from '../../utils/filterBuilder';
-import type { ProductStatus, Product } from '../../types/product';
+import type { ProductStatus, Product, ItemUnit } from '../../types/product';
 import type { Category } from '../../types/category';
 import type { SubCategory } from '../../types/sub-category';
+import type { Brand } from '../../types/brand';
+import { getItemUnitOptions } from '../../constants/itemUnits';
+
+// Valid item unit values
+const validItemUnits = ['LTR', 'ML', 'GAL', 'FL_OZ', 'KG', 'G', 'MG', 'OZ', 'LB', 'TON', 'PCS', 'UNIT', 'DOZEN', 'SET', 'PAIR', 'BUNDLE', 'PKG', 'BOX', 'BOTTLE', 'CAN', 'CARTON', 'TUBE', 'JAR', 'BAG', 'POUCH', 'M', 'CM', 'MM', 'FT', 'IN', 'SQFT', 'SQM'] as const;
 
 // Base validation schema - shared fields
 const baseProductFormSchema = {
@@ -35,6 +41,30 @@ const baseProductFormSchema = {
     subCategoryId: yup.number().required('Sub Category is required').min(1, 'Please select a sub category'),
     status: yup.string().oneOf(['ACTIVE', 'INACTIVE'], 'Status must be ACTIVE or INACTIVE').required('Status is required'),
     productStatus: yup.string().oneOf(['INSTOCK', 'OUTOFSTOCK'], 'Product Status must be INSTOCK or OUTOFSTOCK').required('Product Status is required'),
+    // New/Updated fields
+    itemQuantity: yup.number()
+        .nullable()
+        .optional()
+        .min(0, 'Item quantity must be greater than or equal to 0')
+        .transform((value, originalValue) => originalValue === '' ? undefined : value),
+    itemUnit: yup.string()
+        .nullable()
+        .optional()
+        .oneOf([...validItemUnits, null, undefined], 'Item unit must be one of the valid unit types')
+        .transform((value, originalValue) => originalValue === '' ? undefined : value),
+    itemsPerUnit: yup.number()
+        .nullable()
+        .optional()
+        .integer('Items per unit must be a whole number')
+        .min(1, 'Items per unit must be greater than or equal to 1')
+        .transform((value, originalValue) => originalValue === '' ? undefined : value),
+    expiryDate: yup.date()
+        .nullable()
+        .optional()
+        .transform((value, originalValue) => {
+            if (originalValue === '' || originalValue == null) return undefined;
+            return value;
+        }),
 };
 
 // File validation - shared test functions
@@ -63,8 +93,26 @@ const createProductFormSchema = (isEditMode: boolean) => {
               .test('fileType', 'File must be an image', (value) => fileTypeTest(value, false))
               .test('fileSize', 'File size must be less than 5MB', (value) => fileSizeTest(value, false));
 
+    // For create mode, quantity and expiryDate are required
+    // For edit mode, they are optional
+    const quantityValidation = isEditMode
+        ? yup.number().optional().nullable().min(0, 'Quantity must be greater than or equal to 0')
+        : yup.number().required('Quantity is required').min(0, 'Quantity must be greater than or equal to 0');
+    
+    const expiryDateValidation = isEditMode
+        ? yup.date().nullable().optional().transform((value, originalValue) => {
+            if (originalValue === '' || originalValue == null) return undefined;
+            return value;
+        })
+        : yup.date().required('Expiry date is required').nullable().transform((value, originalValue) => {
+            if (originalValue === '' || originalValue == null) return undefined;
+            return value;
+        });
+
     return yup.object({
         ...baseProductFormSchema,
+        quantity: quantityValidation,
+        expiryDate: expiryDateValidation,
         file: fileValidation,
         nutritional: yup.string().optional().nullable(),
         brandId: yup.number().optional().nullable(),
@@ -85,6 +133,11 @@ interface ProductFormData {
     nutritional?: string | null;
     brandId?: number | null;
     file: File | null;
+    // New/Updated fields
+    itemQuantity?: number | null;
+    itemUnit?: ItemUnit | null;
+    itemsPerUnit?: number | null;
+    expiryDate?: Date | string | null;
 }
 
 export default function ProductForm() {
@@ -104,21 +157,20 @@ export default function ProductForm() {
     const [productData, setProductData] = React.useState<Product | null>(null);
     const [categories, setCategories] = React.useState<Category[]>([]);
     const [subCategories, setSubCategories] = React.useState<SubCategory[]>([]);
+    const [brands, setBrands] = React.useState<Brand[]>([]);
     const [loadingCategories, setLoadingCategories] = React.useState(false);
     const [loadingSubCategories, setLoadingSubCategories] = React.useState(false);
+    const [loadingBrands, setLoadingBrands] = React.useState(false);
     const [categorySearchTerm, setCategorySearchTerm] = React.useState('');
     const [subCategorySearchTerm, setSubCategorySearchTerm] = React.useState('');
+    const [brandSearchTerm, setBrandSearchTerm] = React.useState('');
     const categorySearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const subCategorySearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    const brandSearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const hasFetchedRef = React.useRef(false);
+    const selectedBrandIdRef = React.useRef<number | null>(null);
 
-    const {
-        control,
-        handleSubmit,
-        formState: { isValid },
-        reset,
-        watch,
-    } = useForm<ProductFormData>({
+    const methods = useForm<ProductFormData>({
         resolver: yupResolver(createProductFormSchema(isEditMode)) as any,
         defaultValues: {
             title: '',
@@ -134,11 +186,23 @@ export default function ProductForm() {
             nutritional: null,
             brandId: null,
             file: null,
+            // New/Updated fields
+            itemQuantity: null,
+            itemUnit: null,
+            itemsPerUnit: null,
+            expiryDate: null,
         },
         mode: 'onChange',
     });
 
+    const { handleSubmit, watch, reset, formState: { isValid }, control } = methods;
     const selectedCategoryId = watch('categoryId');
+    const selectedBrandId = watch('brandId');
+    
+    // Update ref when selectedBrandId changes
+    React.useEffect(() => {
+        selectedBrandIdRef.current = selectedBrandId ?? null;
+    }, [selectedBrandId]);
 
     // Helper function to fetch a single item by ID and add to list
     const fetchAndAddItem = React.useCallback(async <T extends { id: number }>(
@@ -168,6 +232,11 @@ export default function ProductForm() {
 
     // Fetch categories with debounced search
     React.useEffect(() => {
+        // Skip if search term is empty and we already have categories (initial load handled separately)
+        if (!categorySearchTerm && categories.length > 0) {
+            return;
+        }
+
         if (categorySearchTimeoutRef.current) {
             clearTimeout(categorySearchTimeoutRef.current);
         }
@@ -198,10 +267,36 @@ export default function ProductForm() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categorySearchTerm]);
 
+    // Initial fetch for brands on mount
+    React.useEffect(() => {
+        const loadBrands = async () => {
+            try {
+                setLoadingBrands(true);
+                const filters = mergeWithDefaultFilters([], vendorId, selectedBranchId);
+                const response = await fetchBrands({ filters, page: 0, pageSize: 20 });
+                setBrands(response.list || []);
+            } catch (error) {
+                console.error('Error fetching brands:', error);
+            } finally {
+                setLoadingBrands(false);
+            }
+        };
+        // Only load brands initially if not in edit mode or if we don't have product data yet
+        if (!isEditMode || !productData) {
+            loadBrands();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Fetch sub-categories when category is selected
     React.useEffect(() => {
         if (!selectedCategoryId || selectedCategoryId === 0) {
             setSubCategories([]);
+            return;
+        }
+
+        // Skip if search term is empty and we already have sub-categories for this category
+        if (!subCategorySearchTerm && subCategories.length > 0 && subCategories.some(sub => sub.categoryId === selectedCategoryId)) {
             return;
         }
 
@@ -237,6 +332,67 @@ export default function ProductForm() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCategoryId, subCategorySearchTerm]);
 
+    // Fetch brands with debounced search
+    React.useEffect(() => {
+        // Skip if search term is empty and we already have brands loaded
+        // This prevents unnecessary API calls when selecting a value (which clears search term)
+        if (!brandSearchTerm) {
+            // Only skip if we have brands and this is not the initial mount
+            if (brands.length > 0) {
+                return;
+            }
+        }
+
+        if (brandSearchTimeoutRef.current) {
+            clearTimeout(brandSearchTimeoutRef.current);
+        }
+
+        brandSearchTimeoutRef.current = setTimeout(async () => {
+            try {
+                setLoadingBrands(true);
+                const additionalFilters: Array<{ key: string; iLike: string }> = [];
+                if (brandSearchTerm) {
+                    additionalFilters.push({ key: 'name', iLike: brandSearchTerm });
+                }
+                const filters = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+                const response = await fetchBrands({ filters, page: 0, pageSize: 20 });
+                const newBrands = response.list || [];
+                
+                // Preserve the currently selected brand if it exists and is not in the new list
+                const currentBrandId = selectedBrandIdRef.current;
+                if (currentBrandId && !newBrands.some(b => b.id === currentBrandId)) {
+                    // Try to fetch the selected brand to keep it in the list
+                    try {
+                        const brandResponse = await fetchBrands({
+                            filters: [{ key: 'id', eq: String(currentBrandId) }],
+                            page: 0,
+                            pageSize: 1,
+                        });
+                        if (brandResponse.list?.[0]) {
+                            setBrands([brandResponse.list[0], ...newBrands]);
+                            return;
+                        }
+                    } catch {
+                        // Fall through to setBrands with newBrands only
+                    }
+                }
+                setBrands(newBrands);
+            } catch (error) {
+                console.error('Error fetching brands:', error);
+                showErrorToast('Failed to load brands');
+            } finally {
+                setLoadingBrands(false);
+            }
+        }, brandSearchTerm ? 500 : 0);
+
+        return () => {
+            if (brandSearchTimeoutRef.current) {
+                clearTimeout(brandSearchTimeoutRef.current);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [brandSearchTerm]); // Removed selectedBrandId from dependencies to prevent repeated calls
+
     // Fetch product data on mount if in edit mode
     React.useEffect(() => {
         const loadProduct = async () => {
@@ -260,12 +416,17 @@ export default function ProductForm() {
                     const product = response.list[0];
                     setProductData(product);
                     
-                    // Fetch the specific category and sub-category to ensure they're in the options list
+                    // Fetch the specific category, sub-category, and brand to ensure they're in the options list
                     if (product.category?.id) {
                         await fetchAndAddItem(product.category.id, fetchCategories, setCategories, 'category');
                     }
                     if (product.subCategory?.id) {
                         await fetchAndAddItem(product.subCategory.id, fetchSubCategories, setSubCategories, 'sub-category');
+                    }
+                    // Check both brand object and brandId field
+                    const brandId = product.brand?.id || product.brandId;
+                    if (brandId) {
+                        await fetchAndAddItem(brandId, fetchBrands, setBrands, 'brand');
                     }
 
                     // Set image preview from API
@@ -289,46 +450,90 @@ export default function ProductForm() {
     }, [id]); // Only depend on id, reset and navigate are stable
 
     // Helper function to build form reset data
-    const buildFormResetData = React.useCallback((data: Product) => ({
-        title: data.title,
-        description: data.description || '',
-        price: data.price,
-        sellingPrice: data.selling_price,
-        quantity: data.quantity,
-        units: data.units,
-        categoryId: data.category?.id || 0,
-        subCategoryId: data.subCategory?.id || 0,
-        status: data.status,
-        productStatus: data.product_status,
-        nutritional: data.nutritional,
-        brandId: null, // Brand ID not in response, set to null
-        file: null,
-    }), []);
+    const buildFormResetData = React.useCallback((data: Product) => {
+        // Handle expiryDate - convert string to Date if needed
+        let expiryDateValue: Date | string | null = null;
+        if (data.expiryDate) {
+            expiryDateValue = typeof data.expiryDate === 'string' ? new Date(data.expiryDate) : data.expiryDate;
+        }
+        
+        // Handle brandId - check both brand object and brandId field
+        const brandId = data.brand?.id || data.brandId || null;
+        
+        return {
+            title: data.title,
+            description: data.description || '',
+            price: data.price,
+            sellingPrice: data.selling_price,
+            quantity: data.quantity,
+            units: data.units,
+            categoryId: data.category?.id || 0,
+            subCategoryId: data.subCategory?.id || 0,
+            status: data.status,
+            productStatus: data.product_status,
+            nutritional: data.nutritional,
+            brandId: brandId,
+            file: null,
+            // New/Updated fields
+            itemQuantity: data.itemQuantity ?? null,
+            itemUnit: data.itemUnit ?? null,
+            itemsPerUnit: data.itemsPerUnit ?? null,
+            expiryDate: expiryDateValue,
+        };
+    }, []);
 
     // Reset form when product data and related data are ready
     React.useEffect(() => {
         if (isEditMode && productData) {
-            // Check if category and sub-category are in the lists
+            // Check if category, sub-category, and brand are in the lists
             const categoryExists = !productData.category?.id || categories.some(cat => cat.id === productData.category!.id);
             const subCategoryExists = !productData.subCategory?.id || subCategories.some(sub => sub.id === productData.subCategory!.id);
+            // Check both brand object and brandId field
+            const brandId = productData.brand?.id || productData.brandId;
+            const brandExists = !brandId || brands.some(b => b.id === brandId);
             
-            if (categoryExists && subCategoryExists) {
-                reset(buildFormResetData(productData));
+            if (categoryExists && subCategoryExists && brandExists) {
+                const resetData = buildFormResetData(productData);
+                reset(resetData);
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [productData, categories, subCategories, isEditMode, buildFormResetData]);
+    }, [productData, categories, subCategories, brands, isEditMode, buildFormResetData]);
 
     // Helper function to build common product data
-    const buildProductData = React.useCallback((data: ProductFormData) => ({
-        title: data.title,
-        description: data.description || '',
-        price: data.price,
-        sellingPrice: data.sellingPrice,
-        quantity: data.quantity,
-        units: data.units,
-        brandId: data.brandId || undefined,
-    }), []);
+    const buildProductData = React.useCallback((data: ProductFormData) => {
+        // Format expiryDate - convert Date to ISO string if needed
+        let expiryDateValue: string | undefined = undefined;
+        if (data.expiryDate) {
+            if (data.expiryDate instanceof Date) {
+                expiryDateValue = data.expiryDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+            } else if (typeof data.expiryDate === 'string') {
+                expiryDateValue = data.expiryDate;
+            }
+        }
+        
+        // Handle brandId - include if it's a valid number (not null or undefined)
+        // Note: 0 is a valid brandId if the API uses 0-based IDs, but typically IDs start from 1
+        let brandIdValue: number | undefined = undefined;
+        if (data.brandId !== null && data.brandId !== undefined) {
+            brandIdValue = Number(data.brandId); // Ensure it's a number
+        }
+        
+        return {
+            title: data.title,
+            description: data.description || '',
+            price: data.price,
+            sellingPrice: data.sellingPrice,
+            quantity: data.quantity,
+            units: data.units,
+            brandId: brandIdValue,
+            // New/Updated fields
+            itemQuantity: data.itemQuantity ?? undefined,
+            itemUnit: data.itemUnit ?? undefined,
+            itemsPerUnit: data.itemsPerUnit ?? undefined,
+            expiryDate: expiryDateValue,
+        };
+    }, []);
 
     const onSubmit = async (data: ProductFormData) => {
         // Validation checks
@@ -410,7 +615,7 @@ export default function ProductForm() {
                 </Typography>
             </Box>
 
-            <Box component="form" onSubmit={handleSubmit(onSubmit)}>
+            <FormProvider methods={methods} onSubmit={handleSubmit(onSubmit)}>
                 <Grid container spacing={4}>
                     {/* Column 1 */}
                     <Grid size={{ xs: 12, md: 4 }}>
@@ -427,22 +632,21 @@ export default function ProductForm() {
                             />
                         </Box>
                         <Box sx={{ mb: 4 }}>
-                            <FormTextField
+                            <FormNumberField
                                 name="quantity"
                                 control={control}
                                 label="Quantity"
-                                required
+                                required={!isEditMode}
                                 placeholder="Type here"
                                 variant="outlined"
                                 size="small"
-                                type="number"
                                 disabled={loading}
+                                inputProps={{ step: 1, min: 0 }}
                             />
                         </Box>
                         <Box sx={{ mb: 4 }}>
                             <FormAutocomplete
                                 name="categoryId"
-                                control={control}
                                 label="Category"
                                 required
                                 disabled={loading || isEditMode}
@@ -451,8 +655,11 @@ export default function ProductForm() {
                                     value: cat.id,
                                     label: cat.title,
                                 }))}
-                                onInputChange={(_, newInputValue) => {
-                                    setCategorySearchTerm(newInputValue);
+                                onInputChange={(_, newInputValue, reason) => {
+                                    // Only trigger search when user is typing, not when selecting a value
+                                    if (reason === 'input') {
+                                        setCategorySearchTerm(newInputValue);
+                                    }
                                 }}
                                 size="small"
                             />
@@ -489,7 +696,6 @@ export default function ProductForm() {
                         <Box sx={{ mb: 4 }}>
                             <FormAutocomplete
                                 name="subCategoryId"
-                                control={control}
                                 label="Sub Category"
                                 required
                                 disabled={loading || isEditMode || !selectedCategoryId || selectedCategoryId === 0}
@@ -498,8 +704,30 @@ export default function ProductForm() {
                                     value: sub.id,
                                     label: sub.title,
                                 }))}
-                                onInputChange={(_, newInputValue) => {
-                                    setSubCategorySearchTerm(newInputValue);
+                                onInputChange={(_, newInputValue, reason) => {
+                                    // Only trigger search when user is typing, not when selecting a value
+                                    if (reason === 'input') {
+                                        setSubCategorySearchTerm(newInputValue);
+                                    }
+                                }}
+                                size="small"
+                            />
+                        </Box>
+                        <Box sx={{ mb: 4 }}>
+                            <FormAutocomplete
+                                name="brandId"
+                                label="Brand"
+                                disabled={loading}
+                                loading={loadingBrands}
+                                options={brands.map(brand => ({
+                                    value: Number(brand.id), // Ensure it's a number
+                                    label: brand.name,
+                                }))}
+                                onInputChange={(_, newInputValue, reason) => {
+                                    // Only trigger search when user is typing, not when selecting a value
+                                    if (reason === 'input') {
+                                        setBrandSearchTerm(newInputValue);
+                                    }
                                 }}
                                 size="small"
                             />
@@ -545,6 +773,84 @@ export default function ProductForm() {
                                     { value: 'ACTIVE', label: 'Active' },
                                     { value: 'INACTIVE', label: 'Inactive' },
                                 ]}
+                            />
+                        </Box>
+                    </Grid>
+
+                    {/* Item Details Section */}
+                    <Grid size={{ xs: 12 }}>
+                        <Box sx={{ mb: 3, mt: 2, pb: 2, borderBottom: '1px solid #e0e0e0' }}>
+                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
+                                Item Details
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                                Optional fields for detailed item measurement and packaging information
+                            </Typography>
+                        </Box>
+                    </Grid>
+                    
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Box sx={{ mb: 4 }}>
+                            <FormNumberField
+                                name="itemQuantity"
+                                control={control}
+                                label="Item Quantity"
+                                placeholder="e.g., 500"
+                                variant="outlined"
+                                size="small"
+                                disabled={loading}
+                                inputProps={{ step: 'any' }}
+                            />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                                Measurement quantity per individual item (e.g., 500 for 500gm)
+                            </Typography>
+                        </Box>
+                    </Grid>
+                    
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Box sx={{ mb: 4 }}>
+                            <FormSelect
+                                name="itemUnit"
+                                control={control}
+                                label="Item Unit"
+                                disabled={loading}
+                                options={getItemUnitOptions()}
+                                size="small"
+                            />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                                Measurement unit per individual item (e.g., G for grams)
+                            </Typography>
+                        </Box>
+                    </Grid>
+                    
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Box sx={{ mb: 4 }}>
+                            <FormNumberField
+                                name="itemsPerUnit"
+                                control={control}
+                                label="Items Per Unit"
+                                placeholder="e.g., 25"
+                                variant="outlined"
+                                size="small"
+                                disabled={loading}
+                                inputProps={{ step: 1, min: 1 }}
+                            />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                                Number of items contained in each unit (e.g., 25 items per unit)
+                            </Typography>
+                        </Box>
+                    </Grid>
+                    
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Box sx={{ mb: 4 }}>
+                            <FormDatePicker
+                                name="expiryDate"
+                                control={control}
+                                label="Expiry Date"
+                                required={!isEditMode}
+                                variant="outlined"
+                                size="small"
+                                disabled={loading}
                             />
                         </Box>
                     </Grid>
@@ -636,7 +942,7 @@ export default function ProductForm() {
                     Cancel
                 </Button>
             </Box>
-            </Box>
+            </FormProvider>
         </Paper>
     );
 }

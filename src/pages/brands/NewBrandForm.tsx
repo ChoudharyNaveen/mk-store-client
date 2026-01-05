@@ -12,20 +12,17 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import subCategoryService, { fetchSubCategories } from '../../services/sub-category.service';
-import { fetchCategories } from '../../services/category.service';
+import brandService, { fetchBrands } from '../../services/brand.service';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import { useAppSelector } from '../../store/hooks';
-import { FormTextField, FormFileUpload, FormSelect, FormAutocomplete, FormProvider } from '../../components/forms';
+import { FormTextField, FormFileUpload, FormSelect } from '../../components/forms';
 import { mergeWithDefaultFilters } from '../../utils/filterBuilder';
-import type { SubCategoryStatus, SubCategory } from '../../types/sub-category';
-import type { Category } from '../../types/category';
+import type { BrandStatus, Brand } from '../../types/brand';
 
 // Base validation schema - shared fields
-const baseSubCategoryFormSchema = {
-    title: yup.string().required('Title is required').min(2, 'Title must be at least 2 characters'),
+const baseBrandFormSchema = {
+    name: yup.string().required('Name is required').min(2, 'Name must be at least 2 characters'),
     description: yup.string().optional().default(''),
-    categoryId: yup.number().required('Category is required').min(1, 'Please select a category'),
     status: yup.string().oneOf(['ACTIVE', 'INACTIVE'], 'Status must be ACTIVE or INACTIVE').required('Status is required'),
 };
 
@@ -41,7 +38,7 @@ const fileSizeTest = (value: File | null, isOptional: boolean) => {
 };
 
 // Create validation schema factory
-const createSubCategoryFormSchema = (isEditMode: boolean) => {
+const createBrandFormSchema = (isEditMode: boolean) => {
     const fileValidation = isEditMode
         ? yup
               .mixed<File>()
@@ -56,20 +53,19 @@ const createSubCategoryFormSchema = (isEditMode: boolean) => {
               .test('fileSize', 'File size must be less than 5MB', (value) => fileSizeTest(value, false));
 
     return yup.object({
-        ...baseSubCategoryFormSchema,
+        ...baseBrandFormSchema,
         file: fileValidation,
     });
 };
 
-interface SubCategoryFormData {
-    title: string;
+interface BrandFormData {
+    name: string;
     description?: string;
-    categoryId: number;
     status: 'ACTIVE' | 'INACTIVE';
     file: File | null;
 }
 
-export default function SubCategoryForm() {
+export default function BrandForm() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const isEditMode = Boolean(id);
@@ -81,78 +77,30 @@ export default function SubCategoryForm() {
     const userId = user?.id || 1;
     
     const [loading, setLoading] = React.useState(false);
-    const [fetchingSubCategory, setFetchingSubCategory] = React.useState(isEditMode);
+    const [fetchingBrand, setFetchingBrand] = React.useState(isEditMode);
     const [filePreview, setFilePreview] = React.useState<string | null>(null);
-    const [subCategoryData, setSubCategoryData] = React.useState<SubCategory | null>(null);
-    const [categories, setCategories] = React.useState<Category[]>([]);
-    const [loadingCategories, setLoadingCategories] = React.useState(false);
-    const [categorySearchTerm, setCategorySearchTerm] = React.useState('');
-    const categorySearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    const [brandData, setBrandData] = React.useState<Brand | null>(null);
     const hasFetchedRef = React.useRef(false);
 
-    const methods = useForm<SubCategoryFormData>({
-        resolver: yupResolver(createSubCategoryFormSchema(isEditMode)) as any,
+    const {
+        control,
+        handleSubmit,
+        formState: { isValid },
+        reset,
+    } = useForm<BrandFormData>({
+        resolver: yupResolver(createBrandFormSchema(isEditMode)) as any,
         defaultValues: {
-            title: '',
+            name: '',
             description: '',
-            categoryId: 0,
-            status: 'ACTIVE' as SubCategoryStatus,
+            status: 'ACTIVE' as BrandStatus,
             file: null,
         },
         mode: 'onChange',
     });
 
-    const { handleSubmit, reset, formState: { isValid }, control } = methods;
-
-    // Fetch categories with debounced search
+    // Fetch brand data on mount if in edit mode
     React.useEffect(() => {
-        // Clear existing timeout
-        if (categorySearchTimeoutRef.current) {
-            clearTimeout(categorySearchTimeoutRef.current);
-        }
-
-        // Set new timeout for debounce (500ms)
-        categorySearchTimeoutRef.current = setTimeout(async () => {
-            try {
-                setLoadingCategories(true);
-                
-                // Build filters: vendorId, branchId, and title (iLike) if search term exists
-                const additionalFilters: Array<{ key: string; iLike: string }> = [];
-                if (categorySearchTerm) {
-                    additionalFilters.push({
-                        key: 'title',
-                        iLike: categorySearchTerm,
-                    });
-                }
-                
-                const filters = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-                
-                const response = await fetchCategories({
-                    filters,
-                    page: 0,
-                    pageSize: 20,
-                });
-                setCategories(response.list || []);
-            } catch (error) {
-                console.error('Error fetching categories:', error);
-                showErrorToast('Failed to load categories');
-            } finally {
-                setLoadingCategories(false);
-            }
-        }, categorySearchTerm ? 500 : 0); // No debounce on initial load, 500ms debounce on search
-
-        // Cleanup timeout on unmount or when dependencies change
-        return () => {
-            if (categorySearchTimeoutRef.current) {
-                clearTimeout(categorySearchTimeoutRef.current);
-            }
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categorySearchTerm]); // vendorId and selectedBranchId are stable from store
-
-    // Fetch sub-category data on mount if in edit mode
-    React.useEffect(() => {
-        const loadSubCategory = async () => {
+        const loadBrand = async () => {
             if (!isEditMode || !id || hasFetchedRef.current) {
                 return;
             }
@@ -161,140 +109,107 @@ export default function SubCategoryForm() {
             hasFetchedRef.current = true;
 
             try {
-                setFetchingSubCategory(true);
-                // Fetch sub-category using fetchSubCategories with id filter
-                const response = await fetchSubCategories({
+                setFetchingBrand(true);
+                // Fetch brand using fetchBrands with id filter
+                const response = await fetchBrands({
                     filters: [{ key: 'id', eq: id }],
                     page: 0,
                     pageSize: 1,
                 });
 
                 if (response.list && response.list.length > 0) {
-                    const subCategory = response.list[0];
-                    // Map API response: convert concurrency_stamp (snake_case) to concurrencyStamp (camelCase)
-                    const mappedSubCategory: SubCategory = {
-                        ...subCategory,
-                        categoryId: subCategory.category?.id || 0,
-                        concurrencyStamp: (subCategory as SubCategory & { concurrency_stamp?: string }).concurrency_stamp || subCategory.concurrencyStamp,
-                    };
-                    setSubCategoryData(mappedSubCategory);
-                    
-                    // Fetch the specific category to ensure it's in the options list
-                    if (mappedSubCategory.categoryId) {
-                        try {
-                            const categoryResponse = await fetchCategories({
-                                filters: [{ key: 'id', eq: String(mappedSubCategory.categoryId) }],
-                                page: 0,
-                                pageSize: 1,
-                            });
-                            
-                            if (categoryResponse.list?.[0]) {
-                                const category = categoryResponse.list[0];
-                                // Add the category to the list if it's not already there
-                                setCategories(prev => {
-                                    const exists = prev.some(cat => cat.id === category.id);
-                                    return exists ? prev : [category, ...prev];
-                                });
-                            }
-                        } catch (error) {
-                            console.error('Error fetching category for edit:', error);
-                        }
-                    }
+                    const brand = response.list[0];
+                    setBrandData(brand);
 
-                    // Set image preview from API
-                    if (mappedSubCategory.image) {
-                        setFilePreview(mappedSubCategory.image);
+                    // Set image preview from API (use logo or image)
+                    const logoUrl = brand.logo || brand.image;
+                    if (logoUrl) {
+                        setFilePreview(logoUrl);
                     }
                 } else {
-                    showErrorToast('Sub-category not found');
-                    navigate('/sub-category');
+                    showErrorToast('Brand not found');
+                    navigate('/brands');
                 }
             } catch (error) {
-                console.error('Error fetching sub-category:', error);
-                navigate('/sub-category');
+                console.error('Error fetching brand:', error);
+                navigate('/brands');
             } finally {
-                setFetchingSubCategory(false);
+                setFetchingBrand(false);
             }
         };
 
-        loadSubCategory();
+        loadBrand();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]); // Only depend on id, reset and navigate are stable
 
     // Helper function to build form reset data
-    const buildFormResetData = React.useCallback((data: SubCategory) => ({
-        title: data.title,
+    const buildFormResetData = React.useCallback((data: Brand) => ({
+        name: data.name,
         description: data.description || '',
-        categoryId: data.categoryId || 0,
         status: data.status,
         file: null,
     }), []);
 
-    // Reset form when sub-category data and category are ready
+    // Reset form when brand data is ready
     React.useEffect(() => {
-        if (isEditMode && subCategoryData) {
-            // If categoryId exists, wait for category to be in the list; otherwise reset immediately
-            const shouldReset = !subCategoryData.categoryId || categories.some(cat => cat.id === subCategoryData.categoryId);
-            if (shouldReset) {
-                reset(buildFormResetData(subCategoryData));
-            }
+        if (isEditMode && brandData) {
+            reset(buildFormResetData(brandData));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [subCategoryData, categories, isEditMode, buildFormResetData]);
+    }, [brandData, isEditMode, buildFormResetData]);
 
-    const onSubmit = async (data: SubCategoryFormData) => {
+    const onSubmit = async (data: BrandFormData) => {
         // Validation checks
         if (isEditMode) {
-            if (!subCategoryData || !id) return;
-            if (!subCategoryData.concurrencyStamp) {
-                console.error('Sub-category concurrencyStamp is missing');
+            if (!brandData || !id) return;
+            if (!brandData.concurrencyStamp) {
+                console.error('Brand concurrencyStamp is missing');
                 return;
             }
         } else {
             if (!data.file) return;
+            if (!selectedBranchId) {
+                showErrorToast('No branch selected. Please select a branch.');
+                return;
+            }
         }
 
         setLoading(true);
         try {
             const commonData = {
-                title: data.title,
+                name: data.name,
                 description: data.description || '',
             };
 
             if (isEditMode) {
-                await subCategoryService.updateSubCategory(id!, {
+                await brandService.updateBrand(id!, {
                     ...commonData,
                     updatedBy: userId,
-                    concurrencyStamp: subCategoryData!.concurrencyStamp,
+                    concurrencyStamp: brandData!.concurrencyStamp,
                     file: data.file || undefined,
                 });
-                showSuccessToast('Sub-category updated successfully!');
+                showSuccessToast('Brand updated successfully!');
             } else {
-                if (!selectedBranchId) {
-                    showErrorToast('No branch selected. Please select a branch.');
-                    return;
-                }
-                await subCategoryService.createSubCategory({
+                await brandService.createBrand({
                     ...commonData,
-                    categoryId: data.categoryId,
-                    branchId: selectedBranchId,
+                    branchId: selectedBranchId!,
                     vendorId: user?.vendorId || 1,
-                    status: data.status as SubCategoryStatus,
+                    status: data.status as BrandStatus,
                     file: data.file!,
                 });
-                showSuccessToast('Sub-category created successfully!');
+                showSuccessToast('Brand created successfully!');
             }
 
-            navigate('/sub-category');
+            navigate('/brands');
         } catch (error) {
-            console.error(`Error ${isEditMode ? 'updating' : 'creating'} sub-category:`, error);
+            console.error(`Error ${isEditMode ? 'updating' : 'creating'} brand:`, error);
             // Error toast is automatically shown by HTTP utilities
         } finally {
             setLoading(false);
         }
     };
 
-    if (fetchingSubCategory) {
+    if (fetchingBrand) {
         return (
             <Paper sx={{ p: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
                 <CircularProgress />
@@ -318,38 +233,18 @@ export default function SubCategoryForm() {
                     Back
                 </Button>
                 <Typography variant="h4" sx={{ fontWeight: 500, color: '#333', fontSize: '1.75rem' }}>
-                    {isEditMode ? 'Edit Sub Category' : 'New Sub Category'}
+                    {isEditMode ? 'Edit Brand' : 'New Brand'}
                 </Typography>
             </Box>
 
-            <FormProvider methods={methods} onSubmit={handleSubmit(onSubmit)}>
+            <Box component="form" onSubmit={handleSubmit(onSubmit)}>
                 <Grid container spacing={4}>
                     <Grid size={{ xs: 12, md: 6 }}>
                         <Box sx={{ mb: 4 }}>
-                            <FormAutocomplete
-                                name="categoryId"
-                                label="Category"
-                                required
-                                disabled={loading || isEditMode}
-                                loading={loadingCategories}
-                                options={categories.map(cat => ({
-                                    value: cat.id,
-                                    label: cat.title,
-                                }))}
-                                onInputChange={(_, newInputValue, reason) => {
-                                    // Only trigger search when user is typing, not when selecting a value
-                                    if (reason === 'input') {
-                                        setCategorySearchTerm(newInputValue);
-                                    }
-                                }}
-                                size="small"
-                            />
-                        </Box>
-                        <Box sx={{ mb: 4 }}>
                             <FormTextField
-                                name="title"
+                                name="name"
                                 control={control}
-                                label="Title"
+                                label="Name"
                                 required
                                 placeholder="Type here"
                                 variant="outlined"
@@ -357,7 +252,7 @@ export default function SubCategoryForm() {
                                 disabled={loading}
                             />
                         </Box>
-                        <Box>
+                        <Box sx={{ mb: 4 }}>
                             <FormTextField
                                 name="description"
                                 control={control}
@@ -369,7 +264,7 @@ export default function SubCategoryForm() {
                                 disabled={loading}
                             />
                         </Box>
-                        <Box sx={{ mt: 4 }}>
+                        <Box>
                             <FormSelect
                                 name="status"
                                 control={control}
@@ -446,7 +341,8 @@ export default function SubCategoryForm() {
                     Cancel
                 </Button>
             </Box>
-            </FormProvider>
+            </Box>
         </Paper>
     );
 }
+
