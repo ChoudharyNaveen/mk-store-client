@@ -75,6 +75,26 @@ export interface UseServerPaginationReturn<T = any> {
     setIsServerPagination: (enabled: boolean) => void;
     resetFlag: boolean;
     setResetFlag: (value: boolean | ((prev: boolean) => boolean)) => void;
+
+    // DataTable helpers (for easier integration)
+    // These handle the conversion between 0-based (internal) and 1-based (MUI Pagination)
+    tableState: {
+        data: T[];
+        total: number;
+        page: number; // 1-based for MUI Pagination
+        rowsPerPage: number;
+        order: 'asc' | 'desc';
+        orderBy: string;
+        loading: boolean;
+        search: string;
+    };
+    tableHandlers: {
+        handleRequestSort: (property: string) => void;
+        handleChangePage: (event: unknown, newPage: number) => void; // newPage is 1-based from MUI
+        handleChangeRowsPerPage: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+        handleSearch: (event: React.ChangeEvent<HTMLInputElement>) => void;
+        refresh: () => void;
+    };
 }
 
 export const useServerPagination = <T = any,>(
@@ -272,15 +292,17 @@ export const useServerPagination = <T = any,>(
 
                 // Only sync page number from server if server returned a completely different page
                 // than what we requested (rare edge case)
+                // NOTE: serverPage (pageNumber) is 1-based, fetchPage is 0-based
                 const serverPage = response?.pageDetails?.pageNumber;
-                if (
-                    serverPage !== undefined &&
-                    serverPage !== fetchPage // Server returned different page than we requested
-                ) {
-                    // Server gave us a different page - update our state to match
-                    ignorePaginationChange.current = true;
-                    lastFetchedPageRef.current = { page: serverPage, pageSize: fetchPageSize };
-                    setPaginationModel((prev) => ({ ...prev, page: serverPage }));
+                if (serverPage !== undefined) {
+                    // Convert server's 1-based pageNumber to 0-based for comparison
+                    const serverPageZeroBased = serverPage - 1;
+                    if (serverPageZeroBased !== fetchPage) {
+                        // Server returned different page than we requested - update our state to match
+                        ignorePaginationChange.current = true;
+                        lastFetchedPageRef.current = { page: serverPageZeroBased, pageSize: fetchPageSize };
+                        setPaginationModel((prev) => ({ ...prev, page: serverPageZeroBased }));
+                    }
                 }
 
                 // Update server pagination state if provided by backend
@@ -466,6 +488,36 @@ export const useServerPagination = <T = any,>(
         };
     }, []);
 
+    // DataTable helpers - handle conversion between 0-based (internal) and 1-based (MUI)
+    const tableState = {
+        data: rows,
+        total: totalCount,
+        page: paginationModel.page + 1, // Convert 0-based to 1-based for MUI Pagination
+        rowsPerPage: paginationModel.pageSize,
+        order: 'asc' as const,
+        orderBy: '',
+        loading,
+        search: searchKeyword,
+    };
+
+    const tableHandlers = {
+        handleRequestSort: () => {
+            // Sorting can be handled via filters if API supports it
+        },
+        handleChangePage: (_event: unknown, newPage: number) => {
+            // MUI Pagination passes 1-based page numbers, convert to 0-based for API
+            setPaginationModel((prev) => ({ ...prev, page: newPage - 1 }));
+        },
+        handleChangeRowsPerPage: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+            const newPageSize = parseInt(event.target.value, 10);
+            setPaginationModel((prev) => ({ ...prev, pageSize: newPageSize, page: 0 }));
+        },
+        handleSearch: (event: React.ChangeEvent<HTMLInputElement>) => {
+            setSearchKeyword(event.target.value);
+        },
+        refresh,
+    };
+
     return {
         // Data
         rows,
@@ -495,6 +547,10 @@ export const useServerPagination = <T = any,>(
         setIsServerPagination,
         resetFlag,
         setResetFlag,
+
+        // DataTable helpers
+        tableState,
+        tableHandlers,
     };
 };
 

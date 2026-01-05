@@ -9,12 +9,16 @@
  * @returns Object with startDate and endDate
  */
 export const getLastNDaysRange = (days: number = 30): { startDate: Date; endDate: Date } => {
-    const endDate = new Date();
+    const today = new Date();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     
     // Reset time to start of day for startDate
     startDate.setHours(0, 0, 0, 0);
+    
+    // endDate should be tomorrow (today + 1 day)
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + 1);
     // Reset time to end of day for endDate
     endDate.setHours(23, 59, 59, 999);
     

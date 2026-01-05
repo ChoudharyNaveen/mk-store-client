@@ -13,7 +13,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import authService from '../../services/auth.service';
 import branchService from '../../services/branch.service';
 import { showSuccessToast } from '../../utils/toast';
-import { useAppDispatch } from '../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { setAuth } from '../../store/authSlice';
 import { setBranches, setSelectedBranch } from '../../store/branchSlice';
 
@@ -76,12 +76,15 @@ export default function LoginForm() {
         }
     };
 
-    // Check if user is already authenticated
+    // Check if user is already authenticated (only after initialization)
+    const { isAuthenticated, isInitializing } = useAppSelector((state) => state.auth);
+    
     React.useEffect(() => {
-        if (authService.isAuthenticated()) {
+        // Only redirect if initialization is complete and user is authenticated
+        if (!isInitializing && isAuthenticated) {
             navigate('/', { replace: true });
         }
-    }, [navigate]);
+    }, [isAuthenticated, isInitializing, navigate]);
     return (
         <Box
             sx={{

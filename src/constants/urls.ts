@@ -35,38 +35,38 @@ export const API_URLS = {
   
   // Sub-category endpoints
   SUB_CATEGORIES: {
-    LIST: `${API_PREFIX}/sub-categories`,
-    CREATE: `${API_PREFIX}/sub-categories`,
+    LIST: `${API_PREFIX}/get-sub-category`,
+    CREATE: `${API_PREFIX}/save-sub-category`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/sub-categories/${id}`,
-    UPDATE: (id: string | number) => `${API_PREFIX}/sub-categories/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-sub-category/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/sub-categories/${id}`,
   },
   
   // Product endpoints
   PRODUCTS: {
-    LIST: `${API_PREFIX}/products`,
-    CREATE: `${API_PREFIX}/products`,
+    LIST: `${API_PREFIX}/get-product`,
+    CREATE: `${API_PREFIX}/save-product`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/products/${id}`,
-    UPDATE: (id: string | number) => `${API_PREFIX}/products/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-product/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/products/${id}`,
   },
   
   // Promo code endpoints
   PROMO_CODES: {
-    LIST: `${API_PREFIX}/promo-codes`,
-    CREATE: `${API_PREFIX}/promo-codes`,
-    GET_BY_ID: (id: string | number) => `${API_PREFIX}/promo-codes/${id}`,
-    UPDATE: (id: string | number) => `${API_PREFIX}/promo-codes/${id}`,
-    DELETE: (id: string | number) => `${API_PREFIX}/promo-codes/${id}`,
+    LIST: `${API_PREFIX}/get-Promocode`,
+    CREATE: `${API_PREFIX}/save-Promocode`,
+    GET_BY_ID: (id: string | number) => `${API_PREFIX}/get-Promocode/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-Promocode/${id}`,
+    DELETE: (id: string | number) => `${API_PREFIX}/delete-Promocode/${id}`,
   },
   
   // Offer endpoints
   OFFERS: {
-    LIST: `${API_PREFIX}/offers`,
-    CREATE: `${API_PREFIX}/offers`,
-    GET_BY_ID: (id: string | number) => `${API_PREFIX}/offers/${id}`,
-    UPDATE: (id: string | number) => `${API_PREFIX}/offers/${id}`,
-    DELETE: (id: string | number) => `${API_PREFIX}/offers/${id}`,
+    LIST: `${API_PREFIX}/get-offer`,
+    CREATE: `${API_PREFIX}/save-offer`,
+    GET_BY_ID: (id: string | number) => `${API_PREFIX}/get-offer/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-offer/${id}`,
+    DELETE: (id: string | number) => `${API_PREFIX}/delete-offer/${id}`,
   },
   
   // Order endpoints

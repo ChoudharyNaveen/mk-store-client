@@ -1,8 +1,7 @@
 
-
 import React from 'react';
 import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar } from '@mui/material';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -10,91 +9,126 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
-import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
-import { useTable } from '../../hooks/useTable';
-
-const mockProducts = Array.from({ length: 50 }, (_, i) => ({
-    id: i + 1,
-    image: '/static/images/products/product.jpg',
-    productName: i % 2 === 0 ? 'Fresh Tomatoes' : 'Green Apples',
-    category: i % 2 === 0 ? 'Vegetables' : 'Fruits',
-    mrp: `₹${100 + i}`,
-    sellingPrice: `₹${80 + i}`,
-    quantity: 50 + i,
-    createdDate: new Date(Date.now() - Math.floor(Math.random() * 10000000000)).toISOString(),
-}));
-
-const columns = [
-    {
-        id: 'image',
-        label: 'Image',
-        minWidth: 80,
-        render: (row: any) => (
-            <Avatar
-                src={row.image}
-                alt={row.productName}
-                variant="rounded"
-                sx={{ width: 50, height: 50 }}
-            />
-        )
-    },
-    { id: 'productName', label: 'Product Name', minWidth: 150 },
-    { id: 'category', label: 'Category', minWidth: 120 },
-    { id: 'mrp', label: 'MRP', minWidth: 80 },
-    { id: 'sellingPrice', label: 'Selling Price', minWidth: 100 },
-    { id: 'quantity', label: 'Quantity', minWidth: 80 },
-    {
-        id: 'createdDate',
-        label: 'Created Date',
-        minWidth: 120,
-        render: (row: any) => row.createdDate ? format(new Date(row.createdDate), 'MMM dd, yyyy') : 'N/A'
-    },
-    {
-        id: 'action',
-        label: 'Action',
-        minWidth: 100,
-        align: 'center' as const,
-        render: (row: any) => (
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                <IconButton
-                    size="small"
-                    sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        color: 'text.secondary',
-                        '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                    }}
-                >
-                    <EditIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                    size="small"
-                    sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        color: 'error.main',
-                        bgcolor: '#ffebee',
-                        '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                    }}
-                >
-                    <DeleteIcon fontSize="small" />
-                </IconButton>
-            </Box>
-        )
-    },
-];
+import { useServerPagination } from '../../hooks/useServerPagination';
+import { fetchProducts } from '../../services/product.service';
+import type { Product } from '../../types/product';
+import type { ServerFilter } from '../../types/filter';
+import { getLastNDaysRangeForDatePicker } from '../../utils/date';
+import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 
 export default function ProductList() {
-    const [dateRange, setDateRange] = React.useState([
+    const navigate = useNavigate();
+    const dispatch = useAppDispatch();
+    
+    // Get vendorId and branchId from store
+    const { user } = useAppSelector((state) => state.auth);
+    const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
+    const vendorId = user?.vendorId;
+    
+    // Get date range from store, or use default
+    const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
+    const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
+    
+    const columns = [
         {
-            startDate: new Date('2024-01-01'),
-            endDate: new Date('2025-12-31'),
-            key: 'selection'
+            id: 'image' as keyof Product,
+            label: 'Image',
+            minWidth: 80,
+            render: (row: Product) => (
+                <Avatar
+                    src={row.image}
+                    alt={row.title}
+                    variant="rounded"
+                    sx={{ width: 50, height: 50 }}
+                />
+            )
+        },
+        { id: 'title' as keyof Product, label: 'Product Name', minWidth: 150 },
+        { 
+            id: 'category' as keyof Product, 
+            label: 'Category', 
+            minWidth: 120,
+            render: (row: Product) => row.category?.title || 'N/A'
+        },
+        { 
+            id: 'subCategory' as keyof Product, 
+            label: 'Sub Category', 
+            minWidth: 120,
+            render: (row: Product) => row.subCategory?.title || 'N/A'
+        },
+        { 
+            id: 'price' as keyof Product, 
+            label: 'MRP', 
+            minWidth: 80,
+            render: (row: Product) => `₹${row.price}`
+        },
+        { 
+            id: 'selling_price' as keyof Product, 
+            label: 'Selling Price', 
+            minWidth: 100,
+            render: (row: Product) => `₹${row.selling_price}`
+        },
+        { id: 'quantity' as keyof Product, label: 'Quantity', minWidth: 80 },
+        { id: 'units' as keyof Product, label: 'Units', minWidth: 80 },
+        { id: 'product_status' as keyof Product, label: 'Status', minWidth: 100 },
+        {
+            id: 'createdAt' as keyof Product,
+            label: 'Created Date',
+            minWidth: 120,
+            render: (row: Product) => row.createdAt ? format(new Date(row.createdAt), 'MMM dd, yyyy') : 'N/A'
+        },
+        {
+            id: 'action' as keyof Product,
+            label: 'Action',
+            minWidth: 100,
+            align: 'center' as const,
+            render: (row: Product) => (
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                    <IconButton
+                        size="small"
+                        onClick={() => navigate(`/products/edit/${row.id}`)}
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'text.secondary',
+                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
+                        }}
+                    >
+                        <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        size="small"
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'error.main',
+                            bgcolor: '#ffebee',
+                            '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
+                        }}
+                    >
+                        <DeleteIcon fontSize="small" />
+                    </IconButton>
+                </Box>
+            )
+        },
+    ];
+    
+    const [dateRange, setDateRange] = React.useState(() => {
+        if (storeStartDate && storeEndDate) {
+            return [{
+                startDate: new Date(storeStartDate),
+                endDate: new Date(storeEndDate),
+                key: 'selection'
+            }];
         }
-    ]);
+        return getLastNDaysRangeForDatePicker(30);
+    });
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
     const [advancedFilters, setAdvancedFilters] = React.useState({
@@ -102,80 +136,87 @@ export default function ProductList() {
         category: '',
     });
 
-    const fetchData = React.useCallback(async (params: any) => {
-        return new Promise<{ data: any[]; total: number }>((resolve) => {
-            setTimeout(() => {
-                let filtered = [...mockProducts];
-
-                // Global Search
-                if (params.search) {
-                    filtered = filtered.filter(item =>
-                        item.productName.toLowerCase().includes(params.search.toLowerCase()) ||
-                        item.category.toLowerCase().includes(params.search.toLowerCase())
-                    );
-                }
-
-                // Advanced Filters
-                if (advancedFilters.productName) {
-                    filtered = filtered.filter(item =>
-                        item.productName.toLowerCase().includes(advancedFilters.productName.toLowerCase())
-                    );
-                }
-                if (advancedFilters.category) {
-                    filtered = filtered.filter(item =>
-                        item.category.toLowerCase().includes(advancedFilters.category.toLowerCase())
-                    );
-                }
-
-                // Date Range Filter
-                if (dateRange[0].startDate && dateRange[0].endDate) {
-                    filtered = filtered.filter(item => {
-                        const date = new Date(item.createdDate);
-                        return isWithinInterval(date, {
-                            start: startOfDay(dateRange[0].startDate),
-                            end: endOfDay(dateRange[0].endDate)
-                        });
-                    });
-                }
-
-                // Sort
-                if (params.orderBy) {
-                    filtered.sort((a: any, b: any) => {
-                        const valA = a[params.orderBy];
-                        const valB = b[params.orderBy];
-                        if (valA < valB) return params.order === 'asc' ? -1 : 1;
-                        if (valA > valB) return params.order === 'asc' ? 1 : -1;
-                        return 0;
-                    });
-                }
-
-                const start = (params.page - 1) * params.rowsPerPage;
-                const end = start + params.rowsPerPage;
-                resolve({
-                    data: filtered.slice(start, end),
-                    total: filtered.length,
-                });
-            }, 500);
+    // Helper function to build filters array with date range and default filters
+    const buildFilters = React.useCallback((): ServerFilter[] => {
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+            dateRange,
+            dateField: 'createdAt',
+            advancedFilters,
+            filterMappings: {
+                productName: { field: 'title', operator: 'iLike' },
+                category: { field: 'category.title', operator: 'iLike' },
+            },
         });
-    }, [dateRange, advancedFilters]);
+        
+        // Merge with default filters (vendorId and branchId)
+        return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+    }, [dateRange, advancedFilters, vendorId, selectedBranchId]);
 
-    const { state, handlers } = useTable({
-        fetchData,
-        initialRowsPerPage: 10,
+    // Use server pagination hook - now includes tableState and tableHandlers
+    const {
+        paginationModel,
+        setPaginationModel,
+        setFilters,
+        tableState,
+        tableHandlers,
+    } = useServerPagination<Product>({
+        fetchFunction: fetchProducts,
+        initialPageSize: 20,
+        enabled: true,
+        autoFetch: true,
+        filters: buildFilters(),
+        initialSorting: [
+            {
+                key: 'createdAt',
+                direction: 'DESC',
+            },
+        ],
+        searchDebounceMs: 500,
     });
+
+    // Sync local date range with store when store dates change
+    React.useEffect(() => {
+        if (storeStartDate && storeEndDate) {
+            setDateRange([{
+                startDate: new Date(storeStartDate),
+                endDate: new Date(storeEndDate),
+                key: 'selection'
+            }]);
+        }
+    }, [storeStartDate, storeEndDate]);
+
+    // Update filters when advanced filters or date range changes
+    React.useEffect(() => {
+        setFilters(buildFilters());
+        // Reset to first page when filters change
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
 
     const handleApplyFilters = () => {
         setFilterAnchorEl(null);
-        handlers.refresh();
+        tableHandlers.refresh();
     };
 
     const handleClearFilters = () => {
         setAdvancedFilters({ productName: '', category: '' });
-        handlers.refresh();
+        tableHandlers.refresh();
     };
 
     const handleDateSelect = (ranges: RangeKeyDict) => {
-        setDateRange([ranges.selection as any]);
+        if (ranges.selection && ranges.selection.startDate && ranges.selection.endDate) {
+            const newDateRange = [{
+                startDate: ranges.selection.startDate,
+                endDate: ranges.selection.endDate,
+                key: ranges.selection.key || 'selection'
+            }];
+            setDateRange(newDateRange);
+            
+            // Save to store
+            dispatch(setDateRangeAction({
+                startDate: ranges.selection.startDate,
+                endDate: ranges.selection.endDate,
+            }));
+        }
     };
 
     return (
@@ -186,8 +227,8 @@ export default function ProductList() {
                     placeholder="Search"
                     variant="outlined"
                     size="small"
-                    value={state.search}
-                    onChange={handlers.handleSearch}
+                    value={tableState.search}
+                    onChange={tableHandlers.handleSearch}
                     InputProps={{
                         startAdornment: (
                             <InputAdornment position="start">
@@ -284,8 +325,12 @@ export default function ProductList() {
                 </Box>
             </Popover>
 
-            {/* @ts-expect-error - action column id may not be part of the data type but is valid for rendering */}
-            <DataTable columns={columns} state={state} handlers={handlers} />
+            <DataTable 
+                key={`product-table-${paginationModel.page}-${paginationModel.pageSize}`}
+                columns={columns} 
+                state={tableState} 
+                handlers={tableHandlers} 
+            />
         </Box>
     );
 }

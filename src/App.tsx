@@ -60,12 +60,16 @@ function App() {
                         <Route path="/category/edit/:id" element={<NewCategoryForm />} />
                         <Route path="/sub-category" element={<SubCategoryList />} />
                         <Route path="/sub-category/new" element={<NewSubCategoryForm />} />
+                        <Route path="/sub-category/edit/:id" element={<NewSubCategoryForm />} />
                         <Route path="/products" element={<ProductList />} />
                         <Route path="/products/new" element={<NewProductForm />} />
+                        <Route path="/products/edit/:id" element={<NewProductForm />} />
                         <Route path="/promo-code" element={<PromocodeList />} />
                         <Route path="/promo-code/new" element={<NewPromocodeForm />} />
+                        <Route path="/promo-code/edit/:id" element={<NewPromocodeForm />} />
                         <Route path="/offers" element={<OfferList />} />
                         <Route path="/offers/new" element={<NewOfferForm />} />
+                        <Route path="/offers/edit/:id" element={<NewOfferForm />} />
                         <Route path="/orders" element={<OrderList />} />
                         <Route path="*" element={<Navigate to="/" replace />} />
                         </Route>

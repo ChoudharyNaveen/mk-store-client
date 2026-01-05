@@ -18,10 +18,24 @@ import { fetchCategories } from '../../services/category.service';
 import type { Category } from '../../types/category';
 import type { ServerFilter } from '../../types/filter';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
-import { buildFiltersFromDateRangeAndAdvanced } from '../../utils/filterBuilder';
+import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 
 export default function CategoryPage() {
     const navigate = useNavigate();
+    
+    const dispatch = useAppDispatch();
+    
+    // Get vendorId and branchId from store
+    const { user } = useAppSelector((state) => state.auth);
+    const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
+    const vendorId = user?.vendorId;
+    
+    // Get date range from store, or use default
+    const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
+    const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
+    
     
     const columns = [
         {
@@ -76,16 +90,25 @@ export default function CategoryPage() {
         },
     ];
     
-    const [dateRange, setDateRange] = React.useState(getLastNDaysRangeForDatePicker(30));
+    const [dateRange, setDateRange] = React.useState(() => {
+        if (storeStartDate && storeEndDate) {
+            return [{
+                startDate: new Date(storeStartDate),
+                endDate: new Date(storeEndDate),
+                key: 'selection'
+            }];
+        }
+        return getLastNDaysRangeForDatePicker(30);
+    });
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
     const [advancedFilters, setAdvancedFilters] = React.useState({
         categoryName: ''
     });
 
-    // Helper function to build filters array with date range
+    // Helper function to build filters array with date range and default filters
     const buildFilters = React.useCallback((): ServerFilter[] => {
-        return buildFiltersFromDateRangeAndAdvanced({
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
             dateRange,
             dateField: 'createdAt',
             advancedFilters,
@@ -93,19 +116,18 @@ export default function CategoryPage() {
                 categoryName: { field: 'title', operator: 'iLike' },
             },
         });
-    }, [dateRange, advancedFilters]);
+        
+        // Merge with default filters (vendorId and branchId)
+        return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+    }, [dateRange, advancedFilters, vendorId, selectedBranchId]);
 
-    // Use server pagination hook
+    // Use server pagination hook - now includes tableState and tableHandlers
     const {
-        rows,
-        totalCount,
-        loading,
         paginationModel,
         setPaginationModel,
-        searchKeyword,
-        setSearchKeyword,
         setFilters,
-        refresh,
+        tableState,
+        tableHandlers,
     } = useServerPagination<Category>({
         fetchFunction: fetchCategories,
         initialPageSize: 20,
@@ -121,57 +143,48 @@ export default function CategoryPage() {
         searchDebounceMs: 500,
     });
 
+    // Sync local date range with store when store dates change
+    React.useEffect(() => {
+        if (storeStartDate && storeEndDate) {
+            setDateRange([{
+                startDate: new Date(storeStartDate),
+                endDate: new Date(storeEndDate),
+                key: 'selection'
+            }]);
+        }
+    }, [storeStartDate, storeEndDate]);
+
     // Update filters when advanced filters or date range changes
     React.useEffect(() => {
         setFilters(buildFilters());
-    }, [advancedFilters, dateRange, setFilters, buildFilters]);
-
-    // Adapt useServerPagination data to DataTable format
-    const state = {
-        data: rows,
-        total: totalCount,
-        page: paginationModel.page + 1, // Convert 0-based to 1-based
-        rowsPerPage: paginationModel.pageSize,
-        order: 'asc' as const,
-        orderBy: '',
-        loading,
-        search: searchKeyword,
-    };
-
-    const handlers = {
-        handleRequestSort: () => {
-            // Sorting can be handled via filters if API supports it
-        },
-        handleChangePage: (_event: unknown, newPage: number) => {
-            setPaginationModel((prev) => ({ ...prev, page: newPage - 1 })); // Convert 1-based to 0-based
-        },
-        handleChangeRowsPerPage: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-            const newPageSize = parseInt(event.target.value, 10);
-            setPaginationModel((prev) => ({ ...prev, pageSize: newPageSize, page: 0 }));
-        },
-        handleSearch: (event: React.ChangeEvent<HTMLInputElement>) => {
-            setSearchKeyword(event.target.value);
-        },
-        refresh,
-    };
+        // Reset to first page when filters change
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
 
     const handleApplyFilters = () => {
         setFilterAnchorEl(null);
-        refresh();
+        tableHandlers.refresh();
     };
 
     const handleClearFilters = () => {
         setAdvancedFilters({ categoryName: '' });
-        refresh();
+        tableHandlers.refresh();
     };
 
     const handleDateSelect = (ranges: RangeKeyDict) => {
         if (ranges.selection && ranges.selection.startDate && ranges.selection.endDate) {
-            setDateRange([{
+            const newDateRange = [{
                 startDate: ranges.selection.startDate,
                 endDate: ranges.selection.endDate,
                 key: ranges.selection.key || 'selection'
-            }]);
+            }];
+            setDateRange(newDateRange);
+            
+            // Save to store
+            dispatch(setDateRangeAction({
+                startDate: ranges.selection.startDate,
+                endDate: ranges.selection.endDate,
+            }));
         }
     };
 
@@ -183,8 +196,8 @@ export default function CategoryPage() {
                     placeholder="Search"
                     variant="outlined"
                     size="small"
-                    value={searchKeyword}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    value={tableState.search}
+                    onChange={tableHandlers.handleSearch}
                     sx={{
                         width: 300,
                         '& .MuiOutlinedInput-root': {
@@ -272,7 +285,12 @@ export default function CategoryPage() {
                 </Box>
             </Popover>
 
-            <DataTable columns={columns} state={state} handlers={handlers} />
+            <DataTable 
+                key={`category-table-${paginationModel.page}-${paginationModel.pageSize}`}
+                columns={columns} 
+                state={tableState} 
+                handlers={tableHandlers} 
+            />
         </Box>
     );
 }

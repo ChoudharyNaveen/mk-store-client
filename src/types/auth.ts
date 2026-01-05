@@ -15,6 +15,7 @@ export interface User {
   profileStatus: ProfileStatus;
   roleName: RoleName;
   vendorId?: number;
+  vendorName?: string;
 }
 
 export interface LoginRequest {

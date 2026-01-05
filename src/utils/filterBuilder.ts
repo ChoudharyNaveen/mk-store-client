@@ -261,3 +261,69 @@ export const createInFilter = (key: string, values: string[]): ServerFilter => (
   in: values,
 });
 
+/**
+ * Create default filters for vendorId and branchId
+ * These filters are always applied to ensure data is scoped to the current vendor and branch
+ * 
+ * @param vendorId - Vendor ID from auth store
+ * @param branchId - Selected branch ID from branch store
+ * @returns Array of default ServerFilter objects
+ * 
+ * @example
+ * ```ts
+ * const defaultFilters = createDefaultFilters(vendorId, branchId);
+ * const allFilters = [...defaultFilters, ...otherFilters];
+ * ```
+ */
+export const createDefaultFilters = (
+  vendorId: number | null | undefined,
+  branchId: number | null | undefined
+): ServerFilter[] => {
+  const filters: ServerFilter[] = [];
+
+  // Add vendorId filter if available
+  if (vendorId !== null && vendorId !== undefined) {
+    filters.push({
+      key: 'vendorId',
+      eq: String(vendorId),
+    });
+  }
+
+  // Add branchId filter if available
+  if (branchId !== null && branchId !== undefined) {
+    filters.push({
+      key: 'branchId',
+      eq: String(branchId),
+    });
+  }
+
+  return filters;
+};
+
+/**
+ * Merge default filters (vendorId, branchId) with additional filters
+ * This ensures that vendor and branch scoping is always applied
+ * 
+ * @param additionalFilters - Additional filters to merge with defaults
+ * @param vendorId - Vendor ID from auth store
+ * @param branchId - Selected branch ID from branch store
+ * @returns Combined array of ServerFilter objects with defaults first
+ * 
+ * @example
+ * ```ts
+ * const filters = mergeWithDefaultFilters(
+ *   buildFiltersFromDateRangeAndAdvanced({ ... }),
+ *   vendorId,
+ *   branchId
+ * );
+ * ```
+ */
+export const mergeWithDefaultFilters = (
+  additionalFilters: ServerFilter[],
+  vendorId: number | null | undefined,
+  branchId: number | null | undefined
+): ServerFilter[] => {
+  const defaultFilters = createDefaultFilters(vendorId, branchId);
+  return [...defaultFilters, ...additionalFilters];
+};
+

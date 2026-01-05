@@ -5,11 +5,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './authSlice';
 import branchReducer from './branchSlice';
+import dateRangeReducer from './dateRangeSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     branch: branchReducer,
+    dateRange: dateRangeReducer,
   },
 });
 

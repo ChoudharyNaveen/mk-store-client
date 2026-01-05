@@ -11,6 +11,7 @@ interface AuthState {
   token: string | null;
   branchId: number | null;
   isAuthenticated: boolean;
+  isInitializing: boolean;
 }
 
 const initialState: AuthState = {
@@ -18,6 +19,7 @@ const initialState: AuthState = {
   token: null,
   branchId: null,
   isAuthenticated: false,
+  isInitializing: true, // Start as true to prevent premature redirects
 };
 
 const authSlice = createSlice({
@@ -29,12 +31,17 @@ const authSlice = createSlice({
       state.token = action.payload.token;
       state.branchId = action.payload.branchId || null;
       state.isAuthenticated = true;
+      state.isInitializing = false;
     },
     clearAuth: (state) => {
       state.user = null;
       state.token = null;
       state.branchId = null;
       state.isAuthenticated = false;
+      state.isInitializing = false;
+    },
+    setInitializing: (state, action: PayloadAction<boolean>) => {
+      state.isInitializing = action.payload;
     },
     updateUser: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {
@@ -44,6 +51,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { setAuth, clearAuth, updateUser } = authSlice.actions;
+export const { setAuth, clearAuth, updateUser, setInitializing } = authSlice.actions;
 export default authSlice.reducer;
 

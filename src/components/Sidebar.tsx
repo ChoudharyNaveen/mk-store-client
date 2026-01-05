@@ -13,8 +13,14 @@ import {
     IconButton,
     Tooltip,
     Popover,
+    Select,
+    MenuItem,
+    FormControl,
 } from '@mui/material';
 import { useLocation, Link } from 'react-router-dom';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { setSelectedBranch } from '../store/branchSlice';
+import { setAuth } from '../store/authSlice';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import CategoryIcon from '@mui/icons-material/Category';
@@ -109,6 +115,28 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
     const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
     const location = useLocation();
     const pathname = location.pathname;
+    const dispatch = useAppDispatch();
+    
+    // Get data from store
+    const { user, token } = useAppSelector((state) => state.auth);
+    const { branches, selectedBranchId } = useAppSelector((state) => state.branch);
+    
+    // Get vendor name (check for vendorName field, fallback to name or default)
+    const vendorName = user?.vendorName || user?.name || 'MK Store';
+    
+    // Handle branch change
+    const handleBranchChange = (event: { target: { value: unknown } }) => {
+        const newBranchId = event.target.value as number;
+        if (newBranchId && user && token) {
+            dispatch(setSelectedBranch(newBranchId));
+            // Update auth store with new branch ID
+            dispatch(setAuth({
+                user,
+                token,
+                branchId: newBranchId,
+            }));
+        }
+    };
 
     // State for hover menu in collapsed mode
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -177,33 +205,205 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
                 alignItems: 'center',
                 justifyContent: open ? 'space-between' : 'center',
                 px: 2,
-                py: 2
+                py: 2,
+                gap: 1,
+                position: 'relative',
             }}>
                 {open ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Box
-                            sx={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: '50%',
-                                bgcolor: 'primary.main',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'white',
-                            }}
-                        >
-                            <ShoppingBagIcon />
-                        </Box>
-                        <Box>
-                            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: '#333', lineHeight: 1 }}>
-                                MK Store
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                                Online Store
-                            </Typography>
+                    <>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0, maxWidth: 'calc(100% - 60px)' }}>
+                            <Box
+                                sx={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: '50%',
+                                    bgcolor: 'primary.main',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <ShoppingBagIcon />
+                            </Box>
+                            <Box sx={{ flex: 1, minWidth: 0, maxWidth: '100%' }}>
+                                <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: '#333', lineHeight: 1, mb: 0.5 }}>
+                                    {vendorName}
+                                </Typography>
+                                <FormControl 
+                                    size="small" 
+                                    sx={{ 
+                                        minWidth: 140,
+                                        maxWidth: 180,
+                                        width: '100%',
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#2C405A',
+                                        borderWidth: '1.5px',
+                                    },
+                                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#2C405A',
+                                    },
+                                    '& .Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                        borderColor: '#2C405A',
+                                        borderWidth: '2px',
+                                    },
+                                }}
+                            >
+                                <Select
+                                    value={selectedBranchId || ''}
+                                    onChange={handleBranchChange}
+                                    displayEmpty
+                                    renderValue={(value) => {
+                                        if (!value) return 'Select Branch';
+                                        const branch = branches.find(b => b.id === value);
+                                        if (!branch) return 'Select Branch';
+                                        return (
+                                            <Tooltip title={branch.name} arrow placement="top">
+                                                <Box sx={{ 
+                                                    width: '100%', 
+                                                    minWidth: 0,
+                                                    overflow: 'hidden',
+                                                }}>
+                                                    <Typography 
+                                                        variant="body2" 
+                                                        sx={{ 
+                                                            fontWeight: 600, 
+                                                            color: '#2C405A',
+                                                            lineHeight: 1.2,
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            whiteSpace: 'nowrap',
+                                                            maxWidth: '100%',
+                                                        }}
+                                                    >
+                                                        {branch.name}
+                                                    </Typography>
+                                                    {/* {branch.code && (
+                                                        <Typography 
+                                                            variant="caption" 
+                                                            sx={{ 
+                                                                color: '#6C757D',
+                                                                fontSize: '0.7rem',
+                                                                lineHeight: 1.2,
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                                maxWidth: '100%',
+                                                            }}
+                                                        >
+                                                            {branch.code}
+                                                        </Typography>
+                                                    )} */}
+                                                </Box>
+                                            </Tooltip>
+                                        );
+                                    }}
+                                    sx={{
+                                        height: 'auto',
+                                        minHeight: 40,
+                                        borderRadius: '6px',
+                                        fontSize: '0.875rem',
+                                        '& .MuiSelect-select': {
+                                            py: 1,
+                                            px: 1.5,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            minWidth: 0,
+                                            width: '100%',
+                                        },
+                                        '& .MuiSelect-icon': {
+                                            color: '#6C757D',
+                                            flexShrink: 0,
+                                        },
+                                    }}
+                                    MenuProps={{
+                                        PaperProps: {
+                                            sx: {
+                                                maxHeight: 300,
+                                                mt: 0.5,
+                                                borderRadius: '8px',
+                                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                                            },
+                                        },
+                                    }}
+                                >
+                                    {branches.length === 0 ? (
+                                        <MenuItem value="" disabled>
+                                            No branches available
+                                        </MenuItem>
+                                    ) : (
+                                        branches.map((branch) => (
+                                            <MenuItem 
+                                                key={branch.id} 
+                                                value={branch.id}
+                                                sx={{
+                                                    py: 1.5,
+                                                    px: 2,
+                                                    bgcolor: branch.id === selectedBranchId ? 'rgba(32, 69, 100, 0.08)' : 'transparent',
+                                                    '&:hover': {
+                                                        bgcolor: 'rgba(32, 69, 100, 0.04)',
+                                                    },
+                                                }}
+                                            >
+                                                <Tooltip title={branch.name} arrow placement="right">
+                                                    <Box sx={{ 
+                                                        width: '100%', 
+                                                        minWidth: 0,
+                                                        overflow: 'hidden',
+                                                    }}>
+                                                        <Typography 
+                                                            variant="body2" 
+                                                            sx={{ 
+                                                                fontWeight: branch.id === selectedBranchId ? 600 : 500,
+                                                                color: branch.id === selectedBranchId ? '#2C405A' : '#333',
+                                                                lineHeight: 1.3,
+                                                                mb: 0.25,
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                                maxWidth: '100%',
+                                                            }}
+                                                        >
+                                                            {branch.name}
+                                                        </Typography>
+                                                        {branch.code && (
+                                                            <Typography 
+                                                                variant="caption" 
+                                                                sx={{
+                                                                    color: '#6C757D',
+                                                                    fontSize: '0.75rem',
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap',
+                                                                    maxWidth: '100%',
+                                                                }}
+                                                            >
+                                                                {branch.code}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                </Tooltip>
+                                            </MenuItem>
+                                        ))
+                                    )}
+                                </Select>
+                            </FormControl>
                         </Box>
                     </Box>
+                    <IconButton 
+                        onClick={onToggle}
+                        sx={{
+                            flexShrink: 0,
+                            position: 'absolute',
+                            right: 4,
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                        }}
+                    >
+                        <ChevronLeftIcon />
+                    </IconButton>
+                    </>
                 ) : (
                     <Box
                         sx={{
@@ -225,14 +425,9 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
                         <ShoppingBagIcon />
                     </Box>
                 )}
-                {open && (
-                    <IconButton onClick={onToggle}>
-                        <ChevronLeftIcon />
-                    </IconButton>
-                )}
             </Toolbar>
 
-            <Box sx={{ overflow: 'auto', mt: 1 }}>
+            <Box sx={{ overflow: 'auto' }}>
                 <List component="nav">
                     {menuItems.map((item) => {
                         const isDashboard = item.path === '/';
