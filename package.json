@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "dev:staging": "cross-env VITE_MY_VAR=staging vite",
+    "build:staging": "cross-env VITE_MY_VAR=staging tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint"
   },
@@ -34,6 +35,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4.3.1",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",

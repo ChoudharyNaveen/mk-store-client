@@ -6,9 +6,7 @@
 type Environment = 'local' | 'staging' | 'production';
 
 const getEnvironment = (): Environment => {
-  const metaEnv = import.meta.env as { MODE?: string; VITE_ENV?: string; VITE_API_BASE_URL?: string };
-  const env = metaEnv.MODE || metaEnv.VITE_ENV || 'local';
-  
+  const env = import.meta.env.VITE_MY_VAR;  
   if (env === 'production' || env === 'prod') {
     return 'production';
   }
