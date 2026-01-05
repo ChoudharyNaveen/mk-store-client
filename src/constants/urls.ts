@@ -71,7 +71,7 @@ export const API_URLS = {
   
   // Order endpoints
   ORDERS: {
-    LIST: `${API_PREFIX}/orders`,
+    LIST: `${API_PREFIX}/get-order`,
     CREATE: `${API_PREFIX}/orders`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/orders/${id}`,
     UPDATE: (id: string | number) => `${API_PREFIX}/orders/${id}`,

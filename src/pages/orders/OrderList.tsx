@@ -1,96 +1,295 @@
-
-
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Chip } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
-import { DateRange } from 'react-date-range';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import { DateRangePicker, RangeKeyDict } from 'react-date-range';
+import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
-import { useTable } from '../../hooks/useTable';
-import { RangeKeyDict } from 'react-date-range';
-
-interface Order {
-    id: string;
-    customerName: string;
-    orderDate: string;
-    amount: string;
-    status: string;
-}
-
-const mockOrders: Order[] = Array.from({ length: 50 }, (_, i) => ({
-    id: `ORD${1000 + i}`,
-    customerName: 'John Doe',
-    orderDate: '28/12/2025',
-    amount: '₹1,250',
-    status: 'Delivered',
-}));
-
-const columns = [
-    { id: 'id' as keyof Order, label: 'Order ID', minWidth: 100 },
-    { id: 'customerName' as keyof Order, label: 'Customer Name', minWidth: 150 },
-    { id: 'orderDate' as keyof Order, label: 'Order Date', minWidth: 120 },
-    { id: 'amount' as keyof Order, label: 'Amount', minWidth: 100 },
-    { id: 'status' as keyof Order, label: 'Status', minWidth: 100 },
-    {
-        id: 'action' as keyof Order,
-        label: 'Action',
-        minWidth: 100,
-        align: 'center' as const,
-        render: () => (
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                <IconButton
-                    size="small"
-                    sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        color: 'text.secondary',
-                        '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                    }}
-                >
-                    <EditIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                    size="small"
-                    sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        color: 'error.main',
-                        bgcolor: '#ffebee',
-                        '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                    }}
-                >
-                    <DeleteIcon fontSize="small" />
-                </IconButton>
-            </Box>
-        )
-    },
-];
+import { useServerPagination } from '../../hooks/useServerPagination';
+import { fetchOrders } from '../../services/order.service';
+import type { Order } from '../../types/order';
+import type { ServerFilter } from '../../types/filter';
+import { getLastNDaysRangeForDatePicker } from '../../utils/date';
+import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 
 export default function OrderList() {
-    const [dateRange, setDateRange] = React.useState([{
-        startDate: new Date(),
-        endDate: new Date(),
-        key: 'selection'
-    }]);
+    const navigate = useNavigate();
+    const dispatch = useAppDispatch();
+    
+    // Get vendorId and branchId from store
+    const { user } = useAppSelector((state) => state.auth);
+    const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
+    const vendorId = user?.vendorId;
+    
+    // Get date range from store, or use default
+    const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
+    const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
+    
+    const columns = [
+        {
+            id: 'order_number' as keyof Order,
+            label: 'Order ID',
+            minWidth: 150,
+            render: (row: Order) => (
+                <Typography
+                    component="button"
+                    onClick={() => navigate(`/orders/detail/${row.id}`)}
+                    sx={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#204564',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        textDecoration: 'none',
+                        '&:hover': {
+                            textDecoration: 'underline',
+                        },
+                    }}
+                >
+                    {row.order_number}
+                </Typography>
+            )
+        },
+        {
+            id: 'user' as keyof Order,
+            label: 'Customer',
+            minWidth: 150,
+            render: (row: Order) => row.user?.name || 'N/A'
+        },
+        {
+            id: 'created_at' as keyof Order,
+            label: 'Order Date',
+            minWidth: 120,
+            render: (row: Order) => {
+                if (!row.created_at) return 'N/A';
+                try {
+                    return format(new Date(row.created_at), 'MMM dd, yyyy');
+                } catch {
+                    return row.created_at;
+                }
+            }
+        },
+        {
+            id: 'final_amount' as keyof Order,
+            label: 'Amount',
+            minWidth: 120,
+            render: (row: Order) => `₹${row.final_amount?.toLocaleString() || '0.00'}`
+        },
+        {
+            id: 'status' as keyof Order,
+            label: 'Status',
+            minWidth: 120,
+            render: (row: Order) => {
+                const getStatusColor = (status: string) => {
+                    switch (status) {
+                        case 'DELIVERED':
+                            return 'success';
+                        case 'PENDING':
+                            return 'warning';
+                        case 'CANCELLED':
+                            return 'error';
+                        case 'PROCESSING':
+                        case 'SHIPPED':
+                            return 'info';
+                        default:
+                            return 'default';
+                    }
+                };
+                return (
+                    <Chip
+                        label={row.status}
+                        color={getStatusColor(row.status)}
+                        size="small"
+                    />
+                );
+            }
+        },
+        {
+            id: 'payment_status' as keyof Order,
+            label: 'Payment Status',
+            minWidth: 130,
+            render: (row: Order) => {
+                const getPaymentColor = (status: string) => {
+                    switch (status) {
+                        case 'PAID':
+                            return 'success';
+                        case 'UNPAID':
+                            return 'error';
+                        case 'PARTIAL':
+                            return 'warning';
+                        case 'REFUNDED':
+                            return 'default';
+                        default:
+                            return 'default';
+                    }
+                };
+                return (
+                    <Chip
+                        label={row.payment_status}
+                        color={getPaymentColor(row.payment_status)}
+                        size="small"
+                    />
+                );
+            }
+        },
+        {
+            id: 'action' as keyof Order,
+            label: 'Action',
+            minWidth: 100,
+            align: 'center' as const,
+            render: (row: Order) => (
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                    <IconButton
+                        size="small"
+                        onClick={() => navigate(`/orders/detail/${row.id}`)}
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'text.secondary',
+                            '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
+                        }}
+                    >
+                        <VisibilityIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        size="small"
+                        onClick={() => navigate(`/orders/edit/${row.id}`)}
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'text.secondary',
+                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
+                        }}
+                    >
+                        <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        size="small"
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'error.main',
+                            bgcolor: '#ffebee',
+                            '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
+                        }}
+                    >
+                        <DeleteIcon fontSize="small" />
+                    </IconButton>
+                </Box>
+            )
+        },
+    ];
+    
+    const [dateRange, setDateRange] = React.useState(() => {
+        if (storeStartDate && storeEndDate) {
+            return [{
+                startDate: new Date(storeStartDate),
+                endDate: new Date(storeEndDate),
+                key: 'selection'
+            }];
+        }
+        return getLastNDaysRangeForDatePicker(30);
+    });
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
-
-    const { state, handlers } = useTable<Order>({
-        fetchData: async (params) => {
-            const filteredData = params.search
-                ? mockOrders.filter(item => item.customerName.toLowerCase().includes(params.search.toLowerCase()) || item.id.toLowerCase().includes(params.search.toLowerCase()))
-                : mockOrders;
-            const start = (params.page - 1) * params.rowsPerPage;
-            const end = start + params.rowsPerPage;
-            return { data: filteredData.slice(start, end), total: filteredData.length };
-        },
-        initialRowsPerPage: 10,
+    const [advancedFilters, setAdvancedFilters] = React.useState({
+        orderNumber: '',
+        customerName: '',
+        status: '',
     });
+
+    // Helper function to build filters array with date range and default filters
+    const buildFilters = React.useCallback((): ServerFilter[] => {
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+            dateRange,
+            dateField: 'created_at',
+            advancedFilters,
+            filterMappings: {
+                orderNumber: { field: 'order_number', operator: 'iLike' },
+                customerName: { field: 'user.name', operator: 'iLike' },
+                status: { field: 'status', operator: 'eq' },
+            },
+        });
+        
+        // Merge with default filters (vendorId and branchId)
+        return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+    }, [dateRange, advancedFilters, vendorId, selectedBranchId]);
+
+    // Use server pagination hook - now includes tableState and tableHandlers
+    const {
+        paginationModel,
+        setPaginationModel,
+        setFilters,
+        tableState,
+        tableHandlers,
+    } = useServerPagination<Order>({
+        fetchFunction: fetchOrders,
+        initialPageSize: 20,
+        enabled: true,
+        autoFetch: true,
+        filters: buildFilters(),
+        initialSorting: [
+            {
+                key: 'created_at',
+                direction: 'DESC',
+            },
+        ],
+        searchDebounceMs: 500,
+    });
+
+    // Sync local date range with store when store dates change
+    React.useEffect(() => {
+        if (storeStartDate && storeEndDate) {
+            setDateRange([{
+                startDate: new Date(storeStartDate),
+                endDate: new Date(storeEndDate),
+                key: 'selection'
+            }]);
+        }
+    }, [storeStartDate, storeEndDate]);
+
+    // Update filters when advanced filters or date range changes
+    React.useEffect(() => {
+        setFilters(buildFilters());
+        // Reset to first page when filters change
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+
+    const handleApplyFilters = () => {
+        setFilterAnchorEl(null);
+        tableHandlers.refresh();
+    };
+
+    const handleClearFilters = () => {
+        setAdvancedFilters({ orderNumber: '', customerName: '', status: '' });
+        tableHandlers.refresh();
+    };
+
+    const handleDateSelect = (ranges: RangeKeyDict) => {
+        if (ranges.selection && ranges.selection.startDate && ranges.selection.endDate) {
+            const newDateRange = [{
+                startDate: ranges.selection.startDate,
+                endDate: ranges.selection.endDate,
+                key: ranges.selection.key || 'selection'
+            }];
+            setDateRange(newDateRange);
+            
+            // Save to store
+            dispatch(setDateRangeAction({
+                startDate: ranges.selection.startDate,
+                endDate: ranges.selection.endDate,
+            }));
+        }
+    };
 
     return (
         <Box>
@@ -100,21 +299,21 @@ export default function OrderList() {
                     placeholder="Search"
                     variant="outlined"
                     size="small"
-                    value={state.search}
-                    onChange={handlers.handleSearch}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon />
-                            </InputAdornment>
-                        ),
-                    }}
+                    value={tableState.search}
+                    onChange={tableHandlers.handleSearch}
                     sx={{
                         width: 300,
                         '& .MuiOutlinedInput-root': {
                             borderRadius: 10,
                             bgcolor: 'white',
                         }
+                    }}
+                    InputProps={{
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon />
+                            </InputAdornment>
+                        ),
                     }}
                 />
                 <Button
@@ -123,7 +322,7 @@ export default function OrderList() {
                     onClick={(e) => setDateAnchorEl(e.currentTarget)}
                     sx={{ borderRadius: 8, textTransform: 'none', borderColor: '#e0e0e0', color: 'text.secondary' }}
                 >
-                    Date Range
+                    {format(dateRange[0].startDate || new Date(), 'MMM dd')} - {format(dateRange[0].endDate || new Date(), 'MMM dd')}
                 </Button>
                 <Button
                     variant="outlined"
@@ -131,7 +330,7 @@ export default function OrderList() {
                     onClick={(e) => setFilterAnchorEl(e.currentTarget)}
                     sx={{ borderRadius: 8, textTransform: 'none', borderColor: '#e0e0e0', color: 'text.secondary' }}
                 >
-                    Advanced Filter
+                    Advanced Search
                 </Button>
             </Box>
 
@@ -139,40 +338,64 @@ export default function OrderList() {
                 open={Boolean(dateAnchorEl)}
                 anchorEl={dateAnchorEl}
                 onClose={() => setDateAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
             >
-                <DateRange
-                    editableDateInputs={true}
-                    onChange={(ranges: RangeKeyDict) => {
-                        if (ranges.selection && ranges.selection.startDate && ranges.selection.endDate) {
-                            setDateRange([{
-                                startDate: ranges.selection.startDate,
-                                endDate: ranges.selection.endDate,
-                                key: ranges.selection.key || 'selection'
-                            }]);
-                        }
-                    }}
-                    moveRangeOnFirstSelection={false}
-                    ranges={dateRange}
-                />
+                <Box sx={{ p: 1 }}>
+                    <DateRangePicker
+                        ranges={dateRange}
+                        onChange={handleDateSelect}
+                        moveRangeOnFirstSelection={false}
+                    />
+                </Box>
             </Popover>
 
             <Popover
                 open={Boolean(filterAnchorEl)}
                 anchorEl={filterAnchorEl}
                 onClose={() => setFilterAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
-                <Box sx={{ p: 2, minWidth: 250 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 2 }}>Advanced Filters</Typography>
-                    <TextField fullWidth size="small" label="Order ID" sx={{ mb: 2 }} />
-                    <TextField fullWidth size="small" label="Customer Name" sx={{ mb: 2 }} />
-                    <TextField fullWidth size="small" label="Status" sx={{ mb: 2 }} />
-                    <Button variant="contained" fullWidth>Apply Filters</Button>
+                <Box sx={{ p: 3, width: 300 }}>
+                    <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Orders</Typography>
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label="Order Number"
+                        value={advancedFilters.orderNumber}
+                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, orderNumber: e.target.value })}
+                        sx={{ mb: 2 }}
+                    />
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label="Customer Name"
+                        value={advancedFilters.customerName}
+                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, customerName: e.target.value })}
+                        sx={{ mb: 2 }}
+                    />
+                    <TextField
+                        fullWidth
+                        size="small"
+                        label="Status"
+                        value={advancedFilters.status}
+                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
+                        sx={{ mb: 2 }}
+                    />
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                        <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
+                        <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
+                    </Box>
                 </Box>
             </Popover>
 
-            <DataTable columns={columns} state={state} handlers={handlers} />
+            <DataTable 
+                key={`order-table-${paginationModel.page}-${paginationModel.pageSize}`}
+                columns={columns} 
+                state={tableState} 
+                handlers={tableHandlers} 
+            />
         </Box>
     );
 }
