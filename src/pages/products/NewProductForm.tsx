@@ -6,8 +6,16 @@ import {
     Grid,
     CircularProgress,
     Paper,
+    Divider,
+    Chip,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import InfoIcon from '@mui/icons-material/Info';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import CategoryIcon from '@mui/icons-material/Category';
+import DescriptionIcon from '@mui/icons-material/Description';
+import ImageIcon from '@mui/icons-material/Image';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -633,35 +641,73 @@ export default function ProductForm() {
             </Box>
 
             <FormProvider methods={methods} onSubmit={handleSubmit(onSubmit)}>
-                <Grid container spacing={4}>
-                    {/* Column 1 */}
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ mb: 4 }}>
+                <Grid container spacing={2}>
+                    {/* Basic Information Section */}
+                    <Grid size={{ xs: 12 }}>
+                        <Box sx={{ mb: 1.5, mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <InfoIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
+                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
+                                Basic Information
+                            </Typography>
+                        </Box>
+                        <Divider sx={{ mb: 1.5 }} />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormTextField
                                 name="title"
                                 control={control}
-                                label="Title"
+                                label="Product Title"
                                 required
-                                placeholder="Type here"
+                                placeholder="Enter product name"
                                 variant="outlined"
                                 size="small"
                                 disabled={loading}
                             />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                The name of your product as it will appear to customers
+                            </Typography>
                         </Box>
-                        <Box sx={{ mb: 4 }}>
-                            <FormNumberField
-                                name="quantity"
-                                control={control}
-                                label="Stock Quantity"
-                                placeholder="Type here"
-                                variant="outlined"
-                                size="small"
-                                required
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{ mb: 2 }}>
+                            <FormAutocomplete
+                                name="brandId"
+                                label="Brand"
                                 disabled={loading}
-                                inputProps={{ step: 1, min: 0 }}
+                                loading={loadingBrands}
+                                options={brands.map(brand => ({
+                                    value: Number(brand.id),
+                                    label: brand.name,
+                                }))}
+                                onInputChange={(_, newInputValue, reason) => {
+                                    if (reason === 'input') {
+                                        setBrandSearchTerm(newInputValue);
+                                    }
+                                }}
+                                size="small"
                             />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                Select the product brand (optional)
+                            </Typography>
                         </Box>
-                        <Box sx={{ mb: 4 }}>
+                    </Grid>
+
+                    {/* Category & Classification Section */}
+                    <Grid size={{ xs: 12 }}>
+                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CategoryIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
+                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
+                                Category & Classification
+                            </Typography>
+                        </Box>
+                        <Divider sx={{ mb: 1.5 }} />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormAutocomplete
                                 name="categoryId"
                                 label="Category"
@@ -673,43 +719,20 @@ export default function ProductForm() {
                                     label: cat.title,
                                 }))}
                                 onInputChange={(_, newInputValue, reason) => {
-                                    // Only trigger search when user is typing, not when selecting a value
                                     if (reason === 'input') {
                                         setCategorySearchTerm(newInputValue);
                                     }
                                 }}
                                 size="small"
                             />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                Select the main product category
+                            </Typography>
                         </Box>
                     </Grid>
 
-                    {/* Column 2 */}
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ mb: 4 }}>
-                            <FormTextField
-                                name="price"
-                                control={control}
-                                label="Price"
-                                required
-                                placeholder="Type here"
-                                variant="outlined"
-                                size="small"
-                                type="number"
-                                disabled={loading}
-                            />
-                        </Box>
-                        <Box sx={{ mb: 4 }}>
-                            <FormTextField
-                                name="units"
-                                control={control}
-                                label="Stock Unit"
-                                placeholder="Type here"
-                                variant="outlined"
-                                size="small"
-                                disabled={loading}
-                            />
-                        </Box>
-                        <Box sx={{ mb: 4 }}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormAutocomplete
                                 name="subCategoryId"
                                 label="Sub Category"
@@ -721,51 +744,105 @@ export default function ProductForm() {
                                     label: sub.title,
                                 }))}
                                 onInputChange={(_, newInputValue, reason) => {
-                                    // Only trigger search when user is typing, not when selecting a value
                                     if (reason === 'input') {
                                         setSubCategorySearchTerm(newInputValue);
                                     }
                                 }}
                                 size="small"
                             />
-                        </Box>
-                        <Box sx={{ mb: 4 }}>
-                            <FormAutocomplete
-                                name="brandId"
-                                label="Brand"
-                                disabled={loading}
-                                loading={loadingBrands}
-                                options={brands.map(brand => ({
-                                    value: Number(brand.id), // Ensure it's a number
-                                    label: brand.name,
-                                }))}
-                                onInputChange={(_, newInputValue, reason) => {
-                                    // Only trigger search when user is typing, not when selecting a value
-                                    if (reason === 'input') {
-                                        setBrandSearchTerm(newInputValue);
-                                    }
-                                }}
-                                size="small"
-                            />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                Select a sub-category within the chosen category
+                            </Typography>
                         </Box>
                     </Grid>
 
-                    {/* Column 3 */}
+                    {/* Pricing & Inventory Section */}
+                    <Grid size={{ xs: 12 }}>
+                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <AttachMoneyIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
+                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
+                                Pricing & Inventory
+                            </Typography>
+                        </Box>
+                        <Divider sx={{ mb: 1.5 }} />
+                    </Grid>
+
                     <Grid size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ mb: 4 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormTextField
-                                name="sellingPrice"
+                                name="price"
                                 control={control}
-                                label="Selling Price"
+                                label="Cost Price"
                                 required
-                                placeholder="Type here"
+                                placeholder="0.00"
                                 variant="outlined"
                                 size="small"
                                 type="number"
                                 disabled={loading}
                             />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                The cost price of the product
+                            </Typography>
                         </Box>
-                        <Box sx={{ mb: 4 }}>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Box sx={{ mb: 2 }}>
+                            <FormTextField
+                                name="sellingPrice"
+                                control={control}
+                                label="Selling Price"
+                                required
+                                placeholder="0.00"
+                                variant="outlined"
+                                size="small"
+                                type="number"
+                                disabled={loading}
+                            />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                The price at which you'll sell to customers
+                            </Typography>
+                        </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Box sx={{ mb: 2 }}>
+                            <FormNumberField
+                                name="quantity"
+                                control={control}
+                                label="Stock Quantity"
+                                required
+                                placeholder="0"
+                                variant="outlined"
+                                size="small"
+                                disabled={loading}
+                                inputProps={{ step: 1, min: 0 }}
+                            />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                Total number of units available in stock
+                            </Typography>
+                        </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{ mb: 2 }}>
+                            <FormTextField
+                                name="units"
+                                control={control}
+                                label="Stock Unit"
+                                placeholder="e.g., 25"
+                                variant="outlined"
+                                size="small"
+                                disabled={loading}
+                            />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                Optional: Number of items per stock unit (used to calculate items per unit)
+                            </Typography>
+                        </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormSelect
                                 name="productStatus"
                                 control={control}
@@ -773,16 +850,19 @@ export default function ProductForm() {
                                 required
                                 disabled={loading}
                                 options={[
-                                    { value: 'INSTOCK', label: 'In stock' },
-                                    { value: 'OUTOFSTOCK', label: 'Out of stock' },
+                                    { value: 'INSTOCK', label: 'In Stock' },
+                                    { value: 'OUTOFSTOCK', label: 'Out of Stock' },
                                 ]}
                             />
                         </Box>
-                        <Box sx={{ mb: 4 }}>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormSelect
                                 name="status"
                                 control={control}
-                                label="Status"
+                                label="Product Status"
                                 required
                                 disabled={loading}
                                 options={[
@@ -795,18 +875,30 @@ export default function ProductForm() {
 
                     {/* Item Details Section */}
                     <Grid size={{ xs: 12 }}>
-                        <Box sx={{ mb: 3, mt: 2, pb: 2, borderBottom: '1px solid #e0e0e0' }}>
+                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <InventoryIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
                             <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
-                                Item Details
+                                Item Measurement Details
                             </Typography>
-                            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                                Required fields for detailed item measurement and packaging information
-                            </Typography>
+                            <Chip 
+                                label="Required" 
+                                size="small" 
+                                sx={{ 
+                                    bgcolor: '#e3f2fd', 
+                                    color: '#1976d2', 
+                                    fontSize: '0.65rem',
+                                    height: '18px'
+                                }} 
+                            />
                         </Box>
+                        <Divider sx={{ mb: 1.5 }} />
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5, fontSize: '0.85rem' }}>
+                            Specify the measurement details for individual items in this product
+                        </Typography>
                     </Grid>
                     
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Box sx={{ mb: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormNumberField
                                 name="itemQuantity"
                                 control={control}
@@ -818,14 +910,14 @@ export default function ProductForm() {
                                 disabled={loading}
                                 inputProps={{ step: 'any' }}
                             />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
-                                Measurement quantity per individual item (e.g., 500 for 500gm)
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                The quantity measurement per individual item (e.g., 500 for 500 grams)
                             </Typography>
                         </Box>
                     </Grid>
                     
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Box sx={{ mb: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormAutocomplete
                                 name="itemUnit"
                                 label="Item Unit"
@@ -834,33 +926,39 @@ export default function ProductForm() {
                                 options={getItemUnitOptions()}
                                 size="small"
                             />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
-                                Measurement unit per individual item (e.g., G for grams)
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                The unit of measurement (e.g., G for grams, KG for kilograms, ML for milliliters)
                             </Typography>
                         </Box>
                     </Grid>
                     
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Box sx={{ mb: 4 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormNumberField
                                 name="itemsPerUnit"
                                 control={control}
                                 label="Items Per Unit"
-                                placeholder="e.g., 25"
+                                placeholder="Auto-calculated"
                                 variant="outlined"
                                 size="small"
                                 disabled={true}
                             />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
-                                {units && units.trim() !== '' 
-                                    ? 'Auto-calculated from Stock Quantity ÷ Stock Unit. Required when Stock Unit is provided.'
-                                    : 'Number of items contained in each unit (e.g., 25 items per unit). Required when Stock Unit is provided.'}
+                            <Typography variant="caption" sx={{ color: units && units.trim() !== '' && quantity ? 'success.main' : 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem', fontWeight: units && units.trim() !== '' && quantity ? 500 : 400 }}>
+                                {units && units.trim() !== '' && quantity 
+                                    ? (() => {
+                                        const unitsValue = parseFloat(units);
+                                        const calculated = !isNaN(unitsValue) && unitsValue > 0 ? Math.floor(quantity / unitsValue) : null;
+                                        return calculated && calculated > 0 
+                                            ? `✓ Auto-calculated: ${calculated} items per unit`
+                                            : 'Enter valid Stock Unit and Stock Quantity to calculate';
+                                    })()
+                                    : 'Enter Stock Unit above to auto-calculate items per unit'}
                             </Typography>
                         </Box>
                     </Grid>
-                    
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Box sx={{ mb: 4 }}>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{ mb: 2 }}>
                             <FormDatePicker
                                 name="expiryDate"
                                 control={control}
@@ -870,41 +968,87 @@ export default function ProductForm() {
                                 size="small"
                                 disabled={loading}
                             />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                {isEditMode ? 'Optional: Product expiration date' : 'Required: When does this product expire?'}
+                            </Typography>
                         </Box>
                     </Grid>
 
-                    {/* Full Width Text Areas */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <FormTextField
-                            name="description"
-                            control={control}
-                            label="Description"
-                            placeholder="Type here"
-                            variant="outlined"
-                            multiline
-                            rows={6}
-                            disabled={loading}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <FormTextField
-                            name="nutritional"
-                            control={control}
-                            label="Nutritional"
-                            placeholder="Type here"
-                            variant="outlined"
-                            multiline
-                            rows={6}
-                            disabled={loading}
-                        />
+                    {/* Additional Information Section */}
+                    <Grid size={{ xs: 12 }}>
+                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <DescriptionIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
+                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
+                                Additional Information
+                            </Typography>
+                        </Box>
+                        <Divider sx={{ mb: 1.5 }} />
                     </Grid>
 
-                    {/* Image Upload Column 3 (Bottom) */}
-                    <Grid size={{ xs: 12, md: 4 }} offset={{ md: 8 }}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{ mb: 2 }}>
+                            <FormTextField
+                                name="description"
+                                control={control}
+                                label="Product Description"
+                                placeholder="Enter a detailed description of the product..."
+                                variant="outlined"
+                                multiline
+                                rows={4}
+                                disabled={loading}
+                            />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                Provide a detailed description that helps customers understand your product
+                            </Typography>
+                        </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+                        <Box sx={{ mb: 2 }}>
+                            <FormTextField
+                                name="nutritional"
+                                control={control}
+                                label="Nutritional Information"
+                                placeholder="Enter nutritional details..."
+                                variant="outlined"
+                                multiline
+                                rows={4}
+                                disabled={loading}
+                            />
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                Optional: Add nutritional facts, ingredients, or other relevant information
+                            </Typography>
+                        </Box>
+                    </Grid>
+
+                    {/* Product Image Section */}
+                    <Grid size={{ xs: 12 }}>
+                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <ImageIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
+                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
+                                Product Image
+                            </Typography>
+                            {!isEditMode && (
+                                <Chip 
+                                    label="Required" 
+                                    size="small" 
+                                    sx={{ 
+                                        bgcolor: '#e3f2fd', 
+                                        color: '#1976d2', 
+                                        fontSize: '0.65rem',
+                                        height: '18px'
+                                    }} 
+                                />
+                            )}
+                        </Box>
+                        <Divider sx={{ mb: 1.5 }} />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <FormFileUpload
                             name="file"
                             control={control}
-                            label="Upload cover image"
+                            label="Upload Product Image"
                             required={!isEditMode}
                             accept="image/*"
                             disabled={loading}
@@ -912,10 +1056,15 @@ export default function ProductForm() {
                             onPreviewChange={setFilePreview}
                             minHeight={150}
                         />
+                        <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                            {isEditMode 
+                                ? 'Upload a new image to replace the current product image (optional)'
+                                : 'Upload a high-quality image that represents your product (required)'}
+                        </Typography>
                     </Grid>
                 </Grid>
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 6 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
                 <Button
                     type="submit"
                     variant="contained"
@@ -964,3 +1113,4 @@ export default function ProductForm() {
         </Paper>
     );
 }
+
