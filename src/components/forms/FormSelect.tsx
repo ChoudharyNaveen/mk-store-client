@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { FormControl, InputLabel, Select, MenuItem, FormHelperText, Typography, Box, SelectProps } from '@mui/material';
+import { FormControl, InputLabel, Select, MenuItem, FormHelperText, SelectProps } from '@mui/material';
 import { Controller, Control, FieldPath, FieldValues } from 'react-hook-form';
 
 interface FormSelectOption {
@@ -28,36 +28,38 @@ export default function FormSelect<T extends FieldValues>({
   options,
   ...selectProps
 }: FormSelectProps<T>) {
+  const labelId = React.useId();
+  
   return (
     <Controller
       name={name}
       control={control}
       render={({ field, fieldState: { error } }) => (
-        <Box>
+        <FormControl fullWidth error={!!error} size="small">
           {label && (
-            <Typography sx={{ mb: 1, fontWeight: 600, color: '#333' }}>
-              {label} {required && '*'}
-            </Typography>
+            <InputLabel id={labelId} shrink>
+              {label} {required && <span style={{ color: 'red' }}> *</span>}
+            </InputLabel>
           )}
-          <FormControl fullWidth error={!!error} size="small">
-            <Select
-              {...field}
-              {...selectProps}
-              sx={{
-                borderRadius: 2,
-                bgcolor: '#fdfdfd',
-                ...selectProps.sx,
-              }}
-            >
-              {options.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-            {error && <FormHelperText>{error.message}</FormHelperText>}
-          </FormControl>
-        </Box>
+          <Select
+            {...field}
+            {...selectProps}
+            labelId={label ? labelId : undefined}
+            label={label}
+            sx={{
+              borderRadius: 2,
+              bgcolor: '#fdfdfd',
+              ...selectProps.sx,
+            }}
+          >
+            {options.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+          {error && <FormHelperText>{error.message}</FormHelperText>}
+        </FormControl>
       )}
     />
   );

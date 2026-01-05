@@ -36,21 +36,19 @@ const baseProductFormSchema = {
     price: yup.number().required('Price is required').min(0, 'Price must be greater than 0'),
     sellingPrice: yup.number().required('Selling Price is required').min(0, 'Selling Price must be greater than 0'),
     quantity: yup.number().required('Quantity is required').min(0, 'Quantity must be greater than or equal to 0'),
-    units: yup.string().required('Units is required'),
+    units: yup.string().optional().nullable().transform((value, originalValue) => originalValue === '' ? undefined : value),
     categoryId: yup.number().required('Category is required').min(1, 'Please select a category'),
     subCategoryId: yup.number().required('Sub Category is required').min(1, 'Please select a sub category'),
     status: yup.string().oneOf(['ACTIVE', 'INACTIVE'], 'Status must be ACTIVE or INACTIVE').required('Status is required'),
     productStatus: yup.string().oneOf(['INSTOCK', 'OUTOFSTOCK'], 'Product Status must be INSTOCK or OUTOFSTOCK').required('Product Status is required'),
-    // New/Updated fields
+    // New/Updated fields - itemQuantity and itemUnit are now mandatory
     itemQuantity: yup.number()
-        .nullable()
-        .optional()
+        .required('Item quantity is required')
         .min(0, 'Item quantity must be greater than or equal to 0')
         .transform((value, originalValue) => originalValue === '' ? undefined : value),
     itemUnit: yup.string()
-        .nullable()
-        .optional()
-        .oneOf([...validItemUnits, null, undefined], 'Item unit must be one of the valid unit types')
+        .required('Item unit is required')
+        .oneOf([...validItemUnits], 'Item unit must be one of the valid unit types')
         .transform((value, originalValue) => originalValue === '' ? undefined : value),
     itemsPerUnit: yup.number()
         .nullable()
@@ -109,6 +107,19 @@ const createProductFormSchema = (isEditMode: boolean) => {
             return value;
         });
 
+    // Conditional validation for itemsPerUnit: required if units is provided
+    const itemsPerUnitValidation = yup.number()
+        .nullable()
+        .when('units', {
+            is: (units: string | null | undefined) => units && units.trim() !== '',
+            then: (schema) => schema
+                .required('Items per unit is required when stock unit is provided')
+                .integer('Items per unit must be a whole number')
+                .min(1, 'Items per unit must be greater than or equal to 1'),
+            otherwise: (schema) => schema.optional().nullable(),
+        })
+        .transform((value, originalValue) => originalValue === '' ? undefined : value);
+
     return yup.object({
         ...baseProductFormSchema,
         quantity: quantityValidation,
@@ -116,6 +127,7 @@ const createProductFormSchema = (isEditMode: boolean) => {
         file: fileValidation,
         nutritional: yup.string().optional().nullable(),
         brandId: yup.number().optional().nullable(),
+        itemsPerUnit: itemsPerUnitValidation,
     });
 };
 
@@ -169,6 +181,7 @@ export default function ProductForm() {
     const brandSearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const hasFetchedRef = React.useRef(false);
     const selectedBrandIdRef = React.useRef<number | null>(null);
+    const brandsFetchingRef = React.useRef(false);
 
     const methods = useForm<ProductFormData>({
         resolver: yupResolver(createProductFormSchema(isEditMode)) as any,
@@ -195,14 +208,32 @@ export default function ProductForm() {
         mode: 'onChange',
     });
 
-    const { handleSubmit, watch, reset, formState: { isValid }, control } = methods;
+    const { handleSubmit, watch, reset, formState: { isValid }, control, setValue } = methods;
     const selectedCategoryId = watch('categoryId');
     const selectedBrandId = watch('brandId');
+    const quantity = watch('quantity');
+    const units = watch('units');
     
     // Update ref when selectedBrandId changes
     React.useEffect(() => {
         selectedBrandIdRef.current = selectedBrandId ?? null;
     }, [selectedBrandId]);
+
+    // Auto-calculate itemsPerUnit when units and quantity are provided
+    React.useEffect(() => {
+        if (units && units.trim() !== '' && quantity != null && quantity > 0) {
+            const unitsValue = parseFloat(units);
+            if (!isNaN(unitsValue) && unitsValue > 0) {
+                const calculatedItemsPerUnit = Math.floor(quantity / unitsValue);
+                if (calculatedItemsPerUnit > 0) {
+                    setValue('itemsPerUnit', calculatedItemsPerUnit, { shouldValidate: true });
+                }
+            }
+        } else if (!units || units.trim() === '') {
+            // Clear itemsPerUnit if units is cleared
+            setValue('itemsPerUnit', null, { shouldValidate: true });
+        }
+    }, [quantity, units, setValue]);
 
     // Helper function to fetch a single item by ID and add to list
     const fetchAndAddItem = React.useCallback(async <T extends { id: number }>(
@@ -267,26 +298,6 @@ export default function ProductForm() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [categorySearchTerm]);
 
-    // Initial fetch for brands on mount
-    React.useEffect(() => {
-        const loadBrands = async () => {
-            try {
-                setLoadingBrands(true);
-                const filters = mergeWithDefaultFilters([], vendorId, selectedBranchId);
-                const response = await fetchBrands({ filters, page: 0, pageSize: 20 });
-                setBrands(response.list || []);
-            } catch (error) {
-                console.error('Error fetching brands:', error);
-            } finally {
-                setLoadingBrands(false);
-            }
-        };
-        // Only load brands initially if not in edit mode or if we don't have product data yet
-        if (!isEditMode || !productData) {
-            loadBrands();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // Fetch sub-categories when category is selected
     React.useEffect(() => {
@@ -332,15 +343,16 @@ export default function ProductForm() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCategoryId, subCategorySearchTerm]);
 
-    // Fetch brands with debounced search
+    // Fetch brands with debounced search (handles initial load and search, similar to categories)
     React.useEffect(() => {
-        // Skip if search term is empty and we already have brands loaded
-        // This prevents unnecessary API calls when selecting a value (which clears search term)
-        if (!brandSearchTerm) {
-            // Only skip if we have brands and this is not the initial mount
-            if (brands.length > 0) {
-                return;
-            }
+        // Skip if search term is empty and we already have brands (initial load handled by this same effect)
+        if (!brandSearchTerm && brands.length > 0) {
+            return;
+        }
+
+        // Skip if already fetching to prevent duplicate calls
+        if (brandsFetchingRef.current) {
+            return;
         }
 
         if (brandSearchTimeoutRef.current) {
@@ -348,6 +360,8 @@ export default function ProductForm() {
         }
 
         brandSearchTimeoutRef.current = setTimeout(async () => {
+            // Mark as fetching to prevent duplicate calls
+            brandsFetchingRef.current = true;
             try {
                 setLoadingBrands(true);
                 const additionalFilters: Array<{ key: string; iLike: string }> = [];
@@ -382,6 +396,7 @@ export default function ProductForm() {
                 showErrorToast('Failed to load brands');
             } finally {
                 setLoadingBrands(false);
+                brandsFetchingRef.current = false;
             }
         }, brandSearchTerm ? 500 : 0);
 
@@ -391,7 +406,7 @@ export default function ProductForm() {
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [brandSearchTerm]); // Removed selectedBrandId from dependencies to prevent repeated calls
+    }, [brandSearchTerm]);
 
     // Fetch product data on mount if in edit mode
     React.useEffect(() => {
@@ -424,6 +439,8 @@ export default function ProductForm() {
                         await fetchAndAddItem(product.subCategory.id, fetchSubCategories, setSubCategories, 'sub-category');
                     }
                     // Check both brand object and brandId field
+                    // In edit mode, ensure the selected brand is in the list
+                    // The brand search effect will handle loading the initial list
                     const brandId = product.brand?.id || product.brandId;
                     if (brandId) {
                         await fetchAndAddItem(brandId, fetchBrands, setBrands, 'brand');
@@ -635,11 +652,11 @@ export default function ProductForm() {
                             <FormNumberField
                                 name="quantity"
                                 control={control}
-                                label="Quantity"
-                                required={!isEditMode}
+                                label="Stock Quantity"
                                 placeholder="Type here"
                                 variant="outlined"
                                 size="small"
+                                required
                                 disabled={loading}
                                 inputProps={{ step: 1, min: 0 }}
                             />
@@ -685,8 +702,7 @@ export default function ProductForm() {
                             <FormTextField
                                 name="units"
                                 control={control}
-                                label="Unit"
-                                required
+                                label="Stock Unit"
                                 placeholder="Type here"
                                 variant="outlined"
                                 size="small"
@@ -784,7 +800,7 @@ export default function ProductForm() {
                                 Item Details
                             </Typography>
                             <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                                Optional fields for detailed item measurement and packaging information
+                                Required fields for detailed item measurement and packaging information
                             </Typography>
                         </Box>
                     </Grid>
@@ -795,6 +811,7 @@ export default function ProductForm() {
                                 name="itemQuantity"
                                 control={control}
                                 label="Item Quantity"
+                                required
                                 placeholder="e.g., 500"
                                 variant="outlined"
                                 size="small"
@@ -809,10 +826,10 @@ export default function ProductForm() {
                     
                     <Grid size={{ xs: 12, md: 3 }}>
                         <Box sx={{ mb: 4 }}>
-                            <FormSelect
+                            <FormAutocomplete
                                 name="itemUnit"
-                                control={control}
                                 label="Item Unit"
+                                required
                                 disabled={loading}
                                 options={getItemUnitOptions()}
                                 size="small"
@@ -832,11 +849,12 @@ export default function ProductForm() {
                                 placeholder="e.g., 25"
                                 variant="outlined"
                                 size="small"
-                                disabled={loading}
-                                inputProps={{ step: 1, min: 1 }}
+                                disabled={true}
                             />
                             <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block' }}>
-                                Number of items contained in each unit (e.g., 25 items per unit)
+                                {units && units.trim() !== '' 
+                                    ? 'Auto-calculated from Stock Quantity ÷ Stock Unit. Required when Stock Unit is provided.'
+                                    : 'Number of items contained in each unit (e.g., 25 items per unit). Required when Stock Unit is provided.'}
                             </Typography>
                         </Box>
                     </Grid>

@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { TextField, TextFieldProps, Typography, Box } from '@mui/material';
+import { TextField, TextFieldProps } from '@mui/material';
 import { Controller, Control, FieldPath, FieldValues } from 'react-hook-form';
 
 interface FormDatePickerProps<T extends FieldValues> extends Omit<TextFieldProps, 'name' | 'control' | 'type'> {
@@ -32,34 +32,34 @@ export default function FormDatePicker<T extends FieldValues>({
           : field.value || '';
 
         return (
-          <Box>
-            {label && (
-              <Typography sx={{ mb: 1, fontWeight: 600, color: '#333' }}>
-                {label} {required && '*'}
-              </Typography>
-            )}
-            <TextField
-              {...field}
-              {...textFieldProps}
-              type="date"
-              fullWidth
-              value={value}
-              onChange={(e) => {
-                const dateValue = e.target.value;
-                // Convert string to Date if needed, or keep as string
-                field.onChange(dateValue ? new Date(dateValue) : null);
-              }}
-              error={!!error}
-              helperText={error?.message}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fdfdfd' },
-                ...textFieldProps.sx,
-              }}
-            />
-          </Box>
+          <TextField
+            {...field}
+            {...textFieldProps}
+            type="date"
+            fullWidth
+            value={value}
+            onChange={(e) => {
+              const dateValue = e.target.value;
+              // Convert string to Date if needed, or keep as string
+              field.onChange(dateValue ? new Date(dateValue) : null);
+            }}
+            label={
+              label ? (
+                <span>
+                  {label} {required && <span style={{ color: 'red' }}> *</span>}
+                </span>
+              ) : undefined
+            }
+            error={!!error}
+            helperText={error?.message}
+            slotProps={{
+              inputLabel: { shrink: true },
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fdfdfd' },
+              ...textFieldProps.sx,
+            }}
+          />
         );
       }}
     />

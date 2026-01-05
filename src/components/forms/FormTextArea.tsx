@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { TextField, TextFieldProps, Typography, Box } from '@mui/material';
+import { TextField, TextFieldProps } from '@mui/material';
 import { Controller, Control, FieldPath, FieldValues } from 'react-hook-form';
 
 interface FormTextAreaProps<T extends FieldValues> extends Omit<TextFieldProps, 'name' | 'control'> {
@@ -28,26 +28,29 @@ export default function FormTextArea<T extends FieldValues>({
       name={name}
       control={control}
       render={({ field, fieldState: { error } }) => (
-        <Box>
-          {label && (
-            <Typography sx={{ mb: 1, fontWeight: 600, color: '#333' }}>
-              {label} {required && '*'}
-            </Typography>
-          )}
-          <TextField
-            {...field}
-            {...textFieldProps}
-            fullWidth
-            multiline
-            rows={rows}
-            error={!!error}
-            helperText={error?.message}
-            sx={{
-              '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fdfdfd' },
-              ...textFieldProps.sx,
-            }}
-          />
-        </Box>
+        <TextField
+          {...field}
+          {...textFieldProps}
+          fullWidth
+          multiline
+          rows={rows}
+          label={
+            label ? (
+              <span>
+                {label} {required && <span style={{ color: 'red' }}> *</span>}
+              </span>
+            ) : undefined
+          }
+          error={!!error}
+          helperText={error?.message}
+          slotProps={{
+            inputLabel: { shrink: true },
+          }}
+          sx={{
+            '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fdfdfd' },
+            ...textFieldProps.sx,
+          }}
+        />
       )}
     />
   );

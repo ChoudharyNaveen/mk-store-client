@@ -51,11 +51,6 @@ export default function FormFileUpload<T extends FieldValues>({
       control={control}
       render={({ field: { onChange, ...field }, fieldState: { error } }) => (
         <Box>
-          {label && (
-            <Typography sx={{ mb: 1, fontWeight: 500, color: '#333', visibility: 'hidden' }}>
-              Spacer
-            </Typography>
-          )}
           <Box
             sx={{
               flexGrow: 1,
