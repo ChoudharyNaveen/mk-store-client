@@ -237,7 +237,7 @@ export default function LoginForm() {
                         }
                         label={
                             <Typography variant="body2" color="text.secondary">
-                                Remember Password
+                                Remember Password 
                             </Typography>
                         }
                         sx={{ mt: -1 }}
