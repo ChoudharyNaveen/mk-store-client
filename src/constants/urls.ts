@@ -17,11 +17,12 @@ export const API_URLS = {
   
   // User endpoints
   USERS: {
-    LIST: `${API_PREFIX}/users`,
+    LIST: `${API_PREFIX}/get-users`,
     CREATE: `${API_PREFIX}/users`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/users/${id}`,
     UPDATE: (id: string | number) => `${API_PREFIX}/users/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/users/${id}`,
+    CONVERT_TO_RIDER: `${API_PREFIX}/convert-user-to-rider`,
   },
   
   // Category endpoints

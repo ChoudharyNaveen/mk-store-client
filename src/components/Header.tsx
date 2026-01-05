@@ -22,7 +22,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/auth.service';
 import { showSuccessToast } from '../utils/toast';
-import { useAppDispatch } from '../store/hooks';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { clearAuth } from '../store/authSlice';
 import { clearBranches } from '../store/branchSlice';
 
@@ -37,12 +37,16 @@ export default function Header({ open }: HeaderProps) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
+    const { user } = useAppSelector((state) => state.auth);
+    console.log(user);
+    const id = user?.id;
 
     const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
     };
 
     const handleClose = () => {
+        navigate(`/users/${id}`)
         setAnchorEl(null);
     };
 

@@ -14,6 +14,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import UserList from './pages/users/UserList';
 import NewUserForm from './pages/users/NewUserForm';
+import ProfileSettingsPage from './pages/users/ProfileSettingsPage';
 import CategoryPage from './pages/category/CategoryList';
 import NewCategoryForm from './pages/category/NewCategoryForm';
 import SubCategoryList from './pages/sub-category/SubCategoryList';
@@ -55,6 +56,7 @@ function App() {
                         <Route path="/" element={<Dashboard />} />
                         <Route path="/users" element={<UserList />} />
                         <Route path="/users/new" element={<NewUserForm />} />
+                        <Route path="/users/:id" element={<ProfileSettingsPage />} />
                         <Route path="/category" element={<CategoryPage />} />
                         <Route path="/category/new" element={<NewCategoryForm />} />
                         <Route path="/category/edit/:id" element={<NewCategoryForm />} />

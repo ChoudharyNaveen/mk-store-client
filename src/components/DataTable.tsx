@@ -11,14 +11,11 @@ import {
     Paper,
     Box,
     Typography,
-    TextField,
     Select,
     MenuItem,
     Pagination,
     CircularProgress,
-    Stack,
-    InputAdornment,
-    IconButton,
+
     TableSortLabel
 } from '@mui/material';
 import { Column, TableState } from '../types/table';
@@ -90,7 +87,12 @@ export default function DataTable<T extends { id: string | number }>({
                                 </TableRow>
                             ) : (
                                 data.map((row, index) => (
-                                    <TableRow hover role="checkbox" tabIndex={-1} key={row.id || index}>
+                                    <TableRow
+                                        hover
+                                        role="checkbox"
+                                        tabIndex={-1}
+                                        key={row.id || index}
+                                    >
                                         {columns.map((column) => {
                                             const value = row[column.id] as any;
                                             return (
