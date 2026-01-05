@@ -8,6 +8,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
@@ -50,7 +51,30 @@ export default function SubCategoryList() {
                 />
             )
         },
-        { id: 'title' as keyof SubCategory, label: 'Sub Category', minWidth: 150 },
+        { 
+            id: 'title' as keyof SubCategory, 
+            label: 'Sub Category', 
+            minWidth: 150,
+            render: (row: SubCategory) => (
+                <Typography
+                    component="button"
+                    onClick={() => navigate(`/sub-category/detail/${row.id}`)}
+                    sx={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#204564',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        textDecoration: 'none',
+                        '&:hover': {
+                            textDecoration: 'underline',
+                        },
+                    }}
+                >
+                    {row.title}
+                </Typography>
+            )
+        },
         { 
             id: 'category' as keyof SubCategory, 
             label: 'Category', 
@@ -66,6 +90,18 @@ export default function SubCategoryList() {
             align: 'center' as const,
             render: (row: SubCategory) => (
                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                    <IconButton
+                        size="small"
+                        onClick={() => navigate(`/sub-category/detail/${row.id}`)}
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'text.secondary',
+                            '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
+                        }}
+                    >
+                        <VisibilityIcon fontSize="small" />
+                    </IconButton>
                     <IconButton
                         size="small"
                         onClick={() => navigate(`/sub-category/edit/${row.id}`)}

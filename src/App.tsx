@@ -16,12 +16,15 @@ import UserList from './pages/users/UserList';
 import NewUserForm from './pages/users/NewUserForm';
 import CategoryPage from './pages/category/CategoryList';
 import NewCategoryForm from './pages/category/NewCategoryForm';
+import CategoryDetail from './pages/category/CategoryDetail';
 import SubCategoryList from './pages/sub-category/SubCategoryList';
 import NewSubCategoryForm from './pages/sub-category/NewSubCategoryForm';
+import SubCategoryDetail from './pages/sub-category/SubCategoryDetail';
 import BrandList from './pages/brands/BrandList';
 import NewBrandForm from './pages/brands/NewBrandForm';
 import ProductList from './pages/products/ProductList';
 import NewProductForm from './pages/products/NewProductForm';
+import ProductDetail from './pages/products/ProductDetail';
 import PromocodeList from './pages/promo-code/PromocodeList';
 import NewPromocodeForm from './pages/promo-code/NewPromocodeForm';
 import OfferList from './pages/offers/OfferList';
@@ -60,15 +63,18 @@ function App() {
                         <Route path="/category" element={<CategoryPage />} />
                         <Route path="/category/new" element={<NewCategoryForm />} />
                         <Route path="/category/edit/:id" element={<NewCategoryForm />} />
+                        <Route path="/category/detail/:id" element={<CategoryDetail />} />
                         <Route path="/sub-category" element={<SubCategoryList />} />
                         <Route path="/sub-category/new" element={<NewSubCategoryForm />} />
                         <Route path="/sub-category/edit/:id" element={<NewSubCategoryForm />} />
+                        <Route path="/sub-category/detail/:id" element={<SubCategoryDetail />} />
                         <Route path="/brands" element={<BrandList />} />
                         <Route path="/brands/new" element={<NewBrandForm />} />
                         <Route path="/brands/edit/:id" element={<NewBrandForm />} />
                         <Route path="/products" element={<ProductList />} />
                         <Route path="/products/new" element={<NewProductForm />} />
                         <Route path="/products/edit/:id" element={<NewProductForm />} />
+                        <Route path="/products/detail/:id" element={<ProductDetail />} />
                         <Route path="/promo-code" element={<PromocodeList />} />
                         <Route path="/promo-code/new" element={<NewPromocodeForm />} />
                         <Route path="/promo-code/edit/:id" element={<NewPromocodeForm />} />

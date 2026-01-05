@@ -8,6 +8,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
@@ -51,7 +52,30 @@ export default function CategoryPage() {
                 />
             )
         },
-        { id: 'title' as keyof Category, label: 'Category', minWidth: 150 },
+        { 
+            id: 'title' as keyof Category, 
+            label: 'Category', 
+            minWidth: 150,
+            render: (row: Category) => (
+                <Typography
+                    component="button"
+                    onClick={() => navigate(`/category/detail/${row.id}`)}
+                    sx={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#204564',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        textDecoration: 'none',
+                        '&:hover': {
+                            textDecoration: 'underline',
+                        },
+                    }}
+                >
+                    {row.title}
+                </Typography>
+            )
+        },
         { id: 'description' as keyof Category, label: 'Description', minWidth: 200 },
         { id: 'status' as keyof Category, label: 'Status', minWidth: 100 },
         {
@@ -61,6 +85,18 @@ export default function CategoryPage() {
             align: 'center' as const,
             render: (row: Category) => (
                 <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                    <IconButton
+                        size="small"
+                        onClick={() => navigate(`/category/detail/${row.id}`)}
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'text.secondary',
+                            '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
+                        }}
+                    >
+                        <VisibilityIcon fontSize="small" />
+                    </IconButton>
                     <IconButton
                         size="small"
                         onClick={() => navigate(`/category/edit/${row.id}`)}
