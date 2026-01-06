@@ -1,21 +1,21 @@
-import { defineConfig, type Plugin } from 'vite';
+// vite.config.js
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import * as path from 'node:path';
+import path from 'path';
 
 /**
- * Cross-platform root
- * (works on Windows, Linux, macOS, IIS, Docker)
+ * Cross-platform root (works on Windows, Linux, macOS, IIS, Docker)
  */
-const rootDir = process.cwd();
+const rootDir = __dirname;
 const srcDir = path.resolve(rootDir, 'src');
 
 /**
- * Inline version plugin
+ * Inline version plugin (injects version/build-time into index.html)
  */
-const versionPlugin = (): Plugin => ({
+const versionPlugin = () => ({
   name: 'version-plugin',
   transformIndexHtml(html) {
-    const version = process.env.npm_package_version ?? '1.0.0';
+    const version = process.env.npm_package_version || '1.0.0';
     const buildTime = Date.now();
     const timestamp = new Date().toISOString();
 
@@ -30,18 +30,13 @@ const versionPlugin = (): Plugin => ({
 });
 
 export default defineConfig({
-  /**
-   * 🔒 Lock Vite inside project directory
-   */
   root: rootDir,
 
-  /**
-   * 🔐 Prevent filesystem traversal
-   */
+  // Prevent filesystem traversal errors on Windows/IIS
   server: {
     fs: {
       strict: true,
-      allow: [rootDir],
+      allow: [rootDir, path.resolve(rootDir, 'node_modules')],
     },
   },
 
@@ -54,7 +49,7 @@ export default defineConfig({
   },
 
   build: {
-    outDir: path.resolve(rootDir, 'dist'),
+    outDir: path.resolve(rootDir, 'dist'), // Vite build folder
     assetsDir: 'assets',
     sourcemap: false,
     minify: 'terser',
@@ -63,7 +58,6 @@ export default defineConfig({
       output: {
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
-
         assetFileNames: (assetInfo) => {
           const ext = assetInfo.name?.split('.').pop()?.toLowerCase();
 
