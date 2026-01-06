@@ -10,6 +10,10 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import authService from '../../services/auth.service';
 import branchService from '../../services/branch.service';
 import { showSuccessToast } from '../../utils/toast';
@@ -24,6 +28,7 @@ export default function LoginForm() {
     const [password, setPassword] = React.useState('');
     const [rememberMe, setRememberMe] = React.useState(false);
     const [loading, setLoading] = React.useState(false);
+    const [showPassword, setShowPassword] = React.useState(false);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -208,7 +213,7 @@ export default function LoginForm() {
                         </Stack>
                         <TextField
                             id="password"
-                            type="password"
+                            type={showPassword ? 'text' : 'password'}
                             fullWidth
                             required
                             value={password}
@@ -217,6 +222,22 @@ export default function LoginForm() {
                             size="small"
                             placeholder="••••••••"
                             disabled={loading}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            aria-label="toggle password visibility"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            edge="end"
+                                            disabled={loading}
+                                            sx={{ color: 'text.secondary' }}
+                                        >
+                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
                                     backgroundColor: '#f5f7fa',
