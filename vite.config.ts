@@ -1,16 +1,35 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { versionPlugin } from './vite-plugin-version';
 
 // Get __dirname equivalent for ES modules (works on both Unix and Windows)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use path.resolve with normalized paths for Windows compatibility
-const rootDir = path.resolve(__dirname);
-const srcDir = path.resolve(rootDir, 'src');
+// Resolve src directory - use relative path to avoid Windows path issues
+const srcDir = path.join(__dirname, 'src');
+
+// Inline version plugin to avoid import issues on Windows
+const versionPlugin = (): Plugin => {
+  return {
+    name: 'version-plugin',
+    transformIndexHtml(html) {
+      const timestamp = new Date().toISOString();
+      const version = process.env.npm_package_version || '1.0.0';
+      const buildTime = new Date().getTime();
+      
+      // Inject version meta tag
+      const versionMeta = `    <meta name="app-version" content="${version}" />\n    <meta name="build-time" content="${buildTime}" />\n    <meta name="build-timestamp" content="${timestamp}" />`;
+      
+      // Inject before closing head tag
+      return html.replace(
+        '</head>',
+        `${versionMeta}\n  </head>`
+      );
+    },
+  };
+};
 
 export default defineConfig({
   plugins: [react(), versionPlugin()],
