@@ -3,12 +3,18 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { Autocomplete, TextField, SxProps, Popper } from '@mui/material';
 import styled from '@emotion/styled';
 
-const get = (obj: any, path: string, defaultValue?: any) => {
+const get = (obj: unknown, path: string, defaultValue?: unknown): unknown => {
+    if (!obj || typeof obj !== 'object') return defaultValue;
     return path
         .replace(/\[(\w+)\]/g, '.$1')
         .replace(/^\./, '')
         .split('.')
-        .reduce((acc, curr) => (acc && acc[curr] !== undefined ? acc[curr] : undefined), obj) ?? defaultValue;
+        .reduce((acc, curr) => {
+            if (acc && typeof acc === 'object' && curr in acc) {
+                return (acc as Record<string, unknown>)[curr];
+            }
+            return undefined;
+        }, obj as Record<string, unknown>) ?? defaultValue;
 };
 
 const StyledPopper = styled(Popper)({
@@ -29,9 +35,18 @@ export interface FormAutocompleteProps {
     disabled?: boolean;
     placeholder?: string;
     noOptionsText?: string;
-    isOptionEqualToValue?: (option: any, value: any) => boolean;
-    filterOptions?: (options: any[], state: { inputValue: string }) => any[];
-    onChange?: (event: React.SyntheticEvent, value: any) => void;
+    isOptionEqualToValue?: (
+        option: { value: string | number; label: string },
+        value: { value: string | number; label: string } | string | number | null
+    ) => boolean;
+    filterOptions?: (
+        options: Array<{ value: string | number; label: string }>,
+        state: { inputValue: string }
+    ) => Array<{ value: string | number; label: string }>;
+    onChange?: (
+        event: React.SyntheticEvent,
+        value: { value: string | number; label: string } | null
+    ) => void;
     onInputChange?: (event: React.SyntheticEvent, value: string, reason: string) => void;
     inputValue?: string;
     loading?: boolean;
@@ -56,13 +71,23 @@ const FormAutocomplete: React.FC<FormAutocompleteProps> = ({
     loading = false,
 }) => {
     const { control, formState } = useFormContext();
-    const error = get(formState.errors, name);
+    const error = get(formState.errors, name) as { message?: string } | undefined;
 
-    const defaultIsOptionEqualToValue = (option: any, value: any) => {
-        return option?.value === value?.value || option?.value === value;
+    const defaultIsOptionEqualToValue = (
+        option: { value: string | number; label: string },
+        value: { value: string | number; label: string } | string | number | null
+    ): boolean => {
+        if (!value) return false;
+        if (typeof value === 'object' && 'value' in value) {
+            return option?.value === value?.value;
+        }
+        return option?.value === value;
     };
 
-    const defaultFilterOptions = (options: any[], { inputValue }: { inputValue: string }) => {
+    const defaultFilterOptions = (
+        options: Array<{ value: string | number; label: string }>,
+        { inputValue }: { inputValue: string }
+    ): Array<{ value: string | number; label: string }> => {
         if (!inputValue) return options;
         const lowercase = inputValue.toLowerCase();
         return options.filter((option) => {
@@ -81,9 +106,9 @@ const FormAutocomplete: React.FC<FormAutocompleteProps> = ({
                 ) || null;
 
                 return (
-                    <Autocomplete
+                    <Autocomplete<{ value: string | number; label: string }>
                         options={options}
-                        getOptionLabel={(option) => option.label || option.value?.toString() || ''}
+                        getOptionLabel={(option) => option.label || String(option.value) || ''}
                         value={selectedOption}
                         isOptionEqualToValue={isOptionEqualToValue || defaultIsOptionEqualToValue}
                         onChange={(event, newValue) => {

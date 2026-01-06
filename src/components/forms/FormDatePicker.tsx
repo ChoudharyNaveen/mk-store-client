@@ -14,6 +14,11 @@ interface FormDatePickerProps<T extends FieldValues> extends Omit<TextFieldProps
   required?: boolean;
 }
 
+// Type guard to check if value is a Date
+function isDate(value: unknown): value is Date {
+  return value instanceof Date;
+}
+
 export default function FormDatePicker<T extends FieldValues>({
   name,
   control,
@@ -27,9 +32,9 @@ export default function FormDatePicker<T extends FieldValues>({
       control={control}
       render={({ field, fieldState: { error } }) => {
         // Convert Date to string for input, or keep string as is
-        const value = field.value instanceof Date 
+        const value = isDate(field.value)
           ? field.value.toISOString().split('T')[0]
-          : field.value || '';
+          : (field.value as string) || '';
 
         return (
           <TextField

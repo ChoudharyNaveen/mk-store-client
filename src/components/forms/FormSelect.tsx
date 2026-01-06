@@ -12,12 +12,13 @@ interface FormSelectOption {
   label: string;
 }
 
-interface FormSelectProps<T extends FieldValues> extends Omit<SelectProps, 'name' | 'control'> {
+interface FormSelectProps<T extends FieldValues> extends Omit<SelectProps, 'name' | 'control' | 'variant'> {
   name: FieldPath<T>;
   control: Control<T>;
   label?: string;
   required?: boolean;
   options: FormSelectOption[];
+  variant?: 'outlined' | 'standard' | 'filled';
 }
 
 export default function FormSelect<T extends FieldValues>({
@@ -26,6 +27,7 @@ export default function FormSelect<T extends FieldValues>({
   label,
   required = false,
   options,
+  variant = 'outlined',
   ...selectProps
 }: FormSelectProps<T>) {
   const labelId = React.useId();
@@ -44,6 +46,7 @@ export default function FormSelect<T extends FieldValues>({
           <Select
             {...field}
             {...selectProps}
+            variant={variant}
             labelId={label ? labelId : undefined}
             label={label}
             sx={{
