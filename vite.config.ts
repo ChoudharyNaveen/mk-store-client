@@ -1,13 +1,22 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { versionPlugin } from './vite-plugin-version';
+
+// Get __dirname equivalent for ES modules (works on both Unix and Windows)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Use path.resolve with normalized paths for Windows compatibility
+const rootDir = path.resolve(__dirname);
+const srcDir = path.resolve(rootDir, 'src');
 
 export default defineConfig({
   plugins: [react(), versionPlugin()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': srcDir,
     },
   },
   build: {
