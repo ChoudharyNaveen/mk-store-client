@@ -44,7 +44,7 @@ export default function DataTable<T extends { id: string | number }>({
     return (
         <React.Fragment>
 
-            <Paper sx={{ width: '100%', mb: 2, p: 2, borderRadius: 2, boxShadow: 'none' }}>
+            <Paper sx={{ width: '100%', mb: 2, p: 0.5, borderRadius: 2, boxShadow: 'none' }}>
                 <TableContainer>
                     <Table stickyHeader sx={{ minWidth: 750 }}>
                         <TableHead>
@@ -55,7 +55,7 @@ export default function DataTable<T extends { id: string | number }>({
                                         align={column.align}
                                         style={{ minWidth: column.minWidth }}
                                         sortDirection={orderBy === column.id ? order : false}
-                                        sx={{ fontWeight: 'bold', borderBottom: '1px solid #eee' }}
+                                        sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }}
                                     >
                                         {column.sortable ? (
                                             <TableSortLabel
@@ -96,7 +96,7 @@ export default function DataTable<T extends { id: string | number }>({
                                         {columns.map((column) => {
                                             const value = row[column.id] as any;
                                             return (
-                                                <TableCell key={String(column.id)} align={column.align} sx={{ borderBottom: '1px solid #f5f5f5', py: 2 }}>
+                                                <TableCell key={String(column.id)} align={column.align} sx={{ borderBottom: '1px solid #e0e0e0', py: 2 }}>
                                                     {column.render ? column.render(row) : (column.format && typeof value !== 'undefined' ? column.format(value) : value)}
                                                 </TableCell>
                                             );

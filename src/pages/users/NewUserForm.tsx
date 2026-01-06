@@ -15,18 +15,32 @@ import {
     FormControl,
 } from '@mui/material';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
+import ArrowBack from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
 
 export default function NewUserForm() {
     const navigate = useNavigate();
 
     return (
-        <Box sx={{ p: 4 }}>
-            <Typography variant="h4" sx={{ mb: 4, fontWeight: 500, color: '#333', fontSize: '1.75rem' }}>
-                New User
-            </Typography>
-
-            <Paper sx={{ p: 6, borderRadius: 4, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', bgcolor: 'white' }}>
+        <Paper sx={{ p: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+                <Button
+                    startIcon={<ArrowBack />}
+                    onClick={() => navigate(-1)}
+                    sx={{
+                        color: 'text.secondary',
+                        textTransform: 'none',
+                        minWidth: 'auto',
+                        '&:hover': { bgcolor: 'transparent' }
+                    }}
+                >
+                    Back
+                </Button>
+                <Typography variant="h4" sx={{ fontWeight: 500, color: '#333', fontSize: '1.75rem' }}>
+                    New User
+                </Typography>
+            </Box>
+            <Paper sx={{ p: 6, borderRadius: 2, boxShadow: 'none' }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 6 }}>
                     <Box sx={{ position: 'relative' }}>
                         <Avatar
@@ -139,6 +153,6 @@ export default function NewUserForm() {
                     </Button>
                 </Box>
             </Paper>
-        </Box>
+        </Paper>
     );
 }

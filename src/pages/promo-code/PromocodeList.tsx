@@ -195,47 +195,12 @@ export default function PromocodeList() {
     };
 
     return (
-        <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2, gap: 2 }}>
-                <TextField
-                    id="promocode-search"
-                    placeholder="Search"
-                    variant="outlined"
-                    size="small"
-                    value={tableState.search}
-                    onChange={tableHandlers.handleSearch}
-                    sx={{
-                        width: 300,
-                        '& .MuiOutlinedInput-root': {
-                            borderRadius: 10,
-                            bgcolor: 'white',
-                        }
-                    }}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchIcon />
-                            </InputAdornment>
-                        ),
-                    }}
-                />
-                <Button
-                    variant="outlined"
-                    startIcon={<CalendarTodayIcon />}
-                    onClick={(e) => setDateAnchorEl(e.currentTarget)}
-                    sx={{ borderRadius: 8, textTransform: 'none', borderColor: '#e0e0e0', color: 'text.secondary' }}
-                >
-                    {format(dateRange[0].startDate || new Date(), 'MMM dd')} - {format(dateRange[0].endDate || new Date(), 'MMM dd')}
-                </Button>
-                <Button
-                    variant="outlined"
-                    startIcon={<FilterListIcon />}
-                    onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-                    sx={{ borderRadius: 8, textTransform: 'none', borderColor: '#e0e0e0', color: 'text.secondary' }}
-                >
-                    Advanced Search
-                </Button>
-
+        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Page Header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    Promocodes
+                </Typography>
                 <Link to="/promo-code/new" style={{ textDecoration: 'none' }}>
                     <Button
                         variant="contained"
@@ -245,12 +210,100 @@ export default function PromocodeList() {
                             '&:hover': { bgcolor: 'primary.dark' },
                             textTransform: 'none',
                             px: 3,
+                            borderRadius: 2,
+                            boxShadow: 2,
                         }}
                     >
                         Add Promocode
                     </Button>
                 </Link>
             </Box>
+
+            {/* Unified Container for Search, Filters and Table */}
+            <Box sx={{ 
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                bgcolor: 'background.paper',
+                borderRadius: 2,
+                boxShadow: 1,
+                border: '1px solid',
+                borderColor: 'divider',
+                overflow: 'hidden'
+            }}>
+                {/* Search and Filter Section */}
+                <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    flexWrap: 'wrap',
+                    gap: 2,
+                    p: 2.5,
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    bgcolor: 'background.paper'
+                }}>
+                    <TextField
+                        id="promocode-search"
+                        placeholder="Search promocodes..."
+                        variant="outlined"
+                        size="small"
+                        value={tableState.search}
+                        onChange={tableHandlers.handleSearch}
+                        sx={{
+                            flex: 1,
+                            minWidth: 280,
+                            maxWidth: 400,
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                bgcolor: 'background.default',
+                            }
+                        }}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchIcon sx={{ color: 'text.secondary' }} />
+                                </InputAdornment>
+                            ),
+                        }}
+                    />
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<CalendarTodayIcon />}
+                            onClick={(e) => setDateAnchorEl(e.currentTarget)}
+                            sx={{ 
+                                borderRadius: 2, 
+                                textTransform: 'none', 
+                                borderColor: 'divider', 
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    borderColor: 'primary.main',
+                                    bgcolor: 'action.hover'
+                                }
+                            }}
+                        >
+                            {format(dateRange[0].startDate || new Date(), 'MMM dd')} - {format(dateRange[0].endDate || new Date(), 'MMM dd')}
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            startIcon={<FilterListIcon />}
+                            onClick={(e) => setFilterAnchorEl(e.currentTarget)}
+                            sx={{ 
+                                borderRadius: 2, 
+                                textTransform: 'none', 
+                                borderColor: 'divider', 
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    borderColor: 'primary.main',
+                                    bgcolor: 'action.hover'
+                                }
+                            }}
+                        >
+                            Advanced Search
+                        </Button>
+                    </Box>
+                </Box>
 
             <Popover
                 open={Boolean(dateAnchorEl)}
@@ -300,12 +353,16 @@ export default function PromocodeList() {
                 </Box>
             </Popover>
 
-            <DataTable 
-                key={`promocode-table-${paginationModel.page}-${paginationModel.pageSize}`}
-                columns={columns} 
-                state={tableState} 
-                handlers={tableHandlers} 
-            />
+                {/* Data Table Section */}
+                <Box sx={{ flex: 1, overflow: 'auto' }}>
+                    <DataTable 
+                        key={`promocode-table-${paginationModel.page}-${paginationModel.pageSize}`}
+                        columns={columns} 
+                        state={tableState} 
+                        handlers={tableHandlers} 
+                    />
+                </Box>
+            </Box>
         </Box>
     );
 }
