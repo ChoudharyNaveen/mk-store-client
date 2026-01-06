@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:staging": "cross-env VITE_MY_VAR=staging vite",
+    "build": "tsc && vite build",
     "build:staging": "cross-env VITE_MY_VAR=staging tsc && vite build",
+    "build:production": "cross-env VITE_MY_VAR=production tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint"
   },

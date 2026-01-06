@@ -18,20 +18,26 @@ const getEnvironment = (): Environment => {
 
 const currentEnv = getEnvironment();
 
-const metaEnv = import.meta.env as { VITE_API_BASE_URL?: string };
+const metaEnv = import.meta.env as { 
+  VITE_API_BASE_URL?: string;
+  VITE_VERSION_CHECK_INTERVAL?: string;
+};
 
 const envConfig = {
   local: {
     apiBaseUrl: metaEnv.VITE_API_BASE_URL || 'http://localhost:4000/api',
     apiTimeout: 30000,
+    versionCheckInterval: parseInt(metaEnv.VITE_VERSION_CHECK_INTERVAL || '60000', 10), // Default: 60 seconds
   },
   staging: {
     apiBaseUrl: metaEnv.VITE_API_BASE_URL || 'https://apionline.mkonlinestore.co.in/api',
     apiTimeout: 30000,
+    versionCheckInterval: parseInt(metaEnv.VITE_VERSION_CHECK_INTERVAL || '60000', 10), // Default: 60 seconds
   },
   production: {
     apiBaseUrl: metaEnv.VITE_API_BASE_URL || 'https://apionline.mkonlinestore.co.in/api',
     apiTimeout: 30000,
+    versionCheckInterval: parseInt(metaEnv.VITE_VERSION_CHECK_INTERVAL || '60000', 10), // Default: 60 seconds
   },
 };
 
@@ -42,6 +48,7 @@ export const config = {
   isDevelopment: currentEnv === 'local',
   isProduction: currentEnv === 'production',
   isStaging: currentEnv === 'staging',
+  versionCheckInterval: envConfig[currentEnv].versionCheckInterval,
 };
 
 export default config;

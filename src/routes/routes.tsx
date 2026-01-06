@@ -1,0 +1,151 @@
+import { RouteObject } from 'react-router-dom';
+import Dashboard from '../pages/Dashboard';
+import UserList from '../pages/users/UserList';
+import NewUserForm from '../pages/users/NewUserForm';
+import ProfileSettingsPage from '../pages/users/ProfileSettingsPage';
+import CategoryPage from '../pages/category/CategoryList';
+import NewCategoryForm from '../pages/category/NewCategoryForm';
+import CategoryDetail from '../pages/category/CategoryDetail';
+import SubCategoryList from '../pages/sub-category/SubCategoryList';
+import NewSubCategoryForm from '../pages/sub-category/NewSubCategoryForm';
+import SubCategoryDetail from '../pages/sub-category/SubCategoryDetail';
+import BrandList from '../pages/brands/BrandList';
+import NewBrandForm from '../pages/brands/NewBrandForm';
+import ProductList from '../pages/products/ProductList';
+import NewProductForm from '../pages/products/NewProductForm';
+import ProductDetail from '../pages/products/ProductDetail';
+import PromocodeList from '../pages/promo-code/PromocodeList';
+import NewPromocodeForm from '../pages/promo-code/NewPromocodeForm';
+import OfferList from '../pages/offers/OfferList';
+import NewOfferForm from '../pages/offers/NewOfferForm';
+import OrderList from '../pages/orders/OrderList';
+import LoginForm from '../pages/login/LoginForm';
+
+/**
+ * Public routes (accessible without authentication)
+ */
+export const publicRoutes: RouteObject[] = [
+  {
+    path: '/login',
+    element: <LoginForm />,
+  },
+];
+
+/**
+ * Protected routes (require authentication)
+ */
+export const protectedRoutes: RouteObject[] = [
+  {
+    path: '/',
+    element: <Dashboard />,
+  },
+  // Users routes
+  {
+    path: '/users',
+    element: <UserList />,
+  },
+  {
+    path: '/users/new',
+    element: <NewUserForm />,
+  },
+  {
+    path: '/users/:id',
+    element: <ProfileSettingsPage />,
+  },
+  // Category routes
+  {
+    path: '/category',
+    element: <CategoryPage />,
+  },
+  {
+    path: '/category/new',
+    element: <NewCategoryForm />,
+  },
+  {
+    path: '/category/edit/:id',
+    element: <NewCategoryForm />,
+  },
+  {
+    path: '/category/detail/:id',
+    element: <CategoryDetail />,
+  },
+  // Sub-category routes
+  {
+    path: '/sub-category',
+    element: <SubCategoryList />,
+  },
+  {
+    path: '/sub-category/new',
+    element: <NewSubCategoryForm />,
+  },
+  {
+    path: '/sub-category/edit/:id',
+    element: <NewSubCategoryForm />,
+  },
+  {
+    path: '/sub-category/detail/:id',
+    element: <SubCategoryDetail />,
+  },
+  // Brand routes
+  {
+    path: '/brands',
+    element: <BrandList />,
+  },
+  {
+    path: '/brands/new',
+    element: <NewBrandForm />,
+  },
+  {
+    path: '/brands/edit/:id',
+    element: <NewBrandForm />,
+  },
+  // Product routes
+  {
+    path: '/products',
+    element: <ProductList />,
+  },
+  {
+    path: '/products/new',
+    element: <NewProductForm />,
+  },
+  {
+    path: '/products/edit/:id',
+    element: <NewProductForm />,
+  },
+  {
+    path: '/products/detail/:id',
+    element: <ProductDetail />,
+  },
+  // Promo code routes
+  {
+    path: '/promo-code',
+    element: <PromocodeList />,
+  },
+  {
+    path: '/promo-code/new',
+    element: <NewPromocodeForm />,
+  },
+  {
+    path: '/promo-code/edit/:id',
+    element: <NewPromocodeForm />,
+  },
+  // Offer routes
+  {
+    path: '/offers',
+    element: <OfferList />,
+  },
+  {
+    path: '/offers/new',
+    element: <NewOfferForm />,
+  },
+  {
+    path: '/offers/edit/:id',
+    element: <NewOfferForm />,
+  },
+  // Order routes
+  {
+    path: '/orders',
+    element: <OrderList />,
+  },
+];
+

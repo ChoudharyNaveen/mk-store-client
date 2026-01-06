@@ -1,98 +1,17 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider } from 'react-redux';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import theme from './theme';
 import './globals.css';
+import { AppProviders } from './components/AppProviders';
+import { AppRouter } from './components/AppRouter';
 
-import { store } from './store/store';
-import { initializeAuthFromStorage } from './store/authInit';
-import { ToastProvider } from './contexts/ToastContext';
-import Layout from './components/Layout';
-import ProtectedRoute from './components/ProtectedRoute';
-import Dashboard from './pages/Dashboard';
-import UserList from './pages/users/UserList';
-import NewUserForm from './pages/users/NewUserForm';
-import ProfileSettingsPage from './pages/users/ProfileSettingsPage';
-import CategoryPage from './pages/category/CategoryList';
-import NewCategoryForm from './pages/category/NewCategoryForm';
-import CategoryDetail from './pages/category/CategoryDetail';
-import SubCategoryList from './pages/sub-category/SubCategoryList';
-import NewSubCategoryForm from './pages/sub-category/NewSubCategoryForm';
-import SubCategoryDetail from './pages/sub-category/SubCategoryDetail';
-import BrandList from './pages/brands/BrandList';
-import NewBrandForm from './pages/brands/NewBrandForm';
-import ProductList from './pages/products/ProductList';
-import NewProductForm from './pages/products/NewProductForm';
-import ProductDetail from './pages/products/ProductDetail';
-import PromocodeList from './pages/promo-code/PromocodeList';
-import NewPromocodeForm from './pages/promo-code/NewPromocodeForm';
-import OfferList from './pages/offers/OfferList';
-import NewOfferForm from './pages/offers/NewOfferForm';
-import OrderList from './pages/orders/OrderList';
-import LoginForm from './pages/login/LoginForm';
-
+/**
+ * Main App component
+ * Composes providers and router for the application
+ */
 function App() {
-    const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
-
-    // Initialize auth state from localStorage on app mount
-    React.useEffect(() => {
-        initializeAuthFromStorage();
-    }, []);
-
-    const toggleSidebar = () => {
-        setIsSidebarOpen(!isSidebarOpen);
-    };
-
-    return (
-        <Provider store={store}>
-            <ThemeProvider theme={theme}>
-                <CssBaseline />
-                <ToastProvider>
-                    <BrowserRouter>
-                <Routes>
-                    {/* Login page without layout */}
-                    <Route path="/login" element={<LoginForm />} />
-                    
-                    {/* All other pages with layout - protected routes */}
-                    <Route element={<ProtectedRoute />}>
-                    <Route element={<Layout isSidebarOpen={isSidebarOpen} onToggleSidebar={toggleSidebar} />}>
-                        <Route path="/" element={<Dashboard />} />
-                        <Route path="/users" element={<UserList />} />
-                        <Route path="/users/new" element={<NewUserForm />} />
-                        <Route path="/users/:id" element={<ProfileSettingsPage />} />
-                        <Route path="/category" element={<CategoryPage />} />
-                        <Route path="/category/new" element={<NewCategoryForm />} />
-                        <Route path="/category/edit/:id" element={<NewCategoryForm />} />
-                        <Route path="/category/detail/:id" element={<CategoryDetail />} />
-                        <Route path="/sub-category" element={<SubCategoryList />} />
-                        <Route path="/sub-category/new" element={<NewSubCategoryForm />} />
-                        <Route path="/sub-category/edit/:id" element={<NewSubCategoryForm />} />
-                        <Route path="/sub-category/detail/:id" element={<SubCategoryDetail />} />
-                        <Route path="/brands" element={<BrandList />} />
-                        <Route path="/brands/new" element={<NewBrandForm />} />
-                        <Route path="/brands/edit/:id" element={<NewBrandForm />} />
-                        <Route path="/products" element={<ProductList />} />
-                        <Route path="/products/new" element={<NewProductForm />} />
-                        <Route path="/products/edit/:id" element={<NewProductForm />} />
-                        <Route path="/products/detail/:id" element={<ProductDetail />} />
-                        <Route path="/promo-code" element={<PromocodeList />} />
-                        <Route path="/promo-code/new" element={<NewPromocodeForm />} />
-                        <Route path="/promo-code/edit/:id" element={<NewPromocodeForm />} />
-                        <Route path="/offers" element={<OfferList />} />
-                        <Route path="/offers/new" element={<NewOfferForm />} />
-                        <Route path="/offers/edit/:id" element={<NewOfferForm />} />
-                        <Route path="/orders" element={<OrderList />} />
-                        <Route path="*" element={<Navigate to="/" replace />} />
-                        </Route>
-                    </Route>
-                    </Routes>
-                    </BrowserRouter>
-                </ToastProvider>
-            </ThemeProvider>
-        </Provider>
-    );
+  return (
+    <AppProviders>
+      <AppRouter />
+    </AppProviders>
+  );
 }
 
 export default App;
