@@ -19,27 +19,22 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    IconButton,
     Stack,
     Rating,
-    Badge,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import StarIcon from '@mui/icons-material/Star';
-import StarBorderIcon from '@mui/icons-material/StarBorder';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import InventoryIcon from '@mui/icons-material/Inventory';
-import LocalOfferIcon from '@mui/icons-material/LocalOffer';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchProducts } from '../../services/product.service';
 import { showErrorToast } from '../../utils/toast';
 import type { Product } from '../../types/product';
-import { formatItemDetails, formatExpiryDate, getExpiryDateColor } from '../../utils/productHelpers';
+import { formatExpiryDate, getExpiryDateColor } from '../../utils/productHelpers';
 import { format } from 'date-fns';
 
 interface TabPanelProps {
@@ -211,7 +206,7 @@ export default function ProductDetail() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Button
                         startIcon={<ArrowBackIcon />}
-                        onClick={() => navigate('/products')}
+                        onClick={() => navigate(-1)}
                         sx={{
                             color: 'text.secondary',
                             textTransform: 'none',

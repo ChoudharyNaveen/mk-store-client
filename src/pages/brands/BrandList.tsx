@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -211,7 +211,7 @@ export default function BrandList() {
     };
 
     return (
-        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Paper sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, borderRadius: 1 }}>
             {/* Page Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
@@ -371,7 +371,7 @@ export default function BrandList() {
                     />
                 </Box>
             </Box>
-        </Box>
+        </Paper>
     );
 }
 

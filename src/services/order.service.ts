@@ -115,8 +115,91 @@ export const fetchOrders = async (
   }
 };
 
+/**
+ * Order Details Response Interface
+ */
+export interface OrderDetailsResponse {
+  success: boolean;
+  data: {
+    order_id: number;
+    order_number: string;
+    order_items: Array<{
+      id: number;
+      product: {
+        id: number;
+        title: string;
+        image?: string;
+        selling_price: number;
+        price: number;
+      };
+      quantity: number;
+      unit_price: number;
+      discount: number;
+      total: number;
+    }>;
+    summary: {
+      subtotal: number;
+      discount: number;
+      shipping: number;
+      total: number;
+    };
+    applied_discounts: Array<{
+      type: string;
+      code?: string;
+      description: string;
+      discount_amount: number;
+      status: string;
+    }>;
+    customer_information: {
+      name: string;
+      email: string;
+      mobile_number: string;
+    };
+    delivery_address: {
+      recipient_name: string;
+      address_line_1: string;
+      address_line_2?: string;
+      street_details?: string;
+      landmark?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      postal_code?: string;
+      mobile_number?: string;
+    };
+    order_information: {
+      order_date: string;
+      estimated_delivery?: string | null;
+      priority: string;
+      payment_status: string;
+      order_status: string;
+    };
+  };
+}
+
+/**
+ * Fetch order details by ID
+ */
+export const fetchOrderDetails = async (id: string | number): Promise<OrderDetailsResponse['data']> => {
+  try {
+    const response = await http.post<OrderDetailsResponse>(
+      API_URLS.ORDERS.GET_DETAILS,
+      { orderId: String(id) }
+    );
+
+    if (response.success && response.data) {
+      return response.data;
+    }
+    throw new Error('Failed to fetch order details');
+  } catch (error) {
+    console.error('Error fetching order details:', error);
+    throw error;
+  }
+};
+
 const orderService = {
   fetchOrders,
+  fetchOrderDetails,
 };
 
 export default orderService;

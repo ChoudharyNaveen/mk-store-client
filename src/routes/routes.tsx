@@ -19,6 +19,7 @@ import NewPromocodeForm from '../pages/promo-code/NewPromocodeForm';
 import OfferList from '../pages/offers/OfferList';
 import NewOfferForm from '../pages/offers/NewOfferForm';
 import OrderList from '../pages/orders/OrderList';
+import OrderDetail from '../pages/orders/OrderDetail';
 import LoginForm from '../pages/login/LoginForm';
 
 /**
@@ -146,6 +147,14 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/orders',
     element: <OrderList />,
+  },
+  {
+    path: '/orders/detail/:id',
+    element: <OrderDetail />,
+  },
+  {
+    path: '/orders/edit/:id',
+    element: <OrderList />, // TODO: Create OrderEdit component
   },
 ];
 

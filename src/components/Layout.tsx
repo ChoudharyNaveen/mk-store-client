@@ -36,7 +36,7 @@ export default function Layout({ isSidebarOpen, onToggleSidebar }: LayoutProps) 
                     overflow: 'auto',
                     display: 'flex',
                     flexDirection: 'column',
-                    p: 3
+                    p: 1
                 }}
             >
                 <Toolbar />

@@ -29,6 +29,16 @@ export interface OrderDiscount {
     discount_value?: number;
 }
 
+export interface OrderItem {
+    id: number;
+    product_id: number;
+    quantity: number;
+    product?: {
+        id: number;
+        title: string;
+    };
+}
+
 export interface Order {
     id: number;
     order_number: string;
@@ -52,6 +62,7 @@ export interface Order {
     address?: OrderAddress;
     user?: OrderUser;
     orderDiscount?: OrderDiscount[];
+    orderItems?: OrderItem[];
 }
 
 export interface OrderListResponse {

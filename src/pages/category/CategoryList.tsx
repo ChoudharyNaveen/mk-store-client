@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -25,19 +25,19 @@ import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 
 export default function CategoryPage() {
     const navigate = useNavigate();
-    
+
     const dispatch = useAppDispatch();
-    
+
     // Get vendorId and branchId from store
     const { user } = useAppSelector((state) => state.auth);
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
-    
+
     // Get date range from store, or use default
     const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
     const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
-    
-    
+
+
     const columns = [
         {
             id: 'image' as keyof Category,
@@ -52,9 +52,9 @@ export default function CategoryPage() {
                 />
             )
         },
-        { 
-            id: 'title' as keyof Category, 
-            label: 'Category', 
+        {
+            id: 'title' as keyof Category,
+            label: 'Category',
             minWidth: 150,
             render: (row: Category) => (
                 <Typography
@@ -125,7 +125,7 @@ export default function CategoryPage() {
             )
         },
     ];
-    
+
     const [dateRange, setDateRange] = React.useState(() => {
         if (storeStartDate && storeEndDate) {
             return [{
@@ -152,7 +152,7 @@ export default function CategoryPage() {
                 categoryName: { field: 'title', operator: 'iLike' },
             },
         });
-        
+
         // Merge with default filters (vendorId and branchId)
         return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
     }, [dateRange, advancedFilters, vendorId, selectedBranchId]);
@@ -215,7 +215,7 @@ export default function CategoryPage() {
                 key: ranges.selection.key || 'selection'
             }];
             setDateRange(newDateRange);
-            
+
             // Save to store
             dispatch(setDateRangeAction({
                 startDate: ranges.selection.startDate,
@@ -225,7 +225,7 @@ export default function CategoryPage() {
     };
 
     return (
-        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Paper sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2 , borderRadius: 1 }}>
             {/* Page Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
@@ -250,11 +250,10 @@ export default function CategoryPage() {
             </Box>
 
             {/* Unified Container for Search, Filters and Table */}
-            <Box sx={{ 
+            <Box sx={{
                 flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
-                bgcolor: 'background.paper',
                 borderRadius: 2,
                 boxShadow: 1,
                 border: '1px solid',
@@ -262,10 +261,10 @@ export default function CategoryPage() {
                 overflow: 'hidden'
             }}>
                 {/* Search and Filter Section */}
-                <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
+                <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
                     flexWrap: 'wrap',
                     gap: 2,
                     p: 2.5,
@@ -302,10 +301,10 @@ export default function CategoryPage() {
                             variant="outlined"
                             startIcon={<CalendarTodayIcon />}
                             onClick={(e) => setDateAnchorEl(e.currentTarget)}
-                            sx={{ 
-                                borderRadius: 2, 
-                                textTransform: 'none', 
-                                borderColor: 'divider', 
+                            sx={{
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                borderColor: 'divider',
                                 color: 'text.secondary',
                                 '&:hover': {
                                     borderColor: 'primary.main',
@@ -319,10 +318,10 @@ export default function CategoryPage() {
                             variant="outlined"
                             startIcon={<FilterListIcon />}
                             onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-                            sx={{ 
-                                borderRadius: 2, 
-                                textTransform: 'none', 
-                                borderColor: 'divider', 
+                            sx={{
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                borderColor: 'divider',
                                 color: 'text.secondary',
                                 '&:hover': {
                                     borderColor: 'primary.main',
@@ -335,57 +334,57 @@ export default function CategoryPage() {
                     </Box>
                 </Box>
 
-            <Popover
-                open={Boolean(dateAnchorEl)}
-                anchorEl={dateAnchorEl}
-                onClose={() => setDateAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-            >
-                <Box sx={{ p: 1 }}>
-                    <DateRangePicker
-                        ranges={dateRange}
-                        onChange={handleDateSelect}
-                        moveRangeOnFirstSelection={false}
-                    />
-                </Box>
-            </Popover>
-
-            <Popover
-                open={Boolean(filterAnchorEl)}
-                anchorEl={filterAnchorEl}
-                onClose={() => setFilterAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-                <Box sx={{ p: 3, width: 300 }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Categories</Typography>
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label="Category Name"
-                        value={advancedFilters.categoryName}
-                        onChange={(e) => setAdvancedFilters({ categoryName: e.target.value })}
-                        sx={{ mb: 2 }}
-                    />
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                        <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
-                        <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
+                <Popover
+                    open={Boolean(dateAnchorEl)}
+                    anchorEl={dateAnchorEl}
+                    onClose={() => setDateAnchorEl(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                >
+                    <Box sx={{ p: 1 }}>
+                        <DateRangePicker
+                            ranges={dateRange}
+                            onChange={handleDateSelect}
+                            moveRangeOnFirstSelection={false}
+                        />
                     </Box>
-                </Box>
-            </Popover>
+                </Popover>
+
+                <Popover
+                    open={Boolean(filterAnchorEl)}
+                    anchorEl={filterAnchorEl}
+                    onClose={() => setFilterAnchorEl(null)}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                >
+                    <Box sx={{ p: 3, width: 300 }}>
+                        <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Categories</Typography>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label="Category Name"
+                            value={advancedFilters.categoryName}
+                            onChange={(e) => setAdvancedFilters({ categoryName: e.target.value })}
+                            sx={{ mb: 2 }}
+                        />
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                            <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
+                            <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
+                        </Box>
+                    </Box>
+                </Popover>
 
                 {/* Data Table Section */}
                 <Box sx={{ flex: 1, overflow: 'auto' }}>
-                    <DataTable 
+                    <DataTable
                         key={`category-table-${paginationModel.page}-${paginationModel.pageSize}`}
-                        columns={columns} 
-                        state={tableState} 
-                        handlers={tableHandlers} 
+                        columns={columns}
+                        state={tableState}
+                        handlers={tableHandlers}
                     />
                 </Box>
             </Box>
-        </Box>
+        </Paper>
     );
 }
 

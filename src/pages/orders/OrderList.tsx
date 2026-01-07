@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Chip } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Chip, Paper, List, ListItem, ListItemText, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -7,6 +7,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
@@ -83,6 +84,128 @@ export default function OrderList() {
             label: 'Amount',
             minWidth: 120,
             render: (row: Order) => `₹${row.final_amount?.toLocaleString() || '0.00'}`
+        },
+        {
+            id: 'orderItems' as keyof Order,
+            label: 'Items',
+            minWidth: 100,
+            align: 'center' as const,
+            render: (row: Order) => {
+                const itemsCount = row.orderItems?.length || 0;
+                const totalQuantity = row.orderItems?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+                
+                return (
+                    <Box
+                        onMouseEnter={(e) => {
+                            if (itemsCount > 0) {
+                                setItemsPopoverAnchor({ el: e.currentTarget, orderId: row.id });
+                            }
+                        }}
+                        onMouseLeave={() => {
+                            setItemsPopoverAnchor(null);
+                        }}
+                        sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            cursor: itemsCount > 0 ? 'pointer' : 'default',
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: 2,
+                            bgcolor: itemsCount > 0 ? '#e3f2fd' : 'transparent',
+                            color: itemsCount > 0 ? '#1976d2' : 'text.secondary',
+                            border: itemsCount > 0 ? '1px solid #90caf9' : 'none',
+                            transition: 'all 0.2s',
+                            '&:hover': itemsCount > 0 ? {
+                                bgcolor: '#1976d2',
+                                color: 'white',
+                                borderColor: '#1976d2',
+                            } : {},
+                        }}
+                    >
+                        <ShoppingCartIcon sx={{ fontSize: 18 }} />
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {itemsCount}
+                        </Typography>
+                        {itemsCount > 0 && (
+                            <Popover
+                                open={itemsPopoverAnchor?.orderId === row.id}
+                                anchorEl={itemsPopoverAnchor?.el}
+                                onClose={() => setItemsPopoverAnchor(null)}
+                                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                                disableRestoreFocus
+                                sx={{
+                                    pointerEvents: 'none',
+                                }}
+                                PaperProps={{
+                                    onMouseEnter: () => {
+                                        // Keep popover open when hovering over it
+                                    },
+                                    onMouseLeave: () => {
+                                        setItemsPopoverAnchor(null);
+                                    },
+                                    sx: {
+                                        pointerEvents: 'auto',
+                                        mt: 1,
+                                        minWidth: 280,
+                                        maxWidth: 350,
+                                        boxShadow: 3,
+                                        borderRadius: 2,
+                                    }
+                                }}
+                            >
+                                <Box sx={{ p: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                                        <ShoppingCartIcon color="primary" sx={{ fontSize: 20 }} />
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                            Order Items ({totalQuantity} {totalQuantity === 1 ? 'item' : 'items'})
+                                        </Typography>
+                                    </Box>
+                                    <List dense sx={{ p: 0 }}>
+                                        {row.orderItems?.map((item, index) => (
+                                            <React.Fragment key={item.id}>
+                                                <ListItem
+                                                    sx={{
+                                                        px: 1.5,
+                                                        py: 1,
+                                                        borderRadius: 1,
+                                                        '&:hover': {
+                                                            bgcolor: 'action.hover',
+                                                        }
+                                                    }}
+                                                >
+                                                    <ListItemText
+                                                        primary={
+                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <Typography variant="body2" sx={{ fontWeight: 500, flex: 1 }}>
+                                                                    {item.product?.title || `Product #${item.product_id}`}
+                                                                </Typography>
+                                                                <Chip
+                                                                    label={`Qty: ${item.quantity}`}
+                                                                    size="small"
+                                                                    color="primary"
+                                                                    variant="outlined"
+                                                                    sx={{
+                                                                        ml: 1,
+                                                                        height: 24,
+                                                                        fontSize: '0.75rem',
+                                                                    }}
+                                                                />
+                                                            </Box>
+                                                        }
+                                                    />
+                                                </ListItem>
+                                                {index < (row.orderItems?.length || 0) - 1 && <Divider />}
+                                            </React.Fragment>
+                                        ))}
+                                    </List>
+                                </Box>
+                            </Popover>
+                        )}
+                    </Box>
+                );
+            }
         },
         {
             id: 'status' as keyof Order,
@@ -201,6 +324,7 @@ export default function OrderList() {
     });
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
+    const [itemsPopoverAnchor, setItemsPopoverAnchor] = React.useState<{ el: HTMLElement; orderId: number } | null>(null);
     const [advancedFilters, setAdvancedFilters] = React.useState({
         orderNumber: '',
         customerName: '',
@@ -292,7 +416,7 @@ export default function OrderList() {
     };
 
     return (
-        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Paper sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, borderRadius: 1 }}>
             {/* Page Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
@@ -452,6 +576,6 @@ export default function OrderList() {
                     />
                 </Box>
             </Box>
-        </Box>
+        </Paper>
     );
 }
