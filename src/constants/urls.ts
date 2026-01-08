@@ -41,6 +41,7 @@ export const API_URLS = {
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/sub-categories/${id}`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-sub-category/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/sub-categories/${id}`,
+    GET_BY_CATEGORY_ID: `${API_PREFIX}/get-sub-categories-by-category-id`,
   },
   
   // Product endpoints
@@ -92,6 +93,15 @@ export const API_URLS = {
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/brands/${id}`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-brand/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/brands/${id}`,
+  },
+  
+  // Notification endpoints
+  NOTIFICATIONS: {
+    LIST: `${API_PREFIX}/get-notifications`,
+    GET_UNREAD_COUNT: `${API_PREFIX}/get-unread-notification-count`,
+    MARK_READ: (id: string | number) => `${API_PREFIX}/mark-notification-read/${id}`,
+    MARK_ALL_READ: `${API_PREFIX}/mark-all-notifications-read`,
+    DELETE: (id: string | number) => `${API_PREFIX}/delete-notification/${id}`,
   },
 } as const;
 

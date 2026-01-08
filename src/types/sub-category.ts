@@ -60,3 +60,21 @@ export interface UpdateSubCategoryResponse {
   doc?: SubCategory;
 }
 
+export interface SubCategoryByCategoryIdItem {
+  id: number;
+  name: string;
+  products_count: number;
+  status: SubCategoryStatus;
+}
+
+export interface SubCategoryByCategoryIdResponse {
+  success: boolean;
+  doc: SubCategoryByCategoryIdItem[];
+  pagination: {
+    pageSize: number;
+    pageNumber: number;
+    totalCount: number;
+    paginationEnabled: boolean;
+  };
+}
+

@@ -12,7 +12,9 @@ import type {
   CreateSubCategoryRequest,
   CreateSubCategoryResponse,
   UpdateSubCategoryRequest,
-  UpdateSubCategoryResponse
+  UpdateSubCategoryResponse,
+  SubCategoryByCategoryIdItem,
+  SubCategoryByCategoryIdResponse
 } from '../types/sub-category';
 import type { ServerFilter, ServerSorting } from '../types/filter';
 import { convertSimpleFiltersToServerFilters } from '../utils/filterBuilder';
@@ -248,10 +250,72 @@ export const updateSubCategory = async (
   }
 };
 
+/**
+ * Fetch sub-categories by category ID
+ * Uses POST request with categoryId in body
+ */
+export const fetchSubCategoriesByCategoryId = async (
+  params: FetchParams & { categoryId: number }
+): Promise<ServerPaginationResponse<SubCategoryByCategoryIdItem>> => {
+  try {
+    const page = params.page ?? 0;
+    const pageSize = params.pageSize ?? 10;
+    const pageNumber = page + 1; // Convert 0-based to 1-based
+
+    // Build request body
+    const requestBody: {
+      categoryId: number;
+      pageSize?: number;
+      pageNumber?: number;
+    } = {
+      categoryId: params.categoryId,
+    };
+
+    // Add pagination if provided
+    if (pageSize !== undefined) {
+      requestBody.pageSize = pageSize;
+    }
+    if (pageNumber !== undefined) {
+      requestBody.pageNumber = pageNumber;
+    }
+
+    // Make POST API call with JSON body
+    const response = await http.post<SubCategoryByCategoryIdResponse>(
+      API_URLS.SUB_CATEGORIES.GET_BY_CATEGORY_ID,
+      requestBody,
+      {
+        signal: params.signal,
+      }
+    );
+
+    // Transform API response to hook's expected format
+    return {
+      list: response.doc || [],
+      totalCount: response.pagination?.totalCount || 0,
+      pageDetails: {
+        pageNumber: response.pagination?.pageNumber,
+        pageSize: response.pagination?.pageSize,
+        paginationEnabled: response.pagination?.paginationEnabled,
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching sub-categories by category ID:', error);
+    // Return empty response on error
+    return {
+      list: [],
+      totalCount: 0,
+      pageDetails: {
+        paginationEnabled: false,
+      },
+    };
+  }
+};
+
 const subCategoryService = {
   fetchSubCategories,
   createSubCategory,
   updateSubCategory,
+  fetchSubCategoriesByCategoryId,
 };
 
 export default subCategoryService;

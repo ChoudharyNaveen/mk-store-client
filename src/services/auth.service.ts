@@ -46,8 +46,8 @@ const login = async (credentials: LoginRequest): Promise<LoginResponse> => {
  */
 const logout = async (): Promise<void> => {
   try {
-    // Call logout API if needed
-    // await http.post(API_URLS.AUTH.LOGOUT);
+    // Call logout API
+    await http.post(API_URLS.AUTH.LOGOUT, {});
   } catch (error) {
     console.error('Logout API error:', error);
     // Continue with logout even if API call fails
