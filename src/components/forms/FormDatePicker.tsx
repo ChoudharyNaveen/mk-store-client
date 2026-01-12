@@ -1,17 +1,24 @@
 /**
  * Generic Form Date Picker Component
- * Integrates react-hook-form with MUI TextField for date input
+ * Integrates react-hook-form with MUI X DatePicker
  */
 
 import React from 'react';
-import { TextField, TextFieldProps } from '@mui/material';
 import { Controller, Control, FieldPath, FieldValues } from 'react-hook-form';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
-interface FormDatePickerProps<T extends FieldValues> extends Omit<TextFieldProps, 'name' | 'control' | 'type'> {
+interface FormDatePickerProps<T extends FieldValues> {
   name: FieldPath<T>;
   control: Control<T>;
   label?: string;
   required?: boolean;
+  disabled?: boolean;
+  size?: 'small' | 'medium';
+  variant?: 'outlined' | 'filled' | 'standard';
+  sx?: any;
+  slotProps?: any;
 }
 
 // Type guard to check if value is a Date
@@ -24,50 +31,59 @@ export default function FormDatePicker<T extends FieldValues>({
   control,
   label,
   required = false,
-  ...textFieldProps
+  disabled = false,
+  size = 'small',
+  variant = 'outlined',
+  sx,
+  slotProps,
+  ...datePickerProps
 }: FormDatePickerProps<T>) {
   return (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field, fieldState: { error } }) => {
-        // Convert Date to string for input, or keep string as is
-        const value = isDate(field.value)
-          ? field.value.toISOString().split('T')[0]
-          : (field.value as string) || '';
-
-        return (
-          <TextField
-            {...field}
-            {...textFieldProps}
-            type="date"
-            fullWidth
-            value={value}
-            onChange={(e) => {
-              const dateValue = e.target.value;
-              // Convert string to Date if needed, or keep as string
-              field.onChange(dateValue ? new Date(dateValue) : null);
-            }}
-            label={
-              label ? (
-                <span>
-                  {label} {required && <span style={{ color: 'red' }}> *</span>}
-                </span>
-              ) : undefined
+    <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <Controller
+        name={name}
+        control={control}
+        render={({ field, fieldState: { error } }) => {
+          // Convert value to Date or null
+          let dateValue: Date | null = null;
+          if (field.value) {
+            if (isDate(field.value)) {
+              dateValue = field.value;
+            } else if (typeof field.value === 'string') {
+              dateValue = new Date(field.value);
+              if (isNaN(dateValue.getTime())) {
+                dateValue = null;
+              }
             }
-            error={!!error}
-            helperText={error?.message}
-            slotProps={{
-              inputLabel: { shrink: true },
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: '#fdfdfd' },
-              ...textFieldProps.sx,
-            }}
-          />
-        );
-      }}
-    />
+          }
+
+          return (
+            <DatePicker
+              {...datePickerProps}
+              label={label}
+              value={dateValue}
+              onChange={(newValue) => {
+                field.onChange(newValue);
+              }}
+              disabled={disabled}
+              slotProps={{
+                ...slotProps,
+                textField: {
+                  ...slotProps?.textField,
+                  error: !!error,
+                  helperText: error?.message,
+                  required,
+                  fullWidth: true,
+                  size,
+                  variant,
+                  ...slotProps?.textField,
+                },
+              }}
+              sx={sx}
+            />
+          );
+        }}
+      />
+    </LocalizationProvider>
   );
 }
-

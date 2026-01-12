@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -9,6 +9,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import InfoIcon from '@mui/icons-material/Info';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
@@ -16,28 +17,69 @@ import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchProducts } from '../../services/product.service';
-import type { Product } from '../../types/product';
+import type { Product, ProductVariant } from '../../types/product';
 import type { ServerFilter } from '../../types/filter';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 
-// Helper function to format item details
-const formatItemDetails = (product: Product): string => {
+// Helper function to get default image from images array
+const getDefaultImage = (product: Product): string | undefined => {
+    if (product.images && product.images.length > 0) {
+        const defaultImage = product.images.find(img => img.is_default);
+        return defaultImage?.image_url || product.images[0]?.image_url;
+    }
+    return product.image;
+};
+
+// Helper function to get first variant
+const getFirstVariant = (product: Product): ProductVariant | null => {
+    if (product.variants && product.variants.length > 0) {
+        return product.variants[0];
+    }
+    return null;
+};
+
+// Helper function to format variant item details
+const formatVariantItemDetails = (variant: ProductVariant): string => {
     const parts: string[] = [];
     
     // Quantity (units)
+    if (variant.quantity !== undefined && variant.quantity !== null) {
+        parts.push(`${variant.quantity} unit${variant.quantity !== 1 ? 's' : ''}`);
+    }
+    
+    // Item quantity + unit
+    if (variant.item_quantity !== undefined && variant.item_quantity !== null && variant.item_unit) {
+        parts.push(`${variant.item_quantity} ${variant.item_unit}`);
+    } else if (variant.item_quantity !== undefined && variant.item_quantity !== null) {
+        parts.push(`${variant.item_quantity}`);
+    } else if (variant.item_unit) {
+        parts.push(variant.item_unit);
+    }
+    
+    return parts.length > 0 ? parts.join(' × ') : 'N/A';
+};
+
+// Helper function to format item details (legacy support)
+const formatItemDetails = (product: Product): string => {
+    const firstVariant = getFirstVariant(product);
+    if (firstVariant) {
+        return formatVariantItemDetails(firstVariant);
+    }
+    
+    // Fallback to legacy fields
+    const parts: string[] = [];
+    
     if (product.quantity !== undefined && product.quantity !== null) {
         parts.push(`${product.quantity} unit${product.quantity !== 1 ? 's' : ''}`);
     }
     
-    // Items per unit
     if (product.itemsPerUnit !== undefined && product.itemsPerUnit !== null) {
         parts.push(`${product.itemsPerUnit} item${product.itemsPerUnit !== 1 ? 's' : ''}/unit`);
     }
     
-    // Item quantity + unit
     if (product.itemQuantity !== undefined && product.itemQuantity !== null && product.itemUnit) {
         parts.push(`${product.itemQuantity} ${product.itemUnit}`);
     } else if (product.itemQuantity !== undefined && product.itemQuantity !== null) {
@@ -79,6 +121,67 @@ const formatExpiryDate = (expiryDate: string | Date | undefined | null): { text:
     }
 };
 
+// Helper component for Variants Popover
+const VariantsPopover: React.FC<{ product: Product }> = ({ product }) => {
+    if (!product.variants || product.variants.length === 0) {
+        return (
+            <Box sx={{ p: 2 }}>
+                <Typography variant="body2" color="text.secondary">No variants available</Typography>
+            </Box>
+        );
+    }
+
+    return (
+        <Box sx={{ width: 800, maxHeight: 600, overflow: 'auto', p: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>
+                Variants for {product.title}
+            </Typography>
+            <TableContainer>
+                <Table size="small">
+                    <TableHead>
+                        <TableRow>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Variant Name</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }} align="right">MRP</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }} align="right">Selling Price</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }} align="right">Quantity</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Item Details</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Expiry Date</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {product.variants.map((variant) => {
+                            const { text: expiryText, color: expiryColor } = formatExpiryDate(variant.expiry_date);
+                            return (
+                                <TableRow key={variant.id} hover>
+                                    <TableCell>{variant.variant_name}</TableCell>
+                                    <TableCell align="right">₹{variant.price}</TableCell>
+                                    <TableCell align="right">₹{variant.selling_price}</TableCell>
+                                    <TableCell align="right">{variant.quantity}</TableCell>
+                                    <TableCell>{formatVariantItemDetails(variant)}</TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2" sx={{ color: expiryColor, fontWeight: 500 }}>
+                                            {expiryText}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={variant.product_status}
+                                            size="small"
+                                            color={variant.product_status === 'INSTOCK' ? 'success' : 'error'}
+                                            sx={{ fontWeight: 500 }}
+                                        />
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </Box>
+    );
+};
+
 export default function ProductList() {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
@@ -92,19 +195,25 @@ export default function ProductList() {
     const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
     const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
     
+    // Variants popover state
+    const [variantsAnchorEl, setVariantsAnchorEl] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
+
     const columns = [
         {
             id: 'image' as keyof Product,
             label: 'Image',
             minWidth: 80,
-            render: (row: Product) => (
-                <Avatar
-                    src={row.image}
-                    alt={row.title}
-                    variant="rounded"
-                    sx={{ width: 50, height: 50 }}
-                />
-            )
+            render: (row: Product) => {
+                const imageUrl = getDefaultImage(row);
+                return (
+                    <Avatar
+                        src={imageUrl}
+                        alt={row.title}
+                        variant="rounded"
+                        sx={{ width: 50, height: 50 }}
+                    />
+                );
+            }
         },
         { 
             id: 'title' as keyof Product, 
@@ -149,61 +258,81 @@ export default function ProductList() {
             render: (row: Product) => row.brand?.name || 'N/A'
         },
         { 
-            id: 'price' as keyof Product, 
-            label: 'MRP', 
-            minWidth: 80,
-            render: (row: Product) => `₹${row.price}`
-        },
-        { 
-            id: 'selling_price' as keyof Product, 
-            label: 'Selling Price', 
-            minWidth: 100,
-            render: (row: Product) => `₹${row.selling_price}`
-        },
-        { 
             id: 'quantity' as keyof Product, 
             label: 'Quantity', 
             minWidth: 80,
-            render: (row: Product) => row.quantity ?? 'N/A'
+            render: (row: Product) => {
+                const firstVariant = getFirstVariant(row);
+                const quantity = firstVariant?.quantity ?? row.quantity;
+                return quantity !== undefined && quantity !== null ? quantity : 'N/A';
+            }
         },
         { 
             id: 'itemDetails' as keyof Product, 
             label: 'Item Details', 
             minWidth: 120,
             render: (row: Product) => (
-                <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {formatItemDetails(row)}
-                    </Typography>
-                    {row.quantity !== undefined && row.quantity !== null && 
-                     row.itemsPerUnit !== undefined && row.itemsPerUnit !== null && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-                            Total: {row.quantity * row.itemsPerUnit} items
-                        </Typography>
-                    )}
-                </Box>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {formatItemDetails(row)}
+                </Typography>
             )
         },
-        { id: 'units' as keyof Product, label: 'Units', minWidth: 80 },
         { 
-            id: 'expiryDate' as keyof Product, 
-            label: 'Expiry Date', 
-            minWidth: 120,
+            id: 'product_status' as keyof Product, 
+            label: 'Status', 
+            minWidth: 100,
             render: (row: Product) => {
-                const { text, color } = formatExpiryDate(row.expiryDate);
+                const firstVariant = getFirstVariant(row);
+                const status = firstVariant?.product_status ?? row.product_status;
+                if (!status) return 'N/A';
                 return (
-                    <Typography variant="body2" sx={{ color, fontWeight: 500 }}>
-                        {text}
-                    </Typography>
+                    <Chip
+                        label={status}
+                        size="small"
+                        color={status === 'INSTOCK' ? 'success' : 'error'}
+                        sx={{ fontWeight: 500 }}
+                    />
                 );
             }
         },
-        { id: 'product_status' as keyof Product, label: 'Status', minWidth: 100 },
+        {
+            id: 'variants' as keyof Product,
+            label: 'Variants',
+            minWidth: 100,
+            align: 'center' as const,
+            render: (row: Product) => {
+                const variantCount = row.variants?.length || 0;
+                return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        <Chip
+                            label={`${variantCount} variant${variantCount !== 1 ? 's' : ''}`}
+                            size="small"
+                            sx={{ fontWeight: 500 }}
+                        />
+                        <IconButton
+                            size="small"
+                            onClick={(e) => setVariantsAnchorEl({ el: e.currentTarget, product: row })}
+                            sx={{
+                                border: '1px solid #e0e0e0',
+                                borderRadius: 2,
+                                color: 'primary.main',
+                                '&:hover': { bgcolor: '#e3f2fd', borderColor: 'primary.main' }
+                            }}
+                        >
+                            <InfoIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
+                );
+            }
+        },
         {
             id: 'createdAt' as keyof Product,
             label: 'Created Date',
             minWidth: 120,
-            render: (row: Product) => row.createdAt ? format(new Date(row.createdAt), 'MMM dd, yyyy') : 'N/A'
+            render: (row: Product) => {
+                const createdDate = row.created_at ?? row.createdAt;
+                return createdDate ? format(new Date(createdDate), 'MMM dd, yyyy') : 'N/A';
+            }
         },
         {
             id: 'action' as keyof Product,
@@ -226,7 +355,7 @@ export default function ProductList() {
                     </IconButton>
                     <IconButton
                         size="small"
-                        onClick={() => navigate(`/products/edit/${row.id}`)}
+                        onClick={() => navigate(`/products/edit/${row.id}`, { state: { product: row } })}
                         sx={{
                             border: '1px solid #e0e0e0',
                             borderRadius: 2,
@@ -301,7 +430,7 @@ export default function ProductList() {
         filters: buildFilters(),
         initialSorting: [
             {
-                key: 'createdAt',
+                key: 'created_at',
                 direction: 'DESC',
             },
         ],
@@ -510,6 +639,22 @@ export default function ProductList() {
                         <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
                     </Box>
                 </Box>
+            </Popover>
+
+            <Popover
+                open={Boolean(variantsAnchorEl)}
+                anchorEl={variantsAnchorEl?.el}
+                onClose={() => setVariantsAnchorEl(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                PaperProps={{
+                    sx: {
+                        maxHeight: '80vh',
+                        overflow: 'auto',
+                    }
+                }}
+            >
+                {variantsAnchorEl && <VariantsPopover product={variantsAnchorEl.product} />}
             </Popover>
 
                 {/* Data Table Section */}

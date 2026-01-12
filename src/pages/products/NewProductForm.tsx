@@ -6,18 +6,25 @@ import {
     Grid,
     CircularProgress,
     Paper,
-    Divider,
     Chip,
+    IconButton,
+    Checkbox,
+    FormControlLabel,
+    Divider,
 } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import InfoIcon from '@mui/icons-material/Info';
-import InventoryIcon from '@mui/icons-material/Inventory';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CategoryIcon from '@mui/icons-material/Category';
 import DescriptionIcon from '@mui/icons-material/Description';
 import ImageIcon from '@mui/icons-material/Image';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import productService, { fetchProducts } from '../../services/product.service';
@@ -37,40 +44,35 @@ import { getItemUnitOptions } from '../../constants/itemUnits';
 // Valid item unit values
 const validItemUnits = ['LTR', 'ML', 'GAL', 'FL_OZ', 'KG', 'G', 'MG', 'OZ', 'LB', 'TON', 'PCS', 'UNIT', 'DOZEN', 'SET', 'PAIR', 'BUNDLE', 'PKG', 'BOX', 'BOTTLE', 'CAN', 'CARTON', 'TUBE', 'JAR', 'BAG', 'POUCH', 'M', 'CM', 'MM', 'FT', 'IN', 'SQFT', 'SQM'] as const;
 
-// Base validation schema - shared fields
+// Valid variant type values
+const validVariantTypes = ['WEIGHT', 'SIZE', 'COLOR', 'MATERIAL', 'FLAVOR', 'PACKAGING', 'OTHER'] as const;
+
+// Variant validation schema
+const variantSchema = yup.object().shape({
+    variantName: yup.string().required('Variant name is required').min(1, 'Variant name is required'),
+    variantType: yup.string().oneOf([...validVariantTypes], 'Invalid variant type').required('Variant type is required'),
+    variantValue: yup.string().nullable().optional(),
+    price: yup.number().required('Price is required').min(0, 'Price must be greater than 0'),
+    sellingPrice: yup.number().required('Selling Price is required').min(0, 'Selling Price must be greater than 0'),
+    quantity: yup.number().required('Quantity is required').min(0, 'Quantity must be greater than or equal to 0').integer('Quantity must be a whole number'),
+    itemsPerUnit: yup.number().nullable().optional().integer('Items per unit must be a whole number').min(1, 'Items per unit must be greater than or equal to 1'),
+    units: yup.string().nullable().optional(),
+    itemQuantity: yup.number().nullable().optional().min(0, 'Item quantity must be greater than or equal to 0'),
+    itemUnit: yup.string().nullable().optional().oneOf([...validItemUnits], 'Item unit must be one of the valid unit types'),
+    expiryDate: yup.date().required('Expiry date is required').nullable().transform((value, originalValue) => {
+        if (originalValue === '' || originalValue == null) return undefined;
+        return value;
+    }),
+    status: yup.string().oneOf(['ACTIVE', 'INACTIVE'], 'Status must be ACTIVE or INACTIVE').required('Status is required'),
+});
+
+// Base validation schema - shared fields (removed price, sellingPrice, quantity, expiryDate - now in variants)
 const baseProductFormSchema = {
     title: yup.string().required('Title is required').min(2, 'Title must be at least 2 characters'),
     description: yup.string().optional().default(''),
-    price: yup.number().required('Price is required').min(0, 'Price must be greater than 0'),
-    sellingPrice: yup.number().required('Selling Price is required').min(0, 'Selling Price must be greater than 0'),
-    quantity: yup.number().required('Quantity is required').min(0, 'Quantity must be greater than or equal to 0'),
-    units: yup.string().optional().nullable().transform((value, originalValue) => originalValue === '' ? undefined : value),
     categoryId: yup.number().required('Category is required').min(1, 'Please select a category'),
     subCategoryId: yup.number().required('Sub Category is required').min(1, 'Please select a sub category'),
     status: yup.string().oneOf(['ACTIVE', 'INACTIVE'], 'Status must be ACTIVE or INACTIVE').required('Status is required'),
-    productStatus: yup.string().oneOf(['INSTOCK', 'OUTOFSTOCK'], 'Product Status must be INSTOCK or OUTOFSTOCK').required('Product Status is required'),
-    // New/Updated fields - itemQuantity and itemUnit are now mandatory
-    itemQuantity: yup.number()
-        .required('Item quantity is required')
-        .min(0, 'Item quantity must be greater than or equal to 0')
-        .transform((value, originalValue) => originalValue === '' ? undefined : value),
-    itemUnit: yup.string()
-        .required('Item unit is required')
-        .oneOf([...validItemUnits], 'Item unit must be one of the valid unit types')
-        .transform((value, originalValue) => originalValue === '' ? undefined : value),
-    itemsPerUnit: yup.number()
-        .nullable()
-        .optional()
-        .integer('Items per unit must be a whole number')
-        .min(1, 'Items per unit must be greater than or equal to 1')
-        .transform((value, originalValue) => originalValue === '' ? undefined : value),
-    expiryDate: yup.date()
-        .nullable()
-        .optional()
-        .transform((value, originalValue) => {
-            if (originalValue === '' || originalValue == null) return undefined;
-            return value;
-        }),
 };
 
 // File validation - shared test functions
@@ -84,96 +86,95 @@ const fileSizeTest = (value: File | null, isOptional: boolean) => {
     return value instanceof File && value.size <= 5 * 1024 * 1024;
 };
 
+// Image validation schema
+const imageSchema = yup.object().shape({
+    file: yup
+        .mixed<File>()
+        .nullable()
+        .test('fileType', 'File must be an image', (value) => fileTypeTest(value, true))
+        .test('fileSize', 'File size must be less than 5MB', (value) => fileSizeTest(value, true)),
+    preview: yup.string().nullable().optional(),
+});
+
 // Create validation schema factory
 const createProductFormSchema = (isEditMode: boolean) => {
-    const fileValidation = isEditMode
+    const imagesValidation = isEditMode
         ? yup
-              .mixed<File>()
-              .nullable()
-              .optional()
-              .test('fileType', 'File must be an image', (value) => fileTypeTest(value, true))
-              .test('fileSize', 'File size must be less than 5MB', (value) => fileSizeTest(value, true))
+            .array()
+            .of(imageSchema)
+            .max(3, 'Maximum 3 images allowed')
+            .test('atLeastOneImage', 'At least one image is required', (value) => {
+                if (!value || value.length === 0) return false;
+                return value.some((img) => img.file !== null || img.preview !== null);
+            })
         : yup
-              .mixed<File>()
-              .required('Image file is required')
-              .test('fileType', 'File must be an image', (value) => fileTypeTest(value, false))
-              .test('fileSize', 'File size must be less than 5MB', (value) => fileSizeTest(value, false));
-
-    // For create mode, quantity and expiryDate are required
-    // For edit mode, they are optional
-    const quantityValidation = isEditMode
-        ? yup.number().optional().nullable().min(0, 'Quantity must be greater than or equal to 0')
-        : yup.number().required('Quantity is required').min(0, 'Quantity must be greater than or equal to 0');
-    
-    const expiryDateValidation = isEditMode
-        ? yup.date().nullable().optional().transform((value, originalValue) => {
-            if (originalValue === '' || originalValue == null) return undefined;
-            return value;
-        })
-        : yup.date().required('Expiry date is required').nullable().transform((value, originalValue) => {
-            if (originalValue === '' || originalValue == null) return undefined;
-            return value;
-        });
-
-    // Conditional validation for itemsPerUnit: required if units is provided
-    const itemsPerUnitValidation = yup.number()
-        .nullable()
-        .when('units', {
-            is: (units: string | null | undefined) => units && units.trim() !== '',
-            then: (schema) => schema
-                .required('Items per unit is required when stock unit is provided')
-                .integer('Items per unit must be a whole number')
-                .min(1, 'Items per unit must be greater than or equal to 1'),
-            otherwise: (schema) => schema.optional().nullable(),
-        })
-        .transform((value, originalValue) => originalValue === '' ? undefined : value);
+            .array()
+            .of(imageSchema)
+            .min(1, 'At least one image is required')
+            .max(3, 'Maximum 3 images allowed')
+            .test('atLeastOneFile', 'At least one image file is required', (value) => {
+                if (!value || value.length === 0) return false;
+                return value.some((img) => img.file !== null);
+            });
 
     return yup.object({
         ...baseProductFormSchema,
-        quantity: quantityValidation,
-        expiryDate: expiryDateValidation,
-        file: fileValidation,
+        images: imagesValidation,
         nutritional: yup.string().optional().nullable(),
         brandId: yup.number().optional().nullable(),
-        itemsPerUnit: itemsPerUnitValidation,
+        variants: yup.array().of(variantSchema).min(1, 'At least one variant is required'),
     });
 };
+
+interface VariantFormData {
+    variantName: string;
+    variantType: 'WEIGHT' | 'SIZE' | 'COLOR' | 'MATERIAL' | 'FLAVOR' | 'PACKAGING' | 'OTHER';
+    variantValue?: string | null;
+    price: number;
+    sellingPrice: number;
+    quantity: number;
+    itemsPerUnit?: number | null;
+    units?: string | null;
+    itemQuantity?: number | null;
+    itemUnit?: ItemUnit | null;
+    expiryDate: Date | string | null;
+    status: 'ACTIVE' | 'INACTIVE';
+}
+
+interface ImageFormData {
+    file: File | null;
+    preview: string | null;
+}
 
 interface ProductFormData {
     title: string;
     description?: string;
-    price: number;
-    sellingPrice: number;
-    quantity: number;
-    units: string;
     categoryId: number;
     subCategoryId: number;
     status: 'ACTIVE' | 'INACTIVE';
-    productStatus: 'INSTOCK' | 'OUTOFSTOCK';
     nutritional?: string | null;
     brandId?: number | null;
-    file: File | null;
-    // New/Updated fields
-    itemQuantity?: number | null;
-    itemUnit?: ItemUnit | null;
-    itemsPerUnit?: number | null;
-    expiryDate?: Date | string | null;
+    images: ImageFormData[];
+    variants: VariantFormData[];
 }
 
 export default function ProductForm() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams<{ id: string }>();
     const isEditMode = Boolean(id);
     const { user } = useAppSelector((state) => state.auth);
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
-    
+
+    // Get product data from navigation state
+    const productFromState = location.state?.product as Product | undefined;
+
     // Get user ID for update operations
     const userId = user?.id || 1;
-    
+
     const [loading, setLoading] = React.useState(false);
     const [fetchingProduct, setFetchingProduct] = React.useState(isEditMode);
-    const [filePreview, setFilePreview] = React.useState<string | null>(null);
     const [productData, setProductData] = React.useState<Product | null>(null);
     const [categories, setCategories] = React.useState<Category[]>([]);
     const [subCategories, setSubCategories] = React.useState<SubCategory[]>([]);
@@ -184,6 +185,8 @@ export default function ProductForm() {
     const [categorySearchTerm, setCategorySearchTerm] = React.useState('');
     const [subCategorySearchTerm, setSubCategorySearchTerm] = React.useState('');
     const [brandSearchTerm, setBrandSearchTerm] = React.useState('');
+    const [useSameExpiryDate, setUseSameExpiryDate] = React.useState(false);
+    const [sharedExpiryDate, setSharedExpiryDate] = React.useState<Date | string | null>(null);
     const categorySearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const subCategorySearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const brandSearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -196,22 +199,28 @@ export default function ProductForm() {
         defaultValues: {
             title: '',
             description: '',
-            price: 0,
-            sellingPrice: 0,
-            quantity: 0,
-            units: '',
             categoryId: 0,
             subCategoryId: 0,
             status: 'ACTIVE' as ProductStatus,
-            productStatus: 'INSTOCK',
             nutritional: null,
             brandId: null,
-            file: null,
-            // New/Updated fields
-            itemQuantity: null,
-            itemUnit: null,
-            itemsPerUnit: null,
-            expiryDate: null,
+            images: [{ file: null, preview: null }],
+            variants: [
+                {
+                    variantName: '',
+                    variantType: 'OTHER',
+                    variantValue: null,
+                    price: 0,
+                    sellingPrice: 0,
+                    quantity: 0,
+                    itemsPerUnit: null,
+                    units: null,
+                    itemQuantity: null,
+                    itemUnit: null,
+                    expiryDate: null,
+                    status: 'ACTIVE',
+                },
+            ],
         },
         mode: 'onChange',
     });
@@ -219,29 +228,121 @@ export default function ProductForm() {
     const { handleSubmit, watch, reset, formState: { isValid }, control, setValue } = methods;
     const selectedCategoryId = watch('categoryId');
     const selectedBrandId = watch('brandId');
-    const quantity = watch('quantity');
-    const units = watch('units');
-    
+
     // Update ref when selectedBrandId changes
     React.useEffect(() => {
         selectedBrandIdRef.current = selectedBrandId ?? null;
     }, [selectedBrandId]);
 
-    // Auto-calculate itemsPerUnit when units and quantity are provided
+    // Field array for variants
+    const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
+        control,
+        name: 'variants',
+    });
+
+    // Field array for images
+    const { fields: imageFields, append: appendImage, remove: removeImage } = useFieldArray({
+        control,
+        name: 'images',
+    });
+
+    // Helper function to add a new variant
+    const handleAddVariant = () => {
+        appendVariant({
+            variantName: '',
+            variantType: 'OTHER',
+            variantValue: null,
+            price: 0,
+            sellingPrice: 0,
+            quantity: 0,
+            itemsPerUnit: null,
+            units: null,
+            itemQuantity: null,
+            itemUnit: null,
+            expiryDate: useSameExpiryDate ? sharedExpiryDate : null,
+            status: 'ACTIVE',
+        });
+    };
+
+    // Handle shared expiry date change
+    const handleSharedExpiryDateChange = React.useCallback((date: Date | string | null) => {
+        setSharedExpiryDate(date);
+        if (useSameExpiryDate && date) {
+            // Update all variants with the shared expiry date
+            variantFields.forEach((_, index) => {
+                setValue(`variants.${index}.expiryDate`, date, { shouldValidate: true });
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [useSameExpiryDate, variantFields.length, setValue]);
+
+    // Handle "use same expiry date" toggle
+    const handleUseSameExpiryDateChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = event.target.checked;
+        setUseSameExpiryDate(checked);
+
+        if (checked && sharedExpiryDate) {
+            // Apply shared expiry date to all variants
+            variantFields.forEach((_, index) => {
+                setValue(`variants.${index}.expiryDate`, sharedExpiryDate, { shouldValidate: true });
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sharedExpiryDate, variantFields.length, setValue]);
+
+    // Sync expiry dates when shared date changes or toggle is enabled
     React.useEffect(() => {
-        if (units && units.trim() !== '' && quantity != null && quantity > 0) {
-            const unitsValue = parseFloat(units);
-            if (!isNaN(unitsValue) && unitsValue > 0) {
-                const calculatedItemsPerUnit = Math.floor(quantity / unitsValue);
-                if (calculatedItemsPerUnit > 0) {
-                    setValue('itemsPerUnit', calculatedItemsPerUnit, { shouldValidate: true });
+        if (useSameExpiryDate && sharedExpiryDate) {
+            variantFields.forEach((_, index) => {
+                const currentExpiryDate = watch(`variants.${index}.expiryDate`);
+                if (currentExpiryDate !== sharedExpiryDate) {
+                    setValue(`variants.${index}.expiryDate`, sharedExpiryDate, { shouldValidate: true });
+                }
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [useSameExpiryDate, sharedExpiryDate, variantFields.length, setValue, watch]);
+
+    // Watch all variants to calculate itemsPerUnit
+    const watchedVariants = useWatch({
+        control,
+        name: 'variants',
+    });
+
+    // Calculate itemsPerUnit for each variant when units or quantity changes
+    React.useEffect(() => {
+        if (!watchedVariants) return;
+
+        watchedVariants.forEach((variant, index) => {
+            const units = variant?.units;
+            const quantity = variant?.quantity;
+
+            if (units && quantity !== undefined && quantity !== null) {
+                // Convert units to number if it's a string
+                const unitsNum = typeof units === 'string' ? parseFloat(units.trim()) : units;
+                const quantityNum = typeof quantity === 'number' ? quantity : parseFloat(String(quantity));
+
+                if (!isNaN(unitsNum) && !isNaN(quantityNum) && unitsNum > 0 && quantityNum > 0) {
+                    const calculatedItemsPerUnit = Math.floor(quantityNum / unitsNum);
+
+                    // Only update if the value has changed
+                    if (variant.itemsPerUnit !== calculatedItemsPerUnit) {
+                        setValue(`variants.${index}.itemsPerUnit`, calculatedItemsPerUnit, { shouldValidate: false });
+                    }
+                } else {
+                    // Reset to null if calculation is not valid
+                    if (variant.itemsPerUnit !== null) {
+                        setValue(`variants.${index}.itemsPerUnit`, null, { shouldValidate: false });
+                    }
+                }
+            } else {
+                // Reset to null if either units or quantity is missing
+                if (variant.itemsPerUnit !== null) {
+                    setValue(`variants.${index}.itemsPerUnit`, null, { shouldValidate: false });
                 }
             }
-        } else if (!units || units.trim() === '') {
-            // Clear itemsPerUnit if units is cleared
-            setValue('itemsPerUnit', null, { shouldValidate: true });
-        }
-    }, [quantity, units, setValue]);
+        });
+    }, [watchedVariants, setValue]);
 
     // Helper function to fetch a single item by ID and add to list
     const fetchAndAddItem = React.useCallback(async <T extends { id: number }>(
@@ -256,7 +357,7 @@ export default function ProductForm() {
                 page: 0,
                 pageSize: 1,
             });
-            
+
             if (response.list?.[0]) {
                 const item = response.list[0];
                 setListFn(prev => {
@@ -268,6 +369,35 @@ export default function ProductForm() {
             console.error(`Error fetching ${itemName} for edit:`, error);
         }
     }, []);
+
+    // Helper function to process product data (extracted for reuse)
+    const processProductData = React.useCallback(async (product: Product) => {
+        setProductData(product);
+
+        // Fetch the specific category, sub-category, and brand to ensure they're in the options list
+        if (product.category?.id) {
+            await fetchAndAddItem(product.category.id, fetchCategories, setCategories, 'category');
+        }
+        if (product.subCategory?.id) {
+            await fetchAndAddItem(product.subCategory.id, fetchSubCategories, setSubCategories, 'sub-category');
+        }
+        const brandId = product.brand?.id || product.brandId;
+        if (brandId) {
+            await fetchAndAddItem(brandId, fetchBrands, setBrands, 'brand');
+        }
+
+        // Set images from product data
+        if (product.images && product.images.length > 0) {
+            const imageFormData: ImageFormData[] = product.images.map((img) => ({
+                file: null,
+                preview: img.image_url,
+            }));
+            setValue('images', imageFormData);
+        } else if (product.image) {
+            // Fallback for legacy single image
+            setValue('images', [{ file: null, preview: product.image }]);
+        }
+    }, [fetchAndAddItem, setCategories, setSubCategories, setBrands, setValue]);
 
     // Fetch categories with debounced search
     React.useEffect(() => {
@@ -379,7 +509,7 @@ export default function ProductForm() {
                 const filters = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
                 const response = await fetchBrands({ filters, page: 0, pageSize: 20 });
                 const newBrands = response.list || [];
-                
+
                 // Preserve the currently selected brand if it exists and is not in the new list
                 const currentBrandId = selectedBrandIdRef.current;
                 if (currentBrandId && !newBrands.some(b => b.id === currentBrandId)) {
@@ -428,42 +558,29 @@ export default function ProductForm() {
 
             try {
                 setFetchingProduct(true);
-                // Fetch product using fetchProducts with id filter
-                const response = await fetchProducts({
-                    filters: [{ key: 'id', eq: id }],
-                    page: 0,
-                    pageSize: 1,
-                });
 
-                if (response.list && response.list.length > 0) {
-                    const product = response.list[0];
-                    setProductData(product);
-                    
-                    // Fetch the specific category, sub-category, and brand to ensure they're in the options list
-                    if (product.category?.id) {
-                        await fetchAndAddItem(product.category.id, fetchCategories, setCategories, 'category');
-                    }
-                    if (product.subCategory?.id) {
-                        await fetchAndAddItem(product.subCategory.id, fetchSubCategories, setSubCategories, 'sub-category');
-                    }
-                    // Check both brand object and brandId field
-                    // In edit mode, ensure the selected brand is in the list
-                    // The brand search effect will handle loading the initial list
-                    const brandId = product.brand?.id || product.brandId;
-                    if (brandId) {
-                        await fetchAndAddItem(brandId, fetchBrands, setBrands, 'brand');
-                    }
-
-                    // Set image preview from API
-                    if (product.image) {
-                        setFilePreview(product.image);
-                    }
+                // First, try to use product from navigation state (faster, no API call)
+                if (productFromState) {
+                    await processProductData(productFromState);
                 } else {
-                    showErrorToast('Product not found');
-                    navigate('/products');
+                    // Fallback: Fetch product from API (for page refresh or direct URL access)
+                    const response = await fetchProducts({
+                        filters: [{ key: 'id', eq: id }],
+                        page: 0,
+                        pageSize: 1,
+                    });
+
+                    if (response.list && response.list.length > 0) {
+                        const product = response.list[0];
+                        await processProductData(product);
+                    } else {
+                        showErrorToast('Product not found');
+                        navigate('/products');
+                    }
                 }
             } catch (error) {
-                console.error('Error fetching product:', error);
+                console.error('Error loading product:', error);
+                showErrorToast('Failed to load product data');
                 navigate('/products');
             } finally {
                 setFetchingProduct(false);
@@ -472,38 +589,77 @@ export default function ProductForm() {
 
         loadProduct();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [id]); // Only depend on id, reset and navigate are stable
+    }, [id, productFromState, processProductData]);
 
     // Helper function to build form reset data
     const buildFormResetData = React.useCallback((data: Product) => {
-        // Handle expiryDate - convert string to Date if needed
-        let expiryDateValue: Date | string | null = null;
-        if (data.expiryDate) {
-            expiryDateValue = typeof data.expiryDate === 'string' ? new Date(data.expiryDate) : data.expiryDate;
-        }
-        
         // Handle brandId - check both brand object and brandId field
         const brandId = data.brand?.id || data.brandId || null;
-        
+
+        // Convert variants from API format to form format
+        const variants: VariantFormData[] = (data.variants?.map((variant) => {
+            let expiryDateValue: Date | string | null = null;
+            if (variant.expiry_date) {
+                expiryDateValue = typeof variant.expiry_date === 'string' ? new Date(variant.expiry_date) : variant.expiry_date;
+            }
+
+            const variantTypeMap: Record<string, VariantFormData['variantType']> = {
+                'WEIGHT': 'WEIGHT',
+                'SIZE': 'SIZE',
+                'COLOR': 'COLOR',
+                'MATERIAL': 'MATERIAL',
+                'FLAVOR': 'FLAVOR',
+                'PACKAGING': 'PACKAGING',
+                'OTHER': 'OTHER',
+            };
+
+            return {
+                variantName: variant.variant_name,
+                variantType: variantTypeMap[variant.variant_type] || 'OTHER',
+                variantValue: variant.variant_value,
+                price: variant.price,
+                sellingPrice: variant.selling_price,
+                quantity: variant.quantity,
+                itemsPerUnit: variant.items_per_unit ?? null,
+                units: variant.units ?? null,
+                itemQuantity: variant.item_quantity,
+                itemUnit: variant.item_unit as ItemUnit | null,
+                expiryDate: expiryDateValue,
+                status: variant.status,
+            };
+        }) || []) as VariantFormData[];
+
+        // Convert images from API format to form format
+        const images: ImageFormData[] = (data.images?.map((img) => ({
+            file: null,
+            preview: img.image_url,
+        })) || []) as ImageFormData[];
+
         return {
             title: data.title,
             description: data.description || '',
-            price: data.price,
-            sellingPrice: data.selling_price,
-            quantity: data.quantity,
-            units: data.units,
             categoryId: data.category?.id || 0,
             subCategoryId: data.subCategory?.id || 0,
             status: data.status,
-            productStatus: data.product_status,
             nutritional: data.nutritional,
             brandId: brandId,
-            file: null,
-            // New/Updated fields
-            itemQuantity: data.itemQuantity ?? null,
-            itemUnit: data.itemUnit ?? null,
-            itemsPerUnit: data.itemsPerUnit ?? null,
-            expiryDate: expiryDateValue,
+            images: images.length > 0 ? images : [{ file: null, preview: null }],
+            variants: variants.length > 0 ? variants : [
+                {
+                    variantName: '',
+                    variantType: 'OTHER',
+                    variantValue: null,
+                    price: 0,
+                    sellingPrice: 0,
+                    quantity: 0,
+                    itemsPerUnit: null,
+                    units: null,
+                    itemQuantity: null,
+                    itemUnit: null,
+                    expiryDate: null,
+                    status: 'ACTIVE',
+                },
+            ],
         };
     }, []);
 
@@ -516,63 +672,61 @@ export default function ProductForm() {
             // Check both brand object and brandId field
             const brandId = productData.brand?.id || productData.brandId;
             const brandExists = !brandId || brands.some(b => b.id === brandId);
-            
+
             if (categoryExists && subCategoryExists && brandExists) {
                 const resetData = buildFormResetData(productData);
-                reset(resetData);
+                reset(resetData as ProductFormData);
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [productData, categories, subCategories, brands, isEditMode, buildFormResetData]);
 
-    // Helper function to build common product data
-    const buildProductData = React.useCallback((data: ProductFormData) => {
-        // Format expiryDate - convert Date to ISO string if needed
-        let expiryDateValue: string | undefined = undefined;
-        if (data.expiryDate) {
-            if (data.expiryDate instanceof Date) {
-                expiryDateValue = data.expiryDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-            } else if (typeof data.expiryDate === 'string') {
-                expiryDateValue = data.expiryDate;
+    // Helper function to build variants for API submission
+    const buildVariantsData = React.useCallback((variants: VariantFormData[]) => {
+        return variants.map((variant) => {
+            // Format expiryDate - convert Date to ISO string if needed
+            let expiryDateValue: string | undefined = undefined;
+            if (variant.expiryDate) {
+                if (variant.expiryDate instanceof Date) {
+                    expiryDateValue = variant.expiryDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+                } else if (typeof variant.expiryDate === 'string') {
+                    expiryDateValue = variant.expiryDate;
+                }
             }
-        }
-        
-        // Handle brandId - include if it's a valid number (not null or undefined)
-        // Note: 0 is a valid brandId if the API uses 0-based IDs, but typically IDs start from 1
-        let brandIdValue: number | undefined = undefined;
-        if (data.brandId !== null && data.brandId !== undefined) {
-            brandIdValue = Number(data.brandId); // Ensure it's a number
-        }
-        
-        return {
-            title: data.title,
-            description: data.description || '',
-            price: data.price,
-            sellingPrice: data.sellingPrice,
-            quantity: data.quantity,
-            units: data.units,
-            brandId: brandIdValue,
-            // New/Updated fields
-            itemQuantity: data.itemQuantity ?? undefined,
-            itemUnit: data.itemUnit ?? undefined,
-            itemsPerUnit: data.itemsPerUnit ?? undefined,
-            expiryDate: expiryDateValue,
-        };
+
+            return {
+                variantName: variant.variantName,
+                variantType: variant.variantType,
+                variantValue: variant.variantValue || undefined,
+                price: variant.price,
+                sellingPrice: variant.sellingPrice,
+                quantity: variant.quantity,
+                itemsPerUnit: variant.itemsPerUnit ?? undefined,
+                units: variant.units ?? undefined,
+                itemQuantity: variant.itemQuantity ?? undefined,
+                itemUnit: variant.itemUnit ?? undefined,
+                expiryDate: expiryDateValue,
+                status: variant.status,
+            };
+        });
     }, []);
 
     const onSubmit = async (data: ProductFormData) => {
         // Validation checks
         if (isEditMode) {
-            if (!productData || !id || !productData.concurrencyStamp) {
-                if (!productData?.concurrencyStamp) {
-                    console.error('Product concurrencyStamp is missing');
+            if (!productData || !id || !productData.concurrency_stamp) {
+                if (!productData?.concurrency_stamp) {
+                    console.error('Product concurrency_stamp is missing');
                 }
                 return;
             }
         } else {
-            if (!data.file || !selectedBranchId) {
+            const hasImageFiles = data.images && data.images.length > 0 && data.images.some(img => img.file !== null);
+            if (!hasImageFiles || !selectedBranchId) {
                 if (!selectedBranchId) {
                     showErrorToast('No branch selected. Please select a branch.');
+                } else if (!hasImageFiles) {
+                    showErrorToast('At least one image is required.');
                 }
                 return;
             }
@@ -580,15 +734,34 @@ export default function ProductForm() {
 
         setLoading(true);
         try {
-            const commonData = buildProductData(data);
-            
+            // Handle brandId - include if it's a valid number (not null or undefined)
+            let brandIdValue: number | undefined = undefined;
+            if (data.brandId !== null && data.brandId !== undefined) {
+                brandIdValue = Number(data.brandId);
+            }
+
+            // Build variants data
+            const variantsData = buildVariantsData(data.variants);
+
+            const commonData = {
+                title: data.title,
+                description: data.description || '',
+                brandId: brandIdValue,
+                nutritional: data.nutritional ?? undefined,
+                variants: variantsData,
+            };
+
+            // Get the first image file (API currently expects single file)
+            // TODO: Update API to accept multiple images
+            const images = data.images.filter(img => img.file !== null).map(img => img.file!);
+
             if (isEditMode) {
                 await productService.updateProduct(id!, {
                     ...commonData,
                     updatedBy: userId,
-                    concurrencyStamp: productData!.concurrencyStamp,
-                    file: data.file || undefined,
-                });
+                    concurrencyStamp: productData!.concurrency_stamp,
+                    images: images,
+                } as any);
                 showSuccessToast('Product updated successfully!');
             } else {
                 await productService.createProduct({
@@ -598,8 +771,8 @@ export default function ProductForm() {
                     branchId: selectedBranchId!,
                     vendorId: user?.vendorId || 1,
                     status: data.status as ProductStatus,
-                    file: data.file!,
-                });
+                    images: images,
+                } as any);
                 showSuccessToast('Product created successfully!');
             }
 
@@ -621,496 +794,804 @@ export default function ProductForm() {
     }
 
     return (
-        <Paper sx={{ p: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                <Button
-                    startIcon={<ArrowBackIcon />}
-                    onClick={() => navigate(-1)}
-                    sx={{
-                        color: 'text.secondary',
-                        textTransform: 'none',
-                        minWidth: 'auto',
-                        '&:hover': { bgcolor: 'transparent' }
-                    }}
-                >
-                    Back
-                </Button>
-                <Typography variant="h4" sx={{ fontWeight: 500, color: '#333', fontSize: '1.75rem' }}>
-                    {isEditMode ? 'Edit Product' : 'New Product'}
-                </Typography>
-            </Box>
+        <Box sx={{ maxWidth: 1400, mx: 'auto', p: 3 }}>
+            {/* Header Section */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 3,
+                    mb: 4,
+                    borderRadius: 2,
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                }}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Button
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => navigate(-1)}
+                            sx={{
+                                color: 'text.secondary',
+                                textTransform: 'none',
+                                minWidth: 'auto',
+                                px: 2,
+                                py: 1,
+                                borderRadius: 1,
+                                '&:hover': {
+                                    bgcolor: 'action.hover',
+                                    color: 'text.primary'
+                                }
+                            }}
+                        >
+                            Back
+                        </Button>
+                        <Divider orientation="vertical" flexItem sx={{ height: 32, mx: 1 }} />
+                        <Box>
+                            <Typography
+                                variant="h4"
+                                sx={{
+                                    fontWeight: 600,
+                                    color: 'text.primary',
+                                    fontSize: '1.75rem',
+                                    mb: 0.5
+                                }}
+                            >
+                                {isEditMode ? 'Edit Product' : 'New Product'}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                                {isEditMode ? 'Update product information and details' : 'Create a new product for your store'}
+                            </Typography>
+                        </Box>
+                    </Box>
+                </Box>
+            </Paper>
 
             <FormProvider methods={methods} onSubmit={handleSubmit(onSubmit)}>
-                <Grid container spacing={2}>
+                <Grid container>
                     {/* Basic Information Section */}
                     <Grid size={{ xs: 12 }}>
-                        <Box sx={{ mb: 1.5, mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <InfoIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
-                                Basic Information
-                            </Typography>
-                        </Box>
-                        <Divider sx={{ mb: 1.5 }} />
-                    </Grid>
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                borderRadius: 2,
+                                bgcolor: 'background.paper',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                mb: 3
+                            }}
+                        >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                                <InfoIcon sx={{ color: 'text.secondary', fontSize: '1.25rem' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '1.125rem' }}>
+                                    Basic Information
+                                </Typography>
+                            </Box>
+                            <Divider sx={{ mb: 3 }} />
+                            <Grid container spacing={3}>
 
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormTextField
-                                name="title"
-                                control={control}
-                                label="Product Title"
-                                required
-                                placeholder="Enter product name"
-                                variant="outlined"
-                                size="small"
-                                disabled={loading}
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                The name of your product as it will appear to customers
-                            </Typography>
-                        </Box>
-                    </Grid>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <FormTextField
+                                        name="title"
+                                        control={control}
+                                        label="Product Title"
+                                        required
+                                        placeholder="Enter product name"
+                                        variant="outlined"
+                                        size="small"
+                                        disabled={loading}
+                                    />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                        The name of your product as it will appear to customers
+                                    </Typography>
+                                </Grid>
 
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormAutocomplete
-                                name="brandId"
-                                label="Brand"
-                                disabled={loading}
-                                loading={loadingBrands}
-                                options={brands.map(brand => ({
-                                    value: Number(brand.id),
-                                    label: brand.name,
-                                }))}
-                                onInputChange={(_, newInputValue, reason) => {
-                                    if (reason === 'input') {
-                                        setBrandSearchTerm(newInputValue);
-                                    }
-                                }}
-                                size="small"
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                Select the product brand (optional)
-                            </Typography>
-                        </Box>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <FormAutocomplete
+                                        name="brandId"
+                                        label="Brand"
+                                        disabled={loading}
+                                        loading={loadingBrands}
+                                        options={brands.map(brand => ({
+                                            value: Number(brand.id),
+                                            label: brand.name,
+                                        }))}
+                                        onInputChange={(_, newInputValue, reason) => {
+                                            if (reason === 'input') {
+                                                setBrandSearchTerm(newInputValue);
+                                            }
+                                        }}
+                                        size="small"
+                                    />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                        Select the product brand (optional)
+                                    </Typography>
+                                </Grid>
+                            </Grid>
+                        </Paper>
                     </Grid>
 
                     {/* Category & Classification Section */}
                     <Grid size={{ xs: 12 }}>
-                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CategoryIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
-                                Category & Classification
-                            </Typography>
-                        </Box>
-                        <Divider sx={{ mb: 1.5 }} />
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                borderRadius: 2,
+                                bgcolor: 'background.paper',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                mb: 3
+                            }}
+                        >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                                <CategoryIcon sx={{ color: 'text.secondary', fontSize: '1.25rem' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '1.125rem' }}>
+                                    Category & Classification
+                                </Typography>
+                            </Box>
+                            <Divider sx={{ mb: 3 }} />
+                            <Grid container spacing={3}>
+
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <FormAutocomplete
+                                        name="categoryId"
+                                        label="Category"
+                                        required
+                                        disabled={loading || isEditMode}
+                                        loading={loadingCategories}
+                                        options={categories.map(cat => ({
+                                            value: cat.id,
+                                            label: cat.title,
+                                        }))}
+                                        onInputChange={(_, newInputValue, reason) => {
+                                            if (reason === 'input') {
+                                                setCategorySearchTerm(newInputValue);
+                                            }
+                                        }}
+                                        size="small"
+                                    />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                        Select the main product category
+                                    </Typography>
+                                </Grid>
+
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <FormAutocomplete
+                                        name="subCategoryId"
+                                        label="Sub Category"
+                                        required
+                                        disabled={loading || isEditMode || !selectedCategoryId || selectedCategoryId === 0}
+                                        loading={loadingSubCategories}
+                                        options={subCategories.map(sub => ({
+                                            value: sub.id,
+                                            label: sub.title,
+                                        }))}
+                                        onInputChange={(_, newInputValue, reason) => {
+                                            if (reason === 'input') {
+                                                setSubCategorySearchTerm(newInputValue);
+                                            }
+                                        }}
+                                        size="small"
+                                    />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                        Select a sub-category within the chosen category
+                                    </Typography>
+                                </Grid>
+                            </Grid>
+                        </Paper>
                     </Grid>
 
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormAutocomplete
-                                name="categoryId"
-                                label="Category"
-                                required
-                                disabled={loading || isEditMode}
-                                loading={loadingCategories}
-                                options={categories.map(cat => ({
-                                    value: cat.id,
-                                    label: cat.title,
-                                }))}
-                                onInputChange={(_, newInputValue, reason) => {
-                                    if (reason === 'input') {
-                                        setCategorySearchTerm(newInputValue);
-                                    }
-                                }}
-                                size="small"
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                Select the main product category
-                            </Typography>
-                        </Box>
-                    </Grid>
-
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormAutocomplete
-                                name="subCategoryId"
-                                label="Sub Category"
-                                required
-                                disabled={loading || isEditMode || !selectedCategoryId || selectedCategoryId === 0}
-                                loading={loadingSubCategories}
-                                options={subCategories.map(sub => ({
-                                    value: sub.id,
-                                    label: sub.title,
-                                }))}
-                                onInputChange={(_, newInputValue, reason) => {
-                                    if (reason === 'input') {
-                                        setSubCategorySearchTerm(newInputValue);
-                                    }
-                                }}
-                                size="small"
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                Select a sub-category within the chosen category
-                            </Typography>
-                        </Box>
-                    </Grid>
-
-                    {/* Pricing & Inventory Section */}
+                    {/* Product Variants Section */}
                     <Grid size={{ xs: 12 }}>
-                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <AttachMoneyIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
-                                Pricing & Inventory
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                borderRadius: 3,
+                                bgcolor: 'background.paper',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                mb: 3
+                            }}
+                        >
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <AttachMoneyIcon sx={{ color: 'text.secondary', fontSize: '1.25rem' }} />
+                                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '1.125rem' }}>
+                                        Product Variants
+                                    </Typography>
+                                    <Chip
+                                        label="Required"
+                                        size="small"
+                                        sx={{
+                                            bgcolor: 'grey.100',
+                                            color: 'text.secondary',
+                                            fontSize: '0.7rem',
+                                            height: '20px',
+                                            fontWeight: 500,
+                                            border: '1px solid',
+                                            borderColor: 'divider',
+                                        }}
+                                    />
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                checked={useSameExpiryDate}
+                                                onChange={handleUseSameExpiryDateChange}
+                                                disabled={loading}
+                                                sx={{
+                                                    color: 'text.secondary',
+                                                    '&.Mui-checked': {
+                                                        color: 'text.primary',
+                                                    },
+                                                }}
+                                            />
+                                        }
+                                        label={
+                                            <Typography variant="body2" sx={{ fontSize: '0.875rem', fontWeight: 400, color: 'text.secondary' }}>
+                                                Use same expiry date for all variants
+                                            </Typography>
+                                        }
+                                        sx={{ mr: 0 }}
+                                    />
+                                    <Button
+                                        startIcon={<AddIcon />}
+                                        onClick={handleAddVariant}
+                                        disabled={loading}
+                                        variant="outlined"
+                                        size="small"
+                                        sx={{
+                                            textTransform: 'none',
+                                            borderRadius: 1,
+                                            px: 2,
+                                            py: 1,
+                                            borderColor: 'divider',
+                                            color: 'text.primary',
+                                            '&:hover': {
+                                                borderColor: 'text.primary',
+                                                bgcolor: 'action.hover',
+                                            },
+                                        }}
+                                    >
+                                        Add Variant
+                                    </Button>
+                                </Box>
+                            </Box>
+                            <Divider sx={{ mb: 3 }} />
+                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3, fontSize: '0.875rem' }}>
+                                Add product variants with different prices, quantities, and expiry dates
                             </Typography>
-                        </Box>
-                        <Divider sx={{ mb: 1.5 }} />
-                    </Grid>
 
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormTextField
-                                name="price"
-                                control={control}
-                                label="Cost Price"
-                                required
-                                placeholder="0.00"
-                                variant="outlined"
-                                size="small"
-                                type="number"
-                                disabled={loading}
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                The cost price of the product
-                            </Typography>
-                        </Box>
-                    </Grid>
+                            {/* Shared Expiry Date Field */}
+                            {useSameExpiryDate && (
+                                <Box
+                                    sx={{
+                                        p: 2.5,
+                                        mb: 3,
+                                        borderRadius: 1,
+                                        bgcolor: 'background.paper',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderLeft: '4px solid',
+                                        borderLeftColor: 'text.primary',
+                                    }}
+                                >
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 1.5 }}>
+                                        <Box sx={{ flex: 1 }}>
+                                            <LocalizationProvider dateAdapter={AdapterDateFns}>
+                                                <DatePicker
+                                                    label="Expiry Date (All Variants)"
+                                                    disabled={loading}
+                                                    value={sharedExpiryDate ? (sharedExpiryDate instanceof Date ? sharedExpiryDate : new Date(sharedExpiryDate)) : null}
+                                                    onChange={(newValue) => {
+                                                        handleSharedExpiryDateChange(newValue);
+                                                    }}
+                                                    slotProps={{
+                                                        textField: {
+                                                            required: true,
+                                                            size: 'small',
+                                                            fullWidth: true,
+                                                        },
+                                                    }}
+                                                />
+                                            </LocalizationProvider>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
+                                            <Chip
+                                                label={`Applied to ${variantFields.length} variant${variantFields.length !== 1 ? 's' : ''}`}
+                                                size="small"
+                                                sx={{
+                                                    bgcolor: 'grey.100',
+                                                    color: 'text.secondary',
+                                                    height: 24,
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 500,
+                                                    border: '1px solid',
+                                                    borderColor: 'divider',
+                                                }}
+                                            />
+                                        </Box>
+                                    </Box>
+                                    <Divider sx={{ my: 1.5 }} />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.75rem' }}>
+                                        This date will be automatically applied to all variants
+                                    </Typography>
+                                </Box>
+                            )}
 
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormTextField
-                                name="sellingPrice"
-                                control={control}
-                                label="Selling Price"
-                                required
-                                placeholder="0.00"
-                                variant="outlined"
-                                size="small"
-                                type="number"
-                                disabled={loading}
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                The price at which you'll sell to customers
-                            </Typography>
-                        </Box>
-                    </Grid>
+                            {variantFields.map((field, index) => (
+                                <Paper
+                                    key={field.id}
+                                    elevation={0}
+                                    sx={{
+                                        p: 3,
+                                        mb: 3,
+                                        borderRadius: 2,
+                                        bgcolor: 'background.paper',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        position: 'relative',
+                                    }}
+                                >
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                            Variant {index + 1}
+                                        </Typography>
+                                        {variantFields.length > 1 && (
+                                            <IconButton
+                                                onClick={() => removeVariant(index)}
+                                                disabled={loading}
+                                                size="small"
+                                                sx={{
+                                                    color: 'text.secondary',
+                                                    '&:hover': {
+                                                        bgcolor: 'action.hover',
+                                                        color: 'text.primary'
+                                                    },
+                                                }}
+                                            >
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        )}
+                                    </Box>
+                                    <Divider sx={{ mb: 3 }} />
 
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormNumberField
-                                name="quantity"
-                                control={control}
-                                label="Stock Quantity"
-                                required
-                                placeholder="0"
-                                variant="outlined"
-                                size="small"
-                                disabled={loading}
-                                inputProps={{ step: 1, min: 0 }}
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                Total number of units available in stock
-                            </Typography>
-                        </Box>
-                    </Grid>
+                                    <Grid container spacing={2}>
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormTextField
+                                                name={`variants.${index}.variantName`}
+                                                control={control}
+                                                label="Variant Name"
+                                                required
+                                                placeholder="e.g., Small, Red, 500g"
+                                                variant="outlined"
+                                                size="small"
+                                                disabled={loading}
+                                            />
+                                        </Grid>
 
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormTextField
-                                name="units"
-                                control={control}
-                                label="Stock Unit"
-                                placeholder="e.g., 25"
-                                variant="outlined"
-                                size="small"
-                                disabled={loading}
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                Optional: Number of items per stock unit (used to calculate items per unit)
-                            </Typography>
-                        </Box>
-                    </Grid>
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormSelect
+                                                name={`variants.${index}.variantType`}
+                                                control={control}
+                                                label="Variant Type"
+                                                required
+                                                disabled={loading}
+                                                options={[
+                                                    { value: 'WEIGHT', label: 'Weight' },
+                                                    { value: 'SIZE', label: 'Size' },
+                                                    { value: 'COLOR', label: 'Color' },
+                                                    { value: 'MATERIAL', label: 'Material' },
+                                                    { value: 'FLAVOR', label: 'Flavor' },
+                                                    { value: 'PACKAGING', label: 'Packaging' },
+                                                    { value: 'OTHER', label: 'Other' },
+                                                ]}
+                                            />
+                                        </Grid>
 
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormSelect
-                                name="productStatus"
-                                control={control}
-                                label="Availability Status"
-                                required
-                                disabled={loading}
-                                options={[
-                                    { value: 'INSTOCK', label: 'In Stock' },
-                                    { value: 'OUTOFSTOCK', label: 'Out of Stock' },
-                                ]}
-                            />
-                        </Box>
-                    </Grid>
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormTextField
+                                                name={`variants.${index}.variantValue`}
+                                                control={control}
+                                                label="Variant Value (Optional)"
+                                                placeholder="e.g., 500g, Red, Large"
+                                                variant="outlined"
+                                                size="small"
+                                                disabled={loading}
+                                            />
+                                        </Grid>
 
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormSelect
-                                name="status"
-                                control={control}
-                                label="Product Status"
-                                required
-                                disabled={loading}
-                                options={[
-                                    { value: 'ACTIVE', label: 'Active' },
-                                    { value: 'INACTIVE', label: 'Inactive' },
-                                ]}
-                            />
-                        </Box>
-                    </Grid>
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormSelect
+                                                name={`variants.${index}.status`}
+                                                control={control}
+                                                label="Status"
+                                                required
+                                                disabled={loading}
+                                                options={[
+                                                    { value: 'ACTIVE', label: 'Active' },
+                                                    { value: 'INACTIVE', label: 'Inactive' },
+                                                ]}
+                                            />
+                                        </Grid>
 
-                    {/* Item Details Section */}
-                    <Grid size={{ xs: 12 }}>
-                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <InventoryIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
-                                Item Measurement Details
-                            </Typography>
-                            <Chip 
-                                label="Required" 
-                                size="small" 
-                                sx={{ 
-                                    bgcolor: '#e3f2fd', 
-                                    color: '#1976d2', 
-                                    fontSize: '0.65rem',
-                                    height: '18px'
-                                }} 
-                            />
-                        </Box>
-                        <Divider sx={{ mb: 1.5 }} />
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5, fontSize: '0.85rem' }}>
-                            Specify the measurement details for individual items in this product
-                        </Typography>
-                    </Grid>
-                    
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormNumberField
-                                name="itemQuantity"
-                                control={control}
-                                label="Item Quantity"
-                                required
-                                placeholder="e.g., 500"
-                                variant="outlined"
-                                size="small"
-                                disabled={loading}
-                                inputProps={{ step: 'any' }}
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                The quantity measurement per individual item (e.g., 500 for 500 grams)
-                            </Typography>
-                        </Box>
-                    </Grid>
-                    
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormAutocomplete
-                                name="itemUnit"
-                                label="Item Unit"
-                                required
-                                disabled={loading}
-                                options={getItemUnitOptions()}
-                                size="small"
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                The unit of measurement (e.g., G for grams, KG for kilograms, ML for milliliters)
-                            </Typography>
-                        </Box>
-                    </Grid>
-                    
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormNumberField
-                                name="itemsPerUnit"
-                                control={control}
-                                label="Items Per Unit"
-                                placeholder="Auto-calculated"
-                                variant="outlined"
-                                size="small"
-                                disabled={true}
-                            />
-                            <Typography variant="caption" sx={{ color: units && units.trim() !== '' && quantity ? 'success.main' : 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem', fontWeight: units && units.trim() !== '' && quantity ? 500 : 400 }}>
-                                {units && units.trim() !== '' && quantity 
-                                    ? (() => {
-                                        const unitsValue = parseFloat(units);
-                                        const calculated = !isNaN(unitsValue) && unitsValue > 0 ? Math.floor(quantity / unitsValue) : null;
-                                        return calculated && calculated > 0 
-                                            ? `✓ Auto-calculated: ${calculated} items per unit`
-                                            : 'Enter valid Stock Unit and Stock Quantity to calculate';
-                                    })()
-                                    : 'Enter Stock Unit above to auto-calculate items per unit'}
-                            </Typography>
-                        </Box>
-                    </Grid>
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormTextField
+                                                name={`variants.${index}.price`}
+                                                control={control}
+                                                label="Cost Price"
+                                                required
+                                                placeholder="0.00"
+                                                variant="outlined"
+                                                size="small"
+                                                type="number"
+                                                disabled={loading}
+                                            />
+                                        </Grid>
 
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormDatePicker
-                                name="expiryDate"
-                                control={control}
-                                label="Expiry Date"
-                                required={!isEditMode}
-                                variant="outlined"
-                                size="small"
-                                disabled={loading}
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                {isEditMode ? 'Optional: Product expiration date' : 'Required: When does this product expire?'}
-                            </Typography>
-                        </Box>
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormTextField
+                                                name={`variants.${index}.sellingPrice`}
+                                                control={control}
+                                                label="Selling Price"
+                                                required
+                                                placeholder="0.00"
+                                                variant="outlined"
+                                                size="small"
+                                                type="number"
+                                                disabled={loading}
+                                            />
+                                        </Grid>
+
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormNumberField
+                                                name={`variants.${index}.quantity`}
+                                                control={control}
+                                                label="Quantity"
+                                                required
+                                                placeholder="0"
+                                                variant="outlined"
+                                                size="small"
+                                                disabled={loading}
+                                                inputProps={{ step: 1, min: 0 }}
+                                            />
+                                        </Grid>
+
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormTextField
+                                                name={`variants.${index}.units`}
+                                                control={control}
+                                                label="Stock Unit (Optional)"
+                                                placeholder="e.g., 25"
+                                                variant="outlined"
+                                                size="small"
+                                                disabled={loading}
+                                            />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                                Optional: Number of items per stock unit (used to calculate items per unit)
+                                            </Typography>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormNumberField
+                                                name={`variants.${index}.itemsPerUnit`}
+                                                control={control}
+                                                label="Items Per Unit (Optional)"
+                                                placeholder="Auto-calculated"
+                                                variant="outlined"
+                                                size="small"
+                                                disabled={true}
+                                            />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                                Optional: Auto-calculated based on Stock Unit and Quantity
+                                            </Typography>
+                                        </Grid>
+
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                            <FormNumberField
+                                                name={`variants.${index}.itemQuantity`}
+                                                control={control}
+                                                label="Item Quantity (Optional)"
+                                                placeholder="e.g., 500"
+                                                variant="outlined"
+                                                size="small"
+                                                disabled={loading}
+                                                inputProps={{ step: 'any' }}
+                                            />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                                Optional: The quantity measurement per individual item (e.g., 500 for 500 grams)
+                                            </Typography>
+                                        </Grid>
+
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                            <FormAutocomplete
+                                                name={`variants.${index}.itemUnit`}
+                                                label="Item Unit (Optional)"
+                                                disabled={loading}
+                                                options={getItemUnitOptions()}
+                                                size="small"
+                                            />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                                Optional: The unit of measurement (e.g., G for grams, KG for kilograms, ML for milliliters)
+                                            </Typography>
+                                        </Grid>
+
+
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                            <FormDatePicker
+                                                name={`variants.${index}.expiryDate`}
+                                                control={control}
+                                                label="Expiry Date"
+                                                required
+                                                disabled={loading || useSameExpiryDate}
+                                                slotProps={{
+                                                    textField: {
+                                                        size: 'small',
+                                                        variant: 'outlined',
+                                                    },
+                                                }}
+                                            />
+                                            {useSameExpiryDate && (
+                                                <Typography variant="caption" sx={{ color: 'primary.main', mt: 0.5, display: 'block', fontSize: '0.7rem', fontStyle: 'italic' }}>
+                                                    Using shared expiry date
+                                                </Typography>
+                                            )}
+                                        </Grid>
+                                    </Grid>
+                                </Paper>
+                            ))}
+                        </Paper>
                     </Grid>
 
                     {/* Additional Information Section */}
                     <Grid size={{ xs: 12 }}>
-                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <DescriptionIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
-                                Additional Information
-                            </Typography>
-                        </Box>
-                        <Divider sx={{ mb: 1.5 }} />
-                    </Grid>
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                borderRadius: 3,
+                                bgcolor: 'background.paper',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                mb: 3
+                            }}
+                        >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                                <DescriptionIcon sx={{ color: 'text.secondary', fontSize: '1.25rem' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '1.125rem' }}>
+                                    Additional Information
+                                </Typography>
+                            </Box>
+                            <Divider sx={{ mb: 3 }} />
+                            <Grid container spacing={3}>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <FormTextField
+                                        name="description"
+                                        control={control}
+                                        label="Product Description"
+                                        placeholder="Enter a detailed description of the product..."
+                                        variant="outlined"
+                                        multiline
+                                        rows={4}
+                                        disabled={loading}
+                                    />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                        Provide a detailed description that helps customers understand your product
+                                    </Typography>
+                                </Grid>
 
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormTextField
-                                name="description"
-                                control={control}
-                                label="Product Description"
-                                placeholder="Enter a detailed description of the product..."
-                                variant="outlined"
-                                multiline
-                                rows={4}
-                                disabled={loading}
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                Provide a detailed description that helps customers understand your product
-                            </Typography>
-                        </Box>
-                    </Grid>
-
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Box sx={{ mb: 2 }}>
-                            <FormTextField
-                                name="nutritional"
-                                control={control}
-                                label="Nutritional Information"
-                                placeholder="Enter nutritional details..."
-                                variant="outlined"
-                                multiline
-                                rows={4}
-                                disabled={loading}
-                            />
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                                Optional: Add nutritional facts, ingredients, or other relevant information
-                            </Typography>
-                        </Box>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <FormTextField
+                                        name="nutritional"
+                                        control={control}
+                                        label="Nutritional Information"
+                                        placeholder="Enter nutritional details..."
+                                        variant="outlined"
+                                        multiline
+                                        rows={4}
+                                        disabled={loading}
+                                    />
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                        Optional: Add nutritional facts, ingredients, or other relevant information
+                                    </Typography>
+                                </Grid>
+                            </Grid>
+                        </Paper>
                     </Grid>
 
                     {/* Product Image Section */}
                     <Grid size={{ xs: 12 }}>
-                        <Box sx={{ mb: 1.5, mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <ImageIcon sx={{ color: '#204564', fontSize: '1.25rem' }} />
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333', fontSize: '1.1rem' }}>
-                                Product Image
-                            </Typography>
-                            {!isEditMode && (
-                                <Chip 
-                                    label="Required" 
-                                    size="small" 
-                                    sx={{ 
-                                        bgcolor: '#e3f2fd', 
-                                        color: '#1976d2', 
-                                        fontSize: '0.65rem',
-                                        height: '18px'
-                                    }} 
-                                />
-                            )}
-                        </Box>
-                        <Divider sx={{ mb: 1.5 }} />
-                    </Grid>
+                        <Paper
+                            elevation={0}
+                            sx={{
+                                p: 3,
+                                borderRadius: 2,
+                                bgcolor: 'background.paper',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                mb: 3
+                            }}
+                        >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                                <ImageIcon sx={{ color: 'text.secondary', fontSize: '1.25rem' }} />
+                                <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '1.125rem' }}>
+                                    Product Image
+                                </Typography>
+                                {!isEditMode && (
+                                    <Chip
+                                        label="Required"
+                                        size="small"
+                                        sx={{
+                                            bgcolor: 'grey.100',
+                                            color: 'text.secondary',
+                                            fontSize: '0.7rem',
+                                            height: '20px',
+                                            fontWeight: 500,
+                                            border: '1px solid',
+                                            borderColor: 'divider',
+                                        }}
+                                    />
+                                )}
+                            </Box>
+                            <Divider sx={{ mb: 3 }} />
+                            <Grid container spacing={2}>
+                                {imageFields.map((field, index) => {
+                                    const imageValue = watch(`images.${index}`);
+                                    const preview = imageValue?.preview || null;
 
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <FormFileUpload
-                            name="file"
-                            control={control}
-                            label="Upload Product Image"
-                            required={!isEditMode}
-                            accept="image/*"
-                            disabled={loading}
-                            preview={filePreview}
-                            onPreviewChange={setFilePreview}
-                            minHeight={150}
-                        />
-                        <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
-                            {isEditMode 
-                                ? 'Upload a new image to replace the current product image (optional)'
-                                : 'Upload a high-quality image that represents your product (required)'}
-                        </Typography>
+                                    return (
+                                        <Grid size={{ xs: 12, md: 4 }} key={field.id}>
+                                            <Box sx={{ position: 'relative' }}>
+                                                <FormFileUpload
+                                                    name={`images.${index}.file`}
+                                                    control={control}
+                                                    label={`Image ${index + 1}`}
+                                                    required={index === 0 && !isEditMode}
+                                                    accept="image/*"
+                                                    disabled={loading}
+                                                    preview={preview}
+                                                    onPreviewChange={(newPreview) => {
+                                                        setValue(`images.${index}.preview`, newPreview);
+                                                    }}
+                                                    minHeight={200}
+                                                />
+                                                {index > 0 && (
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => removeImage(index)}
+                                                        disabled={loading}
+                                                        sx={{
+                                                            position: 'absolute',
+                                                            top: 8,
+                                                            right: 8,
+                                                            bgcolor: 'error.main',
+                                                            color: 'white',
+                                                            '&:hover': { bgcolor: 'error.dark' },
+                                                        }}
+                                                    >
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                )}
+                                            </Box>
+                                        </Grid>
+                                    );
+                                })}
+                                {imageFields.length < 3 && (
+                                    <Grid size={{ xs: 12, md: 4 }}>
+                                        <Box
+                                            onClick={() => !loading && appendImage({ file: null, preview: null })}
+                                            sx={{
+                                                border: '1px dashed',
+                                                borderColor: 'divider',
+                                                borderRadius: 2,
+                                                p: 3,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                cursor: loading ? 'not-allowed' : 'pointer',
+                                                bgcolor: '#fdfdfd',
+                                                minHeight: 200,
+                                                opacity: loading ? 0.6 : 1,
+                                                '&:hover': loading ? {} : { bgcolor: '#f5f5f5' },
+                                            }}
+                                        >
+                                            <AddIcon sx={{ color: 'text.secondary', fontSize: '2rem', mb: 1 }} />
+                                            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                                                Add Image
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                                                Max 3 images
+                                            </Typography>
+                                        </Box>
+                                    </Grid>
+                                )}
+                            </Grid>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                {isEditMode
+                                    ? 'Upload new images to replace existing ones (optional). Maximum 3 images allowed.'
+                                    : 'Upload high-quality images that represent your product. Maximum 3 images allowed. At least one image is required.'}
+                            </Typography>
+                        </Paper>
                     </Grid>
                 </Grid>
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
-                <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={loading || !isValid}
+                {/* Action Buttons */}
+                <Paper
+                    elevation={0}
                     sx={{
-                        bgcolor: '#204564',
-                        color: 'white',
-                        px: 6,
-                        py: 1,
+                        p: 3,
+                        mt: 3,
                         borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        '&:hover': { bgcolor: '#1a3852' },
-                        '&:disabled': { bgcolor: '#ccc', color: '#666' }
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 2
                     }}
                 >
-                    {loading ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CircularProgress size={16} sx={{ color: 'white' }} />
-                            {isEditMode ? 'Updating...' : 'Submitting...'}
-                        </Box>
-                    ) : (
-                        isEditMode ? 'Update' : 'Submit'
-                    )}
-                </Button>
-                <Button
-                    type="button"
-                    variant="contained"
-                    disabled={loading}
-                    onClick={() => navigate(-1)}
-                    sx={{
-                        bgcolor: '#e0e0e0',
-                        color: '#333',
-                        px: 6,
-                        py: 1,
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        '&:hover': { bgcolor: '#d5d5d5' }
-                    }}
-                >
-                    Cancel
-                </Button>
-            </Box>
+                    <Button
+                        type="button"
+                        variant="outlined"
+                        disabled={loading}
+                        onClick={() => navigate(-1)}
+                        sx={{
+                            borderColor: 'divider',
+                            color: 'text.primary',
+                            px: 4,
+                            py: 1.5,
+                            borderRadius: 1,
+                            textTransform: 'none',
+                            fontWeight: 500,
+                            minWidth: 120,
+                            '&:hover': {
+                                borderColor: 'text.primary',
+                                bgcolor: 'action.hover'
+                            }
+                        }}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={loading || !isValid}
+                        sx={{
+                            bgcolor: 'text.primary',
+                            color: 'background.paper',
+                            px: 4,
+                            py: 1.5,
+                            borderRadius: 1,
+                            textTransform: 'none',
+                            fontWeight: 500,
+                            minWidth: 120,
+                            '&:hover': {
+                                bgcolor: 'text.primary',
+                                opacity: 0.9,
+                            },
+                            '&:disabled': {
+                                bgcolor: 'action.disabledBackground',
+                                color: 'action.disabled',
+                            }
+                        }}
+                    >
+                        {loading ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <CircularProgress size={18} sx={{ color: 'background.paper' }} />
+                                {isEditMode ? 'Updating...' : 'Submitting...'}
+                            </Box>
+                        ) : (
+                            isEditMode ? 'Update Product' : 'Create Product'
+                        )}
+                    </Button>
+                </Paper>
             </FormProvider>
-        </Paper>
+        </Box>
     );
 }
 

@@ -5,8 +5,8 @@
     "version": "0.2.0",
     "configurations": [
     {
-        "command": "npm run dev:staging",
-        "name": "Run npm run dev:staging",
+        "command": "npm run dev",
+        "name": "Run npm run dev",
         "request": "launch",
         "type": "node-terminal"
     },

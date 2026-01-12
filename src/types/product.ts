@@ -22,23 +22,44 @@ export type ItemUnit =
   // Area Units
   | 'SQFT' | 'SQM';
 
+export interface ProductVariant {
+  id: number;
+  variant_name: string;
+  variant_type: string;
+  variant_value: string | null;
+  price: number;
+  selling_price: number;
+  quantity: number;
+  items_per_unit?: number | null;
+  units?: string | null;
+  item_quantity: number | null;
+  item_unit: string | null;
+  expiry_date: string | Date | null;
+  product_status: ProductStatusType;
+  status: ProductStatus;
+}
+
+export interface ProductImage {
+  id: number;
+  image_url: string;
+  is_default: boolean;
+  display_order: number;
+  variant_id: number;
+}
+
 export interface Product {
   id: number;
   title: string;
   description: string;
-  price: number;
-  selling_price: number;
-  quantity: number;
-  image: string;
-  product_status: ProductStatusType;
   status: ProductStatus;
-  units: string;
   nutritional: string | null;
-  // New/Updated fields
-  itemQuantity?: number; // Decimal/Number - measurement quantity per individual item (e.g., 500 for 500gm)
-  itemUnit?: ItemUnit; // Measurement unit per individual item (e.g., "G" for grams)
-  itemsPerUnit?: number; // Integer - number of items contained in each unit (e.g., 25 items per unit)
-  expiryDate?: string | Date; // Date - expiry date of the product
+  concurrency_stamp?: string;
+  created_at?: string; // API returns snake_case
+  createdAt?: string;
+  // Variants array (new structure)
+  variants: ProductVariant[];
+  // Images array (new structure)
+  images: ProductImage[];
   category?: {
     id: number;
     title: string;
@@ -55,9 +76,17 @@ export interface Product {
     logo?: string;
   } | null;
   brandId?: number; // For form submission
-  concurrencyStamp?: string;
-  createdAt?: string;
-  created_at?: string; // API returns snake_case
+  // Legacy fields for backward compatibility (will use first variant data)
+  price?: number;
+  selling_price?: number;
+  quantity?: number;
+  image?: string;
+  product_status?: ProductStatusType;
+  units?: string;
+  itemQuantity?: number;
+  itemUnit?: ItemUnit;
+  itemsPerUnit?: number;
+  expiryDate?: string | Date;
 }
 
 export interface ProductListResponse {
@@ -74,22 +103,28 @@ export interface ProductListResponse {
 export interface CreateProductRequest {
   title: string;
   description: string;
-  price: string | number;
-  sellingPrice: string | number;
-  quantity: string | number; // Required for create, integer >= 0
-  units: string;
   categoryId: string | number;
   subCategoryId: string | number;
   branchId: string | number;
   vendorId: string | number;
   status: ProductStatus;
   brandId?: string | number;
-  file: File;
-  // New/Updated fields
-  itemQuantity?: string | number; // Optional, decimal >= 0
-  itemUnit?: ItemUnit; // Optional, must be one of 32 valid enum values
-  itemsPerUnit?: string | number; // Optional, integer >= 1
-  expiryDate: string | Date; // Required for create, valid date
+  nutritional?: string | null;
+  images: File[];
+  variants: Array<{
+    variantName: string;
+    variantType: string;
+    variantValue?: string;
+    price: number;
+    sellingPrice: number;
+    quantity: number;
+    itemsPerUnit?: number;
+    units?: string;
+    itemQuantity?: number;
+    itemUnit?: string;
+    expiryDate?: string;
+    status: ProductStatus;
+  }>;
 }
 
 export interface CreateProductResponse {
@@ -101,19 +136,25 @@ export interface CreateProductResponse {
 export interface UpdateProductRequest {
   title: string;
   description: string;
-  price: string | number;
-  sellingPrice: string | number;
-  quantity?: string | number; // Optional for update, integer >= 0
-  units: string;
   updatedBy: string | number;
   concurrencyStamp: string;
   brandId?: string | number;
-  file?: File; // Optional for updates
-  // New/Updated fields
-  itemQuantity?: string | number; // Optional, decimal >= 0
-  itemUnit?: ItemUnit; // Optional, must be one of 32 valid enum values
-  itemsPerUnit?: string | number; // Optional, integer >= 1
-  expiryDate?: string | Date; // Optional for update, valid date
+  nutritional?: string | null;
+  images?: File[]; // Optional for updates
+  variants: Array<{
+    variantName: string;
+    variantType: string;
+    variantValue?: string;
+    price: number;
+    sellingPrice: number;
+    quantity: number;
+    itemsPerUnit?: number;
+    units?: string;
+    itemQuantity?: number;
+    itemUnit?: string;
+    expiryDate?: string;
+    status: ProductStatus;
+  }>;
 }
 
 export interface UpdateProductResponse {

@@ -102,19 +102,36 @@ export const fetchProducts = async (
 
     // Transform API response to hook's expected format
     // Map snake_case fields to camelCase and handle new fields
-    const mappedList = (response.doc || []).map((product: any) => ({
-      ...product,
-      createdAt: product.created_at || product.createdAt,
-      concurrencyStamp: product.concurrency_stamp || product.concurrencyStamp,
-      // Handle new fields - API may return in camelCase or snake_case
-      itemQuantity: product.itemQuantity ?? product.item_quantity ?? undefined,
-      itemUnit: product.itemUnit ?? product.item_unit ?? undefined,
-      itemsPerUnit: product.itemsPerUnit ?? product.items_per_unit ?? undefined,
-      expiryDate: product.expiryDate ?? product.expiry_date ?? undefined,
-      // Handle brand - API may return as object or null
-      brand: product.brand || null,
-      brandId: product.brand?.id || product.brandId || undefined,
-    }));
+    const mappedList = (response.doc || []).map((product: unknown) => {
+      const p = product as Record<string, unknown>;
+      
+      // Map variants array if present
+      const variants = Array.isArray(p.variants) 
+        ? (p.variants as unknown[]).map((variant: unknown) => {
+            const v = variant as Record<string, unknown>;
+            return {
+              ...v,
+              items_per_unit: v.items_per_unit ?? v.itemsPerUnit ?? null,
+              units: v.units ?? null,
+            };
+          })
+        : p.variants;
+      
+      return {
+        ...p,
+        variants,
+        createdAt: p.created_at || p.createdAt,
+        concurrencyStamp: p.concurrency_stamp || p.concurrencyStamp,
+        // Handle new fields - API may return in camelCase or snake_case
+        itemQuantity: p.itemQuantity ?? p.item_quantity ?? undefined,
+        itemUnit: p.itemUnit ?? p.item_unit ?? undefined,
+        itemsPerUnit: p.itemsPerUnit ?? p.items_per_unit ?? undefined,
+        expiryDate: p.expiryDate ?? p.expiry_date ?? undefined,
+        // Handle brand - API may return as object or null
+        brand: p.brand || null,
+        brandId: (p.brand as { id?: number })?.id || p.brandId || undefined,
+      } as unknown as Product;
+    });
 
     return {
       list: mappedList,
@@ -149,38 +166,37 @@ export const createProduct = async (
     // Create FormData for multipart/form-data
     const formData = new FormData();
     formData.append('title', data.title);
-    formData.append('description', data.description);
-    formData.append('price', String(data.price));
-    formData.append('sellingPrice', String(data.sellingPrice));
-    formData.append('quantity', String(data.quantity));
-    formData.append('units', data.units);
+    formData.append('description', data.description || '');
     formData.append('categoryId', String(data.categoryId));
     formData.append('subCategoryId', String(data.subCategoryId));
     formData.append('branchId', String(data.branchId));
     formData.append('vendorId', String(data.vendorId));
     formData.append('status', data.status);
-    formData.append('file', data.file);
-    
-    // New/Updated fields - using camelCase as per API
-    if (data.itemQuantity !== undefined && data.itemQuantity !== null) {
-      formData.append('itemQuantity', String(data.itemQuantity));
-    }
-    if (data.itemUnit !== undefined && data.itemUnit !== null) {
-      formData.append('itemUnit', data.itemUnit);
-    }
-    if (data.itemsPerUnit !== undefined && data.itemsPerUnit !== null) {
-      formData.append('itemsPerUnit', String(data.itemsPerUnit));
-    }
-    if (data.expiryDate !== undefined && data.expiryDate !== null) {
-      // Ensure expiryDate is in YYYY-MM-DD format
-      const expiryDateStr = typeof data.expiryDate === 'string' 
-        ? data.expiryDate 
-        : new Date(data.expiryDate).toISOString().split('T')[0];
-      formData.append('expiryDate', expiryDateStr);
-    }
     
     if (data.brandId) {
       formData.append('brandId', String(data.brandId));
+    }
+    
+    if (data.nutritional) {
+      formData.append('nutritional', data.nutritional);
+    }
+    
+    // Add createdBy if available (from user context)
+    const userId = localStorage.getItem('user_id');
+    if (userId) {
+      formData.append('createdBy', userId);
+    }
+    
+    // Send variants as a single JSON string array
+    if (data.variants && data.variants.length > 0) {
+      formData.append('variants', JSON.stringify(data.variants));
+    }
+    
+    // Append multiple image files
+    if (data.images && data.images.length > 0) {
+      data.images.forEach(image => {
+        formData.append('images', image);
+      });
     }
 
     // Build full URL (same logic as http.ts buildUrl)
@@ -238,43 +254,30 @@ export const updateProduct = async (
     // Create FormData for multipart/form-data
     const formData = new FormData();
     formData.append('title', data.title);
-    formData.append('description', data.description);
-    formData.append('price', String(data.price));
-    formData.append('sellingPrice', String(data.sellingPrice));
-    if (data.quantity !== undefined && data.quantity !== null) {
-      formData.append('quantity', String(data.quantity));
-    }
-    formData.append('units', data.units);
+    formData.append('description', data.description || '');
     formData.append('updatedBy', String(data.updatedBy));
     formData.append('concurrencyStamp', data.concurrencyStamp);
-    
-    // New/Updated fields - using camelCase as per API
-    if (data.itemQuantity !== undefined && data.itemQuantity !== null) {
-      formData.append('itemQuantity', String(data.itemQuantity));
-    }
-    if (data.itemUnit !== undefined && data.itemUnit !== null) {
-      formData.append('itemUnit', data.itemUnit);
-    }
-    if (data.itemsPerUnit !== undefined && data.itemsPerUnit !== null) {
-      formData.append('itemsPerUnit', String(data.itemsPerUnit));
-    }
-    if (data.expiryDate !== undefined && data.expiryDate !== null) {
-      // Ensure expiryDate is in YYYY-MM-DD format
-      const expiryDateStr = typeof data.expiryDate === 'string' 
-        ? data.expiryDate 
-        : new Date(data.expiryDate).toISOString().split('T')[0];
-      formData.append('expiryDate', expiryDateStr);
-    }
     
     if (data.brandId) {
       formData.append('brandId', String(data.brandId));
     }
     
-    // Only append file if provided
-    if (data.file) {
-      formData.append('file', data.file);
+    if (data.nutritional) {
+      formData.append('nutritional', data.nutritional);
     }
-
+    
+    // Send variants as a single JSON string array
+    if (data.variants && data.variants.length > 0) {
+      formData.append('variants', JSON.stringify(data.variants));
+    }
+    
+    // Append multiple image files (optional for updates)
+    if (data.images && data.images.length > 0) {
+      data.images.forEach(image => {
+        formData.append('images', image);
+      });
+    }
+  
     // Build full URL
     const endpoint = API_URLS.PRODUCTS.UPDATE(id);
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
