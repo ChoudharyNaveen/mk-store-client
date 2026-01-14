@@ -127,6 +127,8 @@ const createProductFormSchema = (isEditMode: boolean) => {
 };
 
 interface VariantFormData {
+    id?: number; // For existing variants
+    concurrencyStamp?: string; // For existing variants
     variantName: string;
     variantType: 'WEIGHT' | 'SIZE' | 'COLOR' | 'MATERIAL' | 'FLAVOR' | 'PACKAGING' | 'OTHER';
     variantValue?: string | null;
@@ -142,8 +144,12 @@ interface VariantFormData {
 }
 
 interface ImageFormData {
+    id?: number; // For existing images
+    concurrencyStamp?: string; // For existing images
     file: File | null;
     preview: string | null;
+    isDefault?: boolean;
+    displayOrder?: number;
 }
 
 interface ProductFormData {
@@ -187,6 +193,8 @@ export default function ProductForm() {
     const [brandSearchTerm, setBrandSearchTerm] = React.useState('');
     const [useSameExpiryDate, setUseSameExpiryDate] = React.useState(false);
     const [sharedExpiryDate, setSharedExpiryDate] = React.useState<Date | string | null>(null);
+    const [originalVariantIds, setOriginalVariantIds] = React.useState<Set<number>>(new Set());
+    const [originalImageIds, setOriginalImageIds] = React.useState<Set<number>>(new Set());
     const categorySearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const subCategorySearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
     const brandSearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -245,6 +253,16 @@ export default function ProductForm() {
         control,
         name: 'images',
     });
+
+    // Wrapper to remove variant (deletions are calculated in onSubmit)
+    const handleRemoveVariant = React.useCallback((index: number) => {
+        removeVariant(index);
+    }, [removeVariant]);
+
+    // Wrapper to remove image (deletions are calculated in onSubmit)
+    const handleRemoveImage = React.useCallback((index: number) => {
+        removeImage(index);
+    }, [removeImage]);
 
     // Helper function to add a new variant
     const handleAddVariant = () => {
@@ -614,6 +632,8 @@ export default function ProductForm() {
             };
 
             return {
+                id: variant.id,
+                concurrencyStamp: variant.concurrency_stamp || variant.concurrencyStamp,
                 variantName: variant.variant_name,
                 variantType: variantTypeMap[variant.variant_type] || 'OTHER',
                 variantValue: variant.variant_value,
@@ -629,11 +649,23 @@ export default function ProductForm() {
             };
         }) || []) as VariantFormData[];
 
+        // Store original variant IDs for tracking deletions
+        const variantIds = new Set(variants.map(v => v.id).filter((id): id is number => id !== undefined));
+        setOriginalVariantIds(variantIds);
+
         // Convert images from API format to form format
-        const images: ImageFormData[] = (data.images?.map((img) => ({
+        const images: ImageFormData[] = (data.images?.map((img, index) => ({
+            id: img.id,
+            concurrencyStamp: img.concurrency_stamp || img.concurrencyStamp,
             file: null,
             preview: img.image_url,
+            isDefault: img.is_default,
+            displayOrder: img.display_order || index + 1,
         })) || []) as ImageFormData[];
+
+        // Store original image IDs for tracking deletions
+        const imageIds = new Set(images.map(img => img.id).filter((id): id is number => id !== undefined));
+        setOriginalImageIds(imageIds);
 
         return {
             title: data.title,
@@ -694,7 +726,22 @@ export default function ProductForm() {
                 }
             }
 
-            return {
+            const variantData: {
+                id?: number;
+                variantName: string;
+                variantType: string;
+                variantValue?: string;
+                price: number;
+                sellingPrice: number;
+                quantity: number;
+                itemsPerUnit?: number;
+                units?: string;
+                itemQuantity?: number;
+                itemUnit?: string;
+                expiryDate?: string;
+                status: ProductStatus;
+                concurrencyStamp?: string;
+            } = {
                 variantName: variant.variantName,
                 variantType: variant.variantType,
                 variantValue: variant.variantValue || undefined,
@@ -708,6 +755,16 @@ export default function ProductForm() {
                 expiryDate: expiryDateValue,
                 status: variant.status,
             };
+
+            // Include id and concurrencyStamp for existing variants
+            if (variant.id !== undefined) {
+                variantData.id = variant.id;
+            }
+            if (variant.concurrencyStamp) {
+                variantData.concurrencyStamp = variant.concurrencyStamp;
+            }
+
+            return variantData;
         });
     }, []);
 
@@ -732,45 +789,87 @@ export default function ProductForm() {
             }
         }
 
+        // Validate at least one variant is required
+        if (!data.variants || data.variants.length === 0) {
+            showErrorToast('At least one variant is required.');
+            return;
+        }
+
         setLoading(true);
         try {
-            // Handle brandId - include if it's a valid number (not null or undefined)
-            let brandIdValue: number | undefined = undefined;
-            if (data.brandId !== null && data.brandId !== undefined) {
-                brandIdValue = Number(data.brandId);
+            // Handle brandId - can be null to remove brand
+            let brandIdValue: number | null | undefined = undefined;
+            if (data.brandId !== undefined) {
+                brandIdValue = data.brandId !== null ? Number(data.brandId) : null;
             }
 
-            // Build variants data
-            const variantsData = buildVariantsData(data.variants);
-
-            const commonData = {
-                title: data.title,
-                description: data.description || '',
-                brandId: brandIdValue,
-                nutritional: data.nutritional ?? undefined,
-                variants: variantsData,
-            };
-
-            // Get the first image file (API currently expects single file)
-            // TODO: Update API to accept multiple images
-            const images = data.images.filter(img => img.file !== null).map(img => img.file!);
-
             if (isEditMode) {
+                // Calculate which variants/images were deleted
+                const currentVariantIds = new Set(data.variants.map(v => v.id).filter((id): id is number => id !== undefined));
+                const variantIdsToDelete = Array.from(originalVariantIds).filter(id => !currentVariantIds.has(id));
+                
+                // Validate that after deletions, at least one variant remains
+                // Check if all existing variants are being deleted and no new variants are added
+                if (originalVariantIds.size > 0 && variantIdsToDelete.length === originalVariantIds.size && data.variants.length === 0) {
+                    showErrorToast('At least one variant is required. Cannot delete all variants.');
+                    setLoading(false);
+                    return;
+                }
+
+                // Build variants data
+                const variantsData = buildVariantsData(data.variants);
+
+                // Separate images into file uploads and existing images
+                const imageFiles = data.images.filter(img => img.file !== null).map(img => img.file!);
+                
+                // Build imagesData for existing images (those with preview but no file)
+                const imagesData = data.images
+                    .filter(img => !img.file && img.preview && img.id !== undefined)
+                    .map(img => ({
+                        id: img.id,
+                        isDefault: img.isDefault ?? false,
+                        displayOrder: img.displayOrder ?? 1,
+                        concurrencyStamp: img.concurrencyStamp,
+                    }));
+
+                const currentImageIds = new Set(data.images.map(img => img.id).filter((id): id is number => id !== undefined));
+                const imageIdsToDelete = Array.from(originalImageIds).filter(id => !currentImageIds.has(id));
+
                 await productService.updateProduct(id!, {
-                    ...commonData,
+                    title: data.title,
+                    description: data.description || '',
+                    categoryId: data.categoryId,
+                    subCategoryId: data.subCategoryId,
+                    status: data.status,
+                    brandId: brandIdValue,
+                    nutritional: data.nutritional ?? undefined,
                     updatedBy: userId,
                     concurrencyStamp: productData!.concurrency_stamp,
-                    images: images,
-                } as any);
+                    variants: variantsData.length > 0 ? variantsData : undefined,
+                    variantIdsToDelete: variantIdsToDelete.length > 0 ? variantIdsToDelete : undefined,
+                    images: imageFiles.length > 0 ? imageFiles : undefined,
+                    imagesData: imagesData.length > 0 ? imagesData : undefined,
+                    imageIdsToDelete: imageIdsToDelete.length > 0 ? imageIdsToDelete : undefined,
+                });
                 showSuccessToast('Product updated successfully!');
             } else {
+                // Build variants data for create
+                const variantsData = buildVariantsData(data.variants);
+
+                // Get image files
+                const images = data.images.filter(img => img.file !== null).map(img => img.file!);
+
                 await productService.createProduct({
-                    ...commonData,
+                    title: data.title,
+                    description: data.description || '',
                     categoryId: data.categoryId,
                     subCategoryId: data.subCategoryId,
                     branchId: selectedBranchId!,
                     vendorId: user?.vendorId || 1,
                     status: data.status as ProductStatus,
+                    brandId: brandIdValue !== null ? brandIdValue : undefined,
+                    nutritional: data.nutritional ?? undefined,
+                    variants: variantsData,
                     images: images,
                 } as any);
                 showSuccessToast('Product created successfully!');
@@ -1144,7 +1243,7 @@ export default function ProductForm() {
                                         </Typography>
                                         {variantFields.length > 1 && (
                                             <IconButton
-                                                onClick={() => removeVariant(index)}
+                                                onClick={() => handleRemoveVariant(index)}
                                                 disabled={loading}
                                                 size="small"
                                                 sx={{
@@ -1330,6 +1429,7 @@ export default function ProductForm() {
                                                 disabled={loading || useSameExpiryDate}
                                                 slotProps={{
                                                     textField: {
+                                                        required: true,
                                                         size: 'small',
                                                         variant: 'outlined',
                                                     },
@@ -1376,6 +1476,7 @@ export default function ProductForm() {
                                         placeholder="Enter a detailed description of the product..."
                                         variant="outlined"
                                         multiline
+                                        required
                                         rows={4}
                                         disabled={loading}
                                     />
@@ -1462,7 +1563,7 @@ export default function ProductForm() {
                                                 {index > 0 && (
                                                     <IconButton
                                                         size="small"
-                                                        onClick={() => removeImage(index)}
+                                                        onClick={() => handleRemoveImage(index)}
                                                         disabled={loading}
                                                         sx={{
                                                             position: 'absolute',

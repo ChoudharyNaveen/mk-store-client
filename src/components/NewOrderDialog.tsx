@@ -333,7 +333,17 @@ const NewOrderDialog: React.FC<NewOrderDialogProps> = ({
                         <Typography variant="body1" fontWeight={500}>
                           {item.product?.title || 'N/A'}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
+                        {item.variant?.variant_name && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {item.variant.variant_name}
+                          </Typography>
+                        )}
+                        {item.variant?.variant_type && item.variant?.variant_value && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {item.variant.variant_type}: {item.variant.variant_value}
+                          </Typography>
+                        )}
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                           Qty: {item.quantity} × ₹{item.unit_price?.toFixed(2) || '0.00'}
                         </Typography>
                       </Box>

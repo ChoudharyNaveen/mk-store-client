@@ -132,6 +132,14 @@ export interface OrderDetailsResponse {
         selling_price: number;
         price: number;
       };
+      variant?: {
+        id: number;
+        name: string;
+        selling_price: number;
+        variant_name?: string;
+        variant_type?: string;
+        variant_value?: string;
+      };
       quantity: number;
       unit_price: number;
       discount: number;

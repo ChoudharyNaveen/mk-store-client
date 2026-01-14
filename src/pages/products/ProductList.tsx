@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Chip } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -19,6 +19,7 @@ import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchProducts } from '../../services/product.service';
 import type { Product, ProductVariant } from '../../types/product';
 import type { ServerFilter } from '../../types/filter';
+import type { Column, TableState } from '../../types/table';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
@@ -131,53 +132,103 @@ const VariantsPopover: React.FC<{ product: Product }> = ({ product }) => {
         );
     }
 
+    // Define columns for variants table
+    const variantColumns: Column<ProductVariant>[] = [
+        {
+            id: 'variant_name',
+            label: 'Variant Name',
+            minWidth: 120,
+        },
+        {
+            id: 'price',
+            label: 'MRP',
+            minWidth: 100,
+            align: 'right',
+            format: (value: number) => `₹${value}`,
+        },
+        {
+            id: 'selling_price',
+            label: 'Selling Price',
+            minWidth: 120,
+            align: 'right',
+            format: (value: number) => `₹${value}`,
+        },
+        {
+            id: 'quantity',
+            label: 'Quantity',
+            minWidth: 100,
+            align: 'right',
+        },
+        {
+            id: 'item_quantity' as keyof ProductVariant,
+            label: 'Item Details',
+            minWidth: 150,
+            render: (row: ProductVariant) => formatVariantItemDetails(row),
+        },
+        {
+            id: 'expiry_date' as keyof ProductVariant,
+            label: 'Expiry Date',
+            minWidth: 120,
+            render: (row: ProductVariant) => {
+                const { text: expiryText, color: expiryColor } = formatExpiryDate(row.expiry_date);
+                return (
+                    <Typography variant="body2" sx={{ color: expiryColor, fontWeight: 500 }}>
+                        {expiryText}
+                    </Typography>
+                );
+            },
+        },
+        {
+            id: 'product_status' as keyof ProductVariant,
+            label: 'Status',
+            minWidth: 100,
+            render: (row: ProductVariant) => (
+                <Chip
+                    label={row.product_status}
+                    size="small"
+                    color={row.product_status === 'INSTOCK' ? 'success' : 'error'}
+                    sx={{ fontWeight: 500 }}
+                />
+            ),
+        },
+    ];
+
+    // Create static table state (no pagination needed for popover)
+    const variantTableState: TableState<ProductVariant> = {
+        data: product.variants,
+        total: product.variants.length,
+        page: 0,
+        rowsPerPage: product.variants.length, // Show all variants
+        order: 'asc',
+        orderBy: 'variant_name',
+        loading: false,
+        search: '',
+    };
+
+    // Create handlers (no-ops since we're showing all variants without pagination/sorting)
+    const variantHandlers = {
+        handleRequestSort: () => {
+            // No-op: sorting not needed for popover
+        },
+        handleChangePage: () => {
+            // No-op: pagination not needed for popover
+        },
+        handleChangeRowsPerPage: () => {
+            // No-op: pagination not needed for popover
+        },
+    };
+
     return (
-        <Box sx={{ width: 800, maxHeight: 600, overflow: 'auto', p: 2 }}>
+        <Box sx={{ width: 900, maxHeight: '80vh', overflow: 'auto', p: 2 }}>
             <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>
                 Variants for {product.title}
             </Typography>
-            <TableContainer>
-                <Table size="small">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Variant Name</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }} align="right">MRP</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }} align="right">Selling Price</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }} align="right">Quantity</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Item Details</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Expiry Date</TableCell>
-                            <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {product.variants.map((variant) => {
-                            const { text: expiryText, color: expiryColor } = formatExpiryDate(variant.expiry_date);
-                            return (
-                                <TableRow key={variant.id} hover>
-                                    <TableCell>{variant.variant_name}</TableCell>
-                                    <TableCell align="right">₹{variant.price}</TableCell>
-                                    <TableCell align="right">₹{variant.selling_price}</TableCell>
-                                    <TableCell align="right">{variant.quantity}</TableCell>
-                                    <TableCell>{formatVariantItemDetails(variant)}</TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2" sx={{ color: expiryColor, fontWeight: 500 }}>
-                                            {expiryText}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={variant.product_status}
-                                            size="small"
-                                            color={variant.product_status === 'INSTOCK' ? 'success' : 'error'}
-                                            sx={{ fontWeight: 500 }}
-                                        />
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+            <DataTable
+                columns={variantColumns}
+                state={variantTableState}
+                handlers={variantHandlers}
+                hidePagination={true}
+            />
         </Box>
     );
 };

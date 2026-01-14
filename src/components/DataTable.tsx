@@ -28,16 +28,18 @@ interface DataTableProps<T> {
         handleChangePage: (event: unknown, newPage: number) => void;
         handleChangeRowsPerPage: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
     };
+    hidePagination?: boolean; // Option to hide pagination and show all data
 }
 
 export default function DataTable<T extends { id: string | number }>({
     columns,
     state,
     handlers,
+    hidePagination = false,
 }: DataTableProps<T>) {
     const { data, total, page, rowsPerPage, order, orderBy, loading } = state;
 
-    const createSortHandler = (property: string) => (event: React.MouseEvent<unknown>) => {
+    const createSortHandler = (property: string) => () => {
         handlers.handleRequestSort(property);
     };
 
@@ -108,65 +110,67 @@ export default function DataTable<T extends { id: string | number }>({
                     </Table>
                 </TableContainer>
 
-                {/* Pagination and Rows Per Page */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3, px: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" color="text.secondary">Rows per page:</Typography>
-                        <Select
-                            value={rowsPerPage}
-                            onChange={handlers.handleChangeRowsPerPage as any}
-                            size="small"
-                            variant="standard"
-                            disableUnderline
-                            sx={{
-                                '& .MuiSelect-select': {
-                                    py: 0.5,
-                                    px: 1.5,
-                                    pr: '24px !important',
-                                    bgcolor: '#f5f7fa',
-                                    borderRadius: 2,
-                                    fontSize: '0.875rem',
-                                    fontWeight: 500,
-                                    color: 'text.primary'
-                                },
-                                '& .MuiSvgIcon-root': {
-                                    right: 2
-                                }
-                            }}
-                            MenuProps={{
-                                PaperProps: {
-                                    elevation: 0,
-                                    sx: {
-                                        mt: 1,
-                                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                {/* Pagination and Rows Per Page - Only show if hidePagination is false */}
+                {!hidePagination && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3, px: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2" color="text.secondary">Rows per page:</Typography>
+                            <Select
+                                value={rowsPerPage}
+                                onChange={handlers.handleChangeRowsPerPage as any}
+                                size="small"
+                                variant="standard"
+                                disableUnderline
+                                sx={{
+                                    '& .MuiSelect-select': {
+                                        py: 0.5,
+                                        px: 1.5,
+                                        pr: '24px !important',
+                                        bgcolor: '#f5f7fa',
                                         borderRadius: 2,
-                                        border: '1px solid #e0e0e0',
-                                        '& .MuiMenuItem-root': {
-                                            fontSize: '0.875rem',
-                                            fontWeight: 500,
-                                            py: 1
+                                        fontSize: '0.875rem',
+                                        fontWeight: 500,
+                                        color: 'text.primary'
+                                    },
+                                    '& .MuiSvgIcon-root': {
+                                        right: 2
+                                    }
+                                }}
+                                MenuProps={{
+                                    PaperProps: {
+                                        elevation: 0,
+                                        sx: {
+                                            mt: 1,
+                                            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                                            borderRadius: 2,
+                                            border: '1px solid #e0e0e0',
+                                            '& .MuiMenuItem-root': {
+                                                fontSize: '0.875rem',
+                                                fontWeight: 500,
+                                                py: 1
+                                            }
                                         }
                                     }
-                                }
-                            }}
-                        >
-                            <MenuItem value={10}>10</MenuItem>
-                            <MenuItem value={20}>20</MenuItem>
-                            <MenuItem value={50}>50</MenuItem>
-                            <MenuItem value={100}>100</MenuItem>
-                        </Select>
-                    </Box>
+                                }}
+                            >
+                                <MenuItem value={10}>10</MenuItem>
+                                <MenuItem value={20}>20</MenuItem>
+                                <MenuItem value={50}>50</MenuItem>
+                                <MenuItem value={100}>100</MenuItem>
+                            </Select>
+                        </Box>
 
-                    <Pagination
-                        count={Math.ceil(total / rowsPerPage)}
-                        page={page}
-                        onChange={handlers.handleChangePage}
-                        shape="rounded"
-                        color="primary"
-                        showFirstButton
-                        showLastButton
-                    />
-                </Box>
+                        <Pagination
+                            count={Math.ceil(total / rowsPerPage)}
+                            page={page}
+                            onChange={handlers.handleChangePage}
+                            shape="rounded"
+                            color="primary"
+                            showFirstButton
+                            showLastButton
+                        />
+                    </Box>
+                )}
             </Paper>
         </React.Fragment>
     );

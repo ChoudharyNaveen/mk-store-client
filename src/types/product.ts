@@ -37,6 +37,8 @@ export interface ProductVariant {
   expiry_date: string | Date | null;
   product_status: ProductStatusType;
   status: ProductStatus;
+  concurrency_stamp?: string;
+  concurrencyStamp?: string;
 }
 
 export interface ProductImage {
@@ -44,7 +46,9 @@ export interface ProductImage {
   image_url: string;
   is_default: boolean;
   display_order: number;
-  variant_id: number;
+  variant_id: number | null;
+  concurrency_stamp?: string;
+  concurrencyStamp?: string;
 }
 
 export interface Product {
@@ -134,14 +138,26 @@ export interface CreateProductResponse {
 }
 
 export interface UpdateProductRequest {
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
+  categoryId?: string | number;
+  subCategoryId?: string | number;
+  status?: ProductStatus;
   updatedBy: string | number;
   concurrencyStamp: string;
-  brandId?: string | number;
+  brandId?: string | number | null; // Can be null to remove brand
   nutritional?: string | null;
-  images?: File[]; // Optional for updates
-  variants: Array<{
+  images?: File[]; // File uploads (multipart/form-data)
+  imagesData?: Array<{
+    id?: number; // For existing images
+    imageUrl?: string; // For new images from URLs
+    isDefault?: boolean;
+    displayOrder?: number;
+    concurrencyStamp?: string; // For existing images
+  }>;
+  imageIdsToDelete?: number[];
+  variants?: Array<{
+    id?: number; // For existing variants
     variantName: string;
     variantType: string;
     variantValue?: string;
@@ -154,7 +170,9 @@ export interface UpdateProductRequest {
     itemUnit?: string;
     expiryDate?: string;
     status: ProductStatus;
+    concurrencyStamp?: string; // For existing variants
   }>;
+  variantIdsToDelete?: number[];
 }
 
 export interface UpdateProductResponse {

@@ -163,6 +163,15 @@ export const createProduct = async (
   data: CreateProductRequest
 ): Promise<CreateProductResponse> => {
   try {
+    // Validate at least one variant is required
+    if (!data.variants || data.variants.length === 0) {
+      throw {
+        message: 'At least one variant is required',
+        status: 400,
+        data: { error: 'At least one variant is required' },
+      };
+    }
+
     // Create FormData for multipart/form-data
     const formData = new FormData();
     formData.append('title', data.title);
@@ -188,9 +197,7 @@ export const createProduct = async (
     }
     
     // Send variants as a single JSON string array
-    if (data.variants && data.variants.length > 0) {
-      formData.append('variants', JSON.stringify(data.variants));
-    }
+    formData.append('variants', JSON.stringify(data.variants));
     
     // Append multiple image files
     if (data.images && data.images.length > 0) {
@@ -245,37 +252,98 @@ export const createProduct = async (
 /**
  * Update an existing product
  * Handles multipart/form-data for file upload (file is optional)
+ * Supports all update scenarios: variants, images, deletions, etc.
  */
 export const updateProduct = async (
   id: string | number,
   data: UpdateProductRequest
 ): Promise<UpdateProductResponse> => {
   try {
+    // Validate variants: if variants are provided or deletions are specified, ensure at least one variant remains
+    if (data.variants !== undefined) {
+      if (data.variants.length === 0) {
+        // Check if we're deleting all variants
+        if (data.variantIdsToDelete && data.variantIdsToDelete.length > 0) {
+          throw {
+            message: 'At least one variant is required. Cannot delete all variants.',
+            status: 400,
+            data: { error: 'At least one variant is required' },
+          };
+        }
+        // If no variants and no deletions specified, it's invalid
+        throw {
+          message: 'At least one variant is required',
+          status: 400,
+          data: { error: 'At least one variant is required' },
+        };
+      }
+    } else if (data.variantIdsToDelete && data.variantIdsToDelete.length > 0) {
+      // If only deletions are specified without new variants, validate on server
+      // (We can't know how many variants exist without fetching, so we'll let server handle this)
+    }
+
     // Create FormData for multipart/form-data
     const formData = new FormData();
-    formData.append('title', data.title);
-    formData.append('description', data.description || '');
+    
+    // Basic product fields (optional - only include if provided)
+    if (data.title !== undefined) {
+      formData.append('title', data.title);
+    }
+    if (data.description !== undefined) {
+      formData.append('description', data.description || '');
+    }
+    if (data.categoryId !== undefined) {
+      formData.append('categoryId', String(data.categoryId));
+    }
+    if (data.subCategoryId !== undefined) {
+      formData.append('subCategoryId', String(data.subCategoryId));
+    }
+    if (data.status !== undefined) {
+      formData.append('status', data.status);
+    }
+    
+    // Required fields
     formData.append('updatedBy', String(data.updatedBy));
     formData.append('concurrencyStamp', data.concurrencyStamp);
     
-    if (data.brandId) {
-      formData.append('brandId', String(data.brandId));
+    // Brand ID - can be null to remove brand
+    if (data.brandId !== undefined) {
+      if (data.brandId === null) {
+        formData.append('brandId', ''); // Empty string to set to null
+      } else {
+        formData.append('brandId', String(data.brandId));
+      }
     }
     
-    if (data.nutritional) {
+    if (data.nutritional !== undefined && data.nutritional !== null) {
       formData.append('nutritional', data.nutritional);
     }
     
-    // Send variants as a single JSON string array
+    // Variants - send as a single JSON string array
     if (data.variants && data.variants.length > 0) {
       formData.append('variants', JSON.stringify(data.variants));
     }
     
-    // Append multiple image files (optional for updates)
+    // Variant IDs to delete
+    if (data.variantIdsToDelete && data.variantIdsToDelete.length > 0) {
+      formData.append('variantIdsToDelete', JSON.stringify(data.variantIdsToDelete));
+    }
+    
+    // Image file uploads (multipart/form-data)
     if (data.images && data.images.length > 0) {
       data.images.forEach(image => {
         formData.append('images', image);
       });
+    }
+    
+    // Images data (for existing images or pre-uploaded URLs)
+    if (data.imagesData && data.imagesData.length > 0) {
+      formData.append('imagesData', JSON.stringify(data.imagesData));
+    }
+    
+    // Image IDs to delete
+    if (data.imageIdsToDelete && data.imageIdsToDelete.length > 0) {
+      formData.append('imageIdsToDelete', JSON.stringify(data.imageIdsToDelete));
     }
   
     // Build full URL

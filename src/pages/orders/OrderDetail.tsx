@@ -45,6 +45,9 @@ interface OrderItem {
     product_id: number;
     product_name: string;
     product_image?: string;
+    variant_name?: string;
+    variant_type?: string;
+    variant_value?: string;
     quantity: number;
     unit_price: number;
     total_price: number;
@@ -104,6 +107,9 @@ const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDe
         product_id: item.product.id,
         product_name: item.product.title,
         product_image: item.product.image,
+        variant_name: item.variant?.variant_name,
+        variant_type: item.variant?.variant_type,
+        variant_value: item.variant?.variant_value,
         quantity: item.quantity,
         unit_price: item.unit_price,
         total_price: item.unit_price * item.quantity,
@@ -502,25 +508,50 @@ export default function OrderDetail() {
                         productName={row.product_name}
                         productId={row.product_id}
                     />
-                    <Typography
-                        component="button"
-                        onClick={() => navigate(`/products/detail/${row.product_id}`)}
-                        variant="body1"
-                        sx={{
-                            fontWeight: 500,
-                            background: 'none',
-                            border: 'none',
-                            color: '#204564',
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            padding: 0,
-                            '&:hover': {
-                                textDecoration: 'underline',
-                            },
-                        }}
-                    >
-                        {row.product_name}
-                    </Typography>
+                    <Box>
+                        <Typography
+                            component="button"
+                            onClick={() => navigate(`/products/detail/${row.product_id}`)}
+                            variant="body1"
+                            sx={{
+                                fontWeight: 500,
+                                background: 'none',
+                                border: 'none',
+                                color: '#204564',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                padding: 0,
+                                display: 'block',
+                                '&:hover': {
+                                    textDecoration: 'underline',
+                                },
+                            }}
+                        >
+                            {row.product_name}
+                        </Typography>
+                        {row.variant_name && (
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    color: 'text.secondary',
+                                    mt: 0.5,
+                                }}
+                            >
+                                {row.variant_name}
+                            </Typography>
+                        )}
+                        {row.variant_type && row.variant_value && (
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    color: 'text.secondary',
+                                    mt: 0.5,
+                                }}
+                            >
+                                {row.variant_type}: {row.variant_value}
+                            </Typography>
+                        )}
+                    </Box>
                 </Box>
             ),
         },
