@@ -123,6 +123,7 @@ export interface OrderDetailsResponse {
   data: {
     order_id: number;
     order_number: string;
+    concurrency_stamp?: string;
     order_items: Array<{
       id: number;
       product: {
@@ -205,9 +206,75 @@ export const fetchOrderDetails = async (id: string | number): Promise<OrderDetai
   }
 };
 
+/**
+ * Update Order Request Interface
+ */
+export interface UpdateOrderRequest {
+  status: string;
+  updatedBy: number;
+  concurrencyStamp: string;
+  notes?: string;
+}
+
+/**
+ * Update Order Response Interface
+ */
+export interface UpdateOrderResponse {
+  success: boolean;
+  message?: string;
+  data?: Order;
+}
+
+/**
+ * Common function to update order status
+ * @param orderId - The ID of the order to update
+ * @param status - The new status (e.g., 'ACCEPTED', 'READY_FOR_PICKUP', 'REJECTED')
+ * @param concurrencyStamp - The concurrency stamp from the order
+ * @param updatedBy - The ID of the user making the update
+ * @param notes - Optional notes/reason for the update (required for REJECTED status)
+ */
+export const updateOrder = async (
+  orderId: string | number,
+  status: string,
+  concurrencyStamp: string,
+  updatedBy: number,
+  notes?: string
+): Promise<UpdateOrderResponse> => {
+  try {
+    const url = API_URLS.ORDERS.UPDATE(orderId);
+    const requestBody: UpdateOrderRequest = {
+      status,
+      updatedBy,
+      concurrencyStamp,
+    };
+
+    // Add notes if provided (e.g., for rejection reason)
+    if (notes) {
+      requestBody.notes = notes;
+    }
+
+    // Add concurrencyStamp as header
+    const response = await http.patch<UpdateOrderResponse>(
+      url,
+      requestBody,
+      {
+        headers: {
+          'x-concurrencystamp': concurrencyStamp,
+        },
+      }
+    );
+
+    return response;
+  } catch (error) {
+    console.error('Error updating order:', error);
+    throw error;
+  }
+};
+
 const orderService = {
   fetchOrders,
   fetchOrderDetails,
+  updateOrder,
 };
 
 export default orderService;

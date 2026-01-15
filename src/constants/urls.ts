@@ -77,7 +77,7 @@ export const API_URLS = {
     CREATE: `${API_PREFIX}/orders`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/orders/${id}`,
     GET_DETAILS: `${API_PREFIX}/get-order-details`,
-    UPDATE: (id: string | number) => `${API_PREFIX}/orders/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-order/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/orders/${id}`,
   },
   

@@ -35,7 +35,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { Order, OrderStatus, PaymentStatus, OrderPriority } from '../../types/order';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
-import { fetchOrderDetails } from '../../services/order.service';
+import { fetchOrderDetails, updateOrder } from '../../services/order.service';
+import { ORDER_STATUS_API } from '../../constants/orderStatuses';
+import { useAppSelector } from '../../store/hooks';
 import DataTable from '../../components/DataTable';
 import type { Column, TableState } from '../../types/table';
 
@@ -56,6 +58,8 @@ interface OrderItem {
 }
 
 interface OrderDetailData extends Order {
+    concurrency_stamp: string;
+    rawOrderStatus?: string; // Store raw API status to check for ACCEPTED
     orderItems: OrderItem[];
     appliedDiscounts?: Array<{
         type: string;
@@ -79,6 +83,7 @@ const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDe
     refund_amount: 0,
     refund_status: 'NONE',
     status: apiData.order_information.order_status as OrderStatus,
+    rawOrderStatus: apiData.order_information.order_status, // Store raw status for ACCEPTED check
     payment_status: apiData.order_information.payment_status as PaymentStatus,
     rider_id: null,
     branch_id: 0,
@@ -86,7 +91,7 @@ const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDe
     created_by: 0,
     created_at: apiData.order_information.order_date,
     updated_at: apiData.order_information.order_date,
-    concurrency_stamp: '',
+    concurrency_stamp: apiData.concurrency_stamp || '',
     address: {
         id: 0,
         house_no: apiData.delivery_address.address_line_1 || '',
@@ -191,8 +196,10 @@ const InfoField: React.FC<InfoFieldProps> = ({ label, value, icon }) => (
 export default function OrderDetail() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const { user } = useAppSelector((state) => state.auth);
     const [order, setOrder] = React.useState<OrderDetailData | null>(null);
     const [loading, setLoading] = React.useState(true);
+    const [updating, setUpdating] = React.useState(false);
     const [actionDialog, setActionDialog] = React.useState<{
         open: boolean;
         type: 'accept' | 'reject' | 'ready' | null;
@@ -314,10 +321,10 @@ export default function OrderDetail() {
                     : null,
         },
         ready: {
-            canPerform: (order: OrderDetailData) => order.status === 'CONFIRMED' || order.status === 'PROCESSING',
+            canPerform: (order: OrderDetailData) => order.rawOrderStatus === ORDER_STATUS_API.ACCEPTED,
             getDisabledReason: (order: OrderDetailData) => 
-                !(order.status === 'CONFIRMED' || order.status === 'PROCESSING')
-                    ? `Order status must be CONFIRMED or PROCESSING. Current status: ${order.status}`
+                order.rawOrderStatus !== ORDER_STATUS_API.ACCEPTED
+                    ? `Order status must be ACCEPTED. Current status: ${order.status}`
                     : null,
         },
     };
@@ -343,32 +350,55 @@ export default function OrderDetail() {
         setValidationError('');
     };
 
-    const handleConfirmAction = () => {
-        if (!order || !actionDialog.type) return;
+    const handleConfirmAction = async () => {
+        if (!order || !actionDialog.type || !user?.id) return;
 
         if (actionDialog.type === 'reject' && !rejectionReason.trim()) {
             setValidationError('Please provide a reason for rejection');
             return;
         }
 
-        const statusMap: Record<'accept' | 'reject' | 'ready', { status: OrderStatus; message: string }> = {
-            accept: { status: 'CONFIRMED', message: 'Order accepted successfully' },
-            reject: { status: 'CANCELLED', message: 'Order rejected successfully' },
-            ready: { status: 'SHIPPED', message: 'Order marked as ready for pickup' },
+        const statusMap: Record<'accept' | 'reject' | 'ready', { apiStatus: string; message: string }> = {
+            accept: { apiStatus: ORDER_STATUS_API.ACCEPTED, message: 'Order accepted successfully' },
+            reject: { apiStatus: ORDER_STATUS_API.REJECTED, message: 'Order rejected successfully' },
+            ready: { apiStatus: ORDER_STATUS_API.READY_FOR_PICKUP, message: 'Order marked as ready for pickup' },
         };
 
-        const { status: newStatus, message } = statusMap[actionDialog.type];
+        const { apiStatus, message } = statusMap[actionDialog.type];
 
-        // Simulate API call
-        setTimeout(() => {
-            setOrder({
-                ...order,
-                status: newStatus,
-                updated_at: new Date().toISOString(),
-            });
+        setUpdating(true);
+        try {
+            // For reject action, include the rejection reason as notes
+            const notes = actionDialog.type === 'reject' ? rejectionReason.trim() : undefined;
+            
+            await updateOrder(
+                order.id,
+                apiStatus,
+                order.concurrency_stamp,
+                user.id,
+                notes
+            );
+
+            // Refresh order details after successful update
+            const apiData = await fetchOrderDetails(order.id);
+            const updatedOrderData = mapApiDataToOrderDetail(apiData);
+            setOrder(updatedOrderData);
+
+            // Update table state with refreshed order items
+            setTableState(prev => ({
+                ...prev,
+                data: updatedOrderData.orderItems,
+                total: updatedOrderData.orderItems.length,
+            }));
+
             showSuccessToast(message);
             handleCloseDialog();
-        }, 500);
+        } catch (error) {
+            console.error('Error updating order:', error);
+            showErrorToast('Failed to update order. Please try again.');
+        } finally {
+            setUpdating(false);
+        }
     };
 
     // Sort order items based on table state
@@ -988,7 +1018,7 @@ export default function OrderDetail() {
                 <DialogContent>
                     {actionDialog.type === 'accept' && (
                         <Typography>
-                            Are you sure you want to accept this order? The order status will be changed to CONFIRMED.
+                            Are you sure you want to accept this order? The order status will be changed to ACCEPTED.
                         </Typography>
                     )}
                     {actionDialog.type === 'reject' && (
@@ -1014,20 +1044,26 @@ export default function OrderDetail() {
                     )}
                     {actionDialog.type === 'ready' && (
                         <Typography>
-                            Are you sure you want to mark this order as ready for pickup? The order status will be changed to SHIPPED.
+                            Are you sure you want to mark this order as ready for pickup? The order status will be changed to READY_FOR_PICKUP.
                         </Typography>
                     )}
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseDialog} sx={{ textTransform: 'none' }}>
+                    <Button 
+                        onClick={handleCloseDialog} 
+                        disabled={updating}
+                        sx={{ textTransform: 'none' }}
+                    >
                         Cancel
                     </Button>
                     <Button
                         onClick={handleConfirmAction}
                         variant="contained"
+                        disabled={updating}
                         color={actionDialog.type === 'reject' ? 'error' : actionDialog.type === 'accept' ? 'success' : 'info'}
                         sx={{ textTransform: 'none' }}
                     >
+                        {updating ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
                         Confirm
                     </Button>
                 </DialogActions>
