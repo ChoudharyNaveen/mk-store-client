@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -21,6 +21,7 @@ import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
+import { BRAND_STATUS_OPTIONS } from '../../constants/statusOptions';
 
 export default function BrandList() {
     const navigate = useNavigate();
@@ -126,6 +127,7 @@ export default function BrandList() {
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
     const [advancedFilters, setAdvancedFilters] = React.useState({
         brandName: '',
+        status: '',
     });
 
     // Helper function to build filters array with date range and default filters
@@ -136,6 +138,7 @@ export default function BrandList() {
             advancedFilters,
             filterMappings: {
                 brandName: { field: 'name', operator: 'iLike' },
+                status: { field: 'status', operator: 'eq' },
             },
         });
         
@@ -189,7 +192,7 @@ export default function BrandList() {
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ brandName: '' });
+        setAdvancedFilters({ brandName: '', status: '' });
         tableHandlers.refresh();
     };
 
@@ -346,15 +349,30 @@ export default function BrandList() {
             >
                 <Box sx={{ p: 3, width: 300 }}>
                     <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Brands</Typography>
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label="Brand Name"
-                        value={advancedFilters.brandName}
-                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, brandName: e.target.value })}
-                        sx={{ mb: 2 }}
-                    />
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            label="Brand Name"
+                            value={advancedFilters.brandName}
+                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, brandName: e.target.value })}
+                            sx={{ mb: 2 }}
+                        />
+                        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                            <InputLabel>Status</InputLabel>
+                            <Select
+                                value={advancedFilters.status}
+                                label="Status"
+                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
+                            >
+                                <MenuItem value="">All</MenuItem>
+                                {BRAND_STATUS_OPTIONS.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                         <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
                         <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
                     </Box>

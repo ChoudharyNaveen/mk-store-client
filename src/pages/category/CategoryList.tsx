@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -22,6 +22,7 @@ import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
+import { CATEGORY_STATUS_OPTIONS } from '../../constants/statusOptions';
 
 export default function CategoryPage() {
     const navigate = useNavigate();
@@ -139,7 +140,8 @@ export default function CategoryPage() {
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
     const [advancedFilters, setAdvancedFilters] = React.useState({
-        categoryName: ''
+        categoryName: '',
+        status: ''
     });
 
     // Helper function to build filters array with date range and default filters
@@ -150,6 +152,7 @@ export default function CategoryPage() {
             advancedFilters,
             filterMappings: {
                 categoryName: { field: 'title', operator: 'iLike' },
+                status: { field: 'status', operator: 'eq' },
             },
         });
 
@@ -203,7 +206,7 @@ export default function CategoryPage() {
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ categoryName: '' });
+        setAdvancedFilters({ categoryName: '', status: '' });
         tableHandlers.refresh();
     };
 
@@ -367,6 +370,21 @@ export default function CategoryPage() {
                             onChange={(e) => setAdvancedFilters({ categoryName: e.target.value })}
                             sx={{ mb: 2 }}
                         />
+                        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                            <InputLabel>Status</InputLabel>
+                            <Select
+                                value={advancedFilters.status}
+                                label="Status"
+                                onChange={(e) => setAdvancedFilters({ categoryName: advancedFilters.categoryName, status: e.target.value })}
+                            >
+                                <MenuItem value="">All</MenuItem>
+                                {CATEGORY_STATUS_OPTIONS.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                             <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
                             <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>

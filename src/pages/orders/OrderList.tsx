@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Chip, Paper, List, ListItem, ListItemText, Divider } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Chip, Paper, List, ListItem, ListItemText, Divider, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
@@ -21,6 +21,7 @@ import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
+import { ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '../../constants/statusOptions';
 
 export default function OrderList() {
     const navigate = useNavigate();
@@ -329,6 +330,7 @@ export default function OrderList() {
         orderNumber: '',
         customerName: '',
         status: '',
+        payment_status: '',
     });
 
     // Helper function to build filters array with date range and default filters
@@ -341,6 +343,7 @@ export default function OrderList() {
                 orderNumber: { field: 'order_number', operator: 'iLike' },
                 customerName: { field: 'user.name', operator: 'iLike' },
                 status: { field: 'status', operator: 'eq' },
+                payment_status: { field: 'payment_status', operator: 'eq' },
             },
         });
         
@@ -394,7 +397,7 @@ export default function OrderList() {
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ orderNumber: '', customerName: '', status: '' });
+        setAdvancedFilters({ orderNumber: '', customerName: '', status: '', payment_status: '' });
         tableHandlers.refresh();
     };
 
@@ -551,14 +554,36 @@ export default function OrderList() {
                         onChange={(e) => setAdvancedFilters({ ...advancedFilters, customerName: e.target.value })}
                         sx={{ mb: 2 }}
                     />
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label="Status"
-                        value={advancedFilters.status}
-                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
-                        sx={{ mb: 2 }}
-                    />
+                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                        <InputLabel>Order Status</InputLabel>
+                        <Select
+                            value={advancedFilters.status}
+                            label="Order Status"
+                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
+                        >
+                            <MenuItem value="">All</MenuItem>
+                            {ORDER_STATUS_OPTIONS.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                        <InputLabel>Payment Status</InputLabel>
+                        <Select
+                            value={advancedFilters.payment_status}
+                            label="Payment Status"
+                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, payment_status: e.target.value })}
+                        >
+                            <MenuItem value="">All</MenuItem>
+                            {PAYMENT_STATUS_OPTIONS.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                         <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
                         <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>

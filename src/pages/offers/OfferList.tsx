@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -21,6 +21,7 @@ import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
+import { OFFER_STATUS_OPTIONS } from '../../constants/statusOptions';
 
 export default function OfferList() {
     const navigate = useNavigate();
@@ -122,6 +123,7 @@ export default function OfferList() {
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
     const [advancedFilters, setAdvancedFilters] = React.useState({
         percentage: '',
+        status: '',
     });
 
     // Helper function to build filters array with date range and default filters
@@ -132,6 +134,7 @@ export default function OfferList() {
             advancedFilters,
             filterMappings: {
                 percentage: { field: 'percentage', operator: 'eq' },
+                status: { field: 'status', operator: 'eq' },
             },
         });
         
@@ -185,7 +188,7 @@ export default function OfferList() {
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ percentage: '' });
+        setAdvancedFilters({ percentage: '', status: '' });
         tableHandlers.refresh();
     };
 
@@ -348,9 +351,24 @@ export default function OfferList() {
                         label="Percentage"
                         type="number"
                         value={advancedFilters.percentage}
-                        onChange={(e) => setAdvancedFilters({ percentage: e.target.value })}
+                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, percentage: e.target.value })}
                         sx={{ mb: 2 }}
                     />
+                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                        <InputLabel>Status</InputLabel>
+                        <Select
+                            value={advancedFilters.status}
+                            label="Status"
+                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
+                        >
+                            <MenuItem value="">All</MenuItem>
+                            {OFFER_STATUS_OPTIONS.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                         <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
                         <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Tooltip, Paper } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Tooltip, Paper, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -24,12 +24,15 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 import { Column } from '../../types/table';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { USER_STATUS_OPTIONS, PROFILE_STATUS_OPTIONS } from '../../constants/statusOptions';
 
 
 interface AdvancedFilters {
     name: string;
     email: string;
     phone: string;
+    status: string;
+    profileStatus: string;
 }
 
 export default function UserList() {
@@ -58,7 +61,9 @@ export default function UserList() {
     const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFilters>({
         name: '',
         email: '',
-        phone: ''
+        phone: '',
+        status: '',
+        profileStatus: ''
     });
 
     const handleTabChange = (newValue: UserRole) => {
@@ -86,6 +91,8 @@ export default function UserList() {
                 name: { field: 'name', operator: 'iLike' },
                 email: { field: 'email', operator: 'iLike' },
                 phone: { field: 'phone', operator: 'iLike' },
+                status: { field: 'status', operator: 'eq' },
+                profileStatus: { field: 'profileStatus', operator: 'eq' },
             },
         });
         
@@ -153,7 +160,7 @@ export default function UserList() {
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ name: '', email: '', phone: '' });
+        setAdvancedFilters({ name: '', email: '', phone: '', status: '', profileStatus: '' });
         // Filters will be updated via the useEffect that watches advancedFilters
         // No need to manually refresh, the effect will handle it
     };
@@ -457,6 +464,36 @@ export default function UserList() {
                                     onChange={(e) => setAdvancedFilters(prev => ({ ...prev, phone: e.target.value }))}
                         sx={{ mb: 2 }}
                                 />
+                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                    <InputLabel>Status</InputLabel>
+                                    <Select
+                                        value={advancedFilters.status}
+                                        label="Status"
+                                        onChange={(e) => setAdvancedFilters(prev => ({ ...prev, status: e.target.value }))}
+                                    >
+                                        <MenuItem value="">All</MenuItem>
+                                        {USER_STATUS_OPTIONS.map((option) => (
+                                            <MenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                    <InputLabel>Profile Status</InputLabel>
+                                    <Select
+                                        value={advancedFilters.profileStatus}
+                                        label="Profile Status"
+                                        onChange={(e) => setAdvancedFilters(prev => ({ ...prev, profileStatus: e.target.value }))}
+                                    >
+                                        <MenuItem value="">All</MenuItem>
+                                        {PROFILE_STATUS_OPTIONS.map((option) => (
+                                            <MenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                                 <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
                                 <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
