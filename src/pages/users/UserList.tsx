@@ -201,7 +201,7 @@ export default function UserList() {
                             textDecoration: 'underline',
                         },
                     }}
-                    onClick={() => navigate(`/users/${row.id}`)}
+                    onClick={() => navigate(`/users/detail/${row.id}`)}
                 >
                     {row.name || 'N/A'}
                 </Typography>
@@ -221,7 +221,7 @@ export default function UserList() {
                             textDecoration: 'underline',
                         },
                     }}
-                    onClick={() => navigate(`/users/${row.id}`)}
+                    onClick={() => navigate(`/users/detail/${row.id}`)}
                 >
                     {row.mobileNumber || row.phone || 'N/A'}
                 </Typography>

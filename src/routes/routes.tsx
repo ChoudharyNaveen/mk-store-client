@@ -3,6 +3,7 @@ import Dashboard from '../pages/Dashboard';
 import UserList from '../pages/users/UserList';
 import NewUserForm from '../pages/users/NewUserForm';
 import ProfileSettingsPage from '../pages/users/ProfileSettingsPage';
+import UserDetail from '../pages/users/UserDetail';
 import CategoryPage from '../pages/category/CategoryList';
 import NewCategoryForm from '../pages/category/NewCategoryForm';
 import CategoryDetail from '../pages/category/CategoryDetail';
@@ -48,6 +49,10 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/users/new',
     element: <NewUserForm />,
+  },
+  {
+    path: '/users/detail/:id',
+    element: <UserDetail />,
   },
   {
     path: '/users/:id',
