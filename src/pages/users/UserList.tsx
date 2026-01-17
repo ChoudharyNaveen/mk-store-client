@@ -210,7 +210,7 @@ export default function UserList() {
                     }}
                     onClick={() => navigate(`/users/detail/${row.id}`)}
                 >
-                    {row.name || 'N/A'}
+                    {row.name || ''}
                 </Typography>
             ),
         },

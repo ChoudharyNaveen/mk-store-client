@@ -13,27 +13,24 @@ import {
     CardContent,
     Tabs,
     Tab,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     Stack,
-    Rating,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import StarIcon from '@mui/icons-material/Star';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import InventoryIcon from '@mui/icons-material/Inventory';
+import WarehouseIcon from '@mui/icons-material/Warehouse';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchProducts } from '../../services/product.service';
+import { fetchProductDetails, fetchProductStats, fetchInventoryMovements } from '../../services/product.service';
 import { showErrorToast } from '../../utils/toast';
-import type { Product } from '../../types/product';
+import type { Product, ProductVariant } from '../../types/product';
+import type { ProductStats, InventoryMovement } from '../../types/product';
+import DataTable from '../../components/DataTable';
+import { useServerPagination } from '../../hooks/useServerPagination';
+import type { Column, TableState } from '../../types/table';
 import { formatExpiryDate, getExpiryDateColor } from '../../utils/productHelpers';
 import { format } from 'date-fns';
 
@@ -52,91 +49,26 @@ function TabPanel(props: TabPanelProps) {
     );
 }
 
-// Sample data - will be replaced with API data later
-const sampleData = {
-    sku: 'IPH15P-256-BLK',
-    slug: 'iphone-15-pro-256gb-black',
-    metaTitle: 'iPhone 15 Pro 256GB Black - Latest Apple Smartphone',
-    metaDescription: 'Buy iPhone 15 Pro 256GB in Black. Latest features, A17 Pro chip, Pro camera system. Best price guaranteed.',
-    metaKeywords: 'iphone 15 pro, apple, smartphone, 256gb, black',
-    canonicalUrl: 'https://mkstore.com/products/iphone-15-pro-256gb-black',
-    ogImage: 'https://mkstore.com/images/iphone-15-pro-og.jpg',
-    discount: 5,
-    discountType: 'percentage',
-    taxClass: 'GST',
-    gstPercent: 18,
-    finalPrice: 94999,
-    lowStockThreshold: 10,
-    backorderAllowed: false,
-    warehouse: 'Main Warehouse',
-    location: 'Aisle 3, Shelf B',
-    imageGallery: [
-        'https://example.com/image1.jpg',
-        'https://example.com/image2.jpg',
-        'https://example.com/image3.jpg',
-    ],
-    videoUrl: 'https://example.com/product-video.mp4',
-    documents: [
-        { name: 'User Manual.pdf', url: 'https://example.com/manual.pdf' },
-        { name: 'Warranty Card.pdf', url: 'https://example.com/warranty.pdf' },
-    ],
-    variants: [
-        { id: 1, type: 'Color', value: 'Black', sku: 'IPH15P-256-BLK', price: 99999, stock: 45, image: 'https://example.com/black.jpg' },
-        { id: 2, type: 'Color', value: 'White', sku: 'IPH15P-256-WHT', price: 99999, stock: 32, image: 'https://example.com/white.jpg' },
-        { id: 3, type: 'Storage', value: '512GB', sku: 'IPH15P-512-BLK', price: 119999, stock: 18, image: 'https://example.com/512gb.jpg' },
-    ],
-    attributes: [
-        { key: 'Material', value: 'Titanium, Ceramic Shield' },
-        { key: 'Dimensions', value: '159.9 x 76.7 x 8.25 mm' },
-        { key: 'Weight', value: '187 grams' },
-        { key: 'Warranty', value: '1 Year Apple Warranty' },
-        { key: 'Country of Origin', value: 'China' },
-        { key: 'Screen Size', value: '6.1 inches' },
-        { key: 'Processor', value: 'A17 Pro Chip' },
-        { key: 'RAM', value: '8GB' },
-        { key: 'Storage', value: '256GB' },
-        { key: 'Camera', value: '48MP Main, 12MP Ultra Wide, 12MP Telephoto' },
-    ],
-    linkedOffers: [
-        { id: 1, name: 'Festival Sale', discount: '10%', validUntil: '2025-02-15' },
-        { id: 2, name: 'New Year Special', discount: '₹5000', validUntil: '2025-01-31' },
-    ],
-    promoCodes: [
-        { code: 'NEWYEAR2025', discount: '5%', validUntil: '2025-01-31' },
-    ],
-    flashSale: false,
-    totalOrders: 156,
-    totalUnitsSold: 234,
-    revenueGenerated: 23397666,
-    lastOrderedDate: '2025-01-20',
-    cartAbandonmentCount: 12,
-    averageRating: 4.5,
-    reviewCount: 89,
-    recentReviews: [
-        { id: 1, user: 'John Doe', rating: 5, comment: 'Excellent product! Highly recommended.', date: '2025-01-18', status: 'APPROVED' },
-        { id: 2, user: 'Jane Smith', rating: 4, comment: 'Good quality but a bit expensive.', date: '2025-01-15', status: 'APPROVED' },
-        { id: 3, user: 'Mike Johnson', rating: 5, comment: 'Amazing camera quality!', date: '2025-01-12', status: 'PENDING' },
-    ],
-    createdBy: 'Admin User',
-    lastUpdatedBy: 'Manager User',
-    priceHistory: [
-        { date: '2025-01-15', price: 104999, changedBy: 'Manager User' },
-        { date: '2025-01-01', price: 109999, changedBy: 'Admin User' },
-        { date: '2024-12-20', price: 114999, changedBy: 'Admin User' },
-    ],
-    stockHistory: [
-        { date: '2025-01-20', quantity: 45, action: 'Sale', changedBy: 'System' },
-        { date: '2025-01-18', quantity: 50, action: 'Restock', changedBy: 'Manager User' },
-        { date: '2025-01-15', quantity: 48, action: 'Sale', changedBy: 'System' },
-    ],
-};
 
 export default function ProductDetail() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const [product, setProduct] = React.useState<Product | null>(null);
+    const [productStats, setProductStats] = React.useState<ProductStats | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [tabValue, setTabValue] = React.useState(0);
+
+    // Inventory movements pagination
+    const {
+        tableState,
+        tableHandlers,
+    } = useServerPagination<InventoryMovement>({
+        fetchFunction: async (params) => {
+            if (!id) return { list: [], totalCount: 0 };
+            return await fetchInventoryMovements(id, params.page || 0, params.pageSize || 10);
+        },
+        initialPageSize: 10,
+    });
 
     React.useEffect(() => {
         const loadProduct = async () => {
@@ -147,18 +79,17 @@ export default function ProductDetail() {
 
             try {
                 setLoading(true);
-                const response = await fetchProducts({
-                    filters: [{ key: 'id', eq: id }],
-                    page: 0,
-                    pageSize: 1,
-                });
-
-                if (response.list && response.list.length > 0) {
-                    setProduct(response.list[0]);
-                } else {
-                    showErrorToast('Product not found');
-                    navigate('/products');
-                }
+                // Fetch product details and stats in parallel
+                const [productData, statsData] = await Promise.all([
+                    fetchProductDetails(id),
+                    fetchProductStats(id).catch((error) => {
+                        console.error('Error fetching product stats:', error);
+                        // Don't fail the whole page if stats fail, just log it
+                        return null;
+                    }),
+                ]);
+                setProduct(productData);
+                setProductStats(statsData);
             } catch (error) {
                 console.error('Error fetching product:', error);
                 showErrorToast('Failed to load product details');
@@ -195,9 +126,6 @@ export default function ProductDetail() {
         setTabValue(newValue);
     };
 
-    const discountAmount = sampleData.discountType === 'percentage'
-        ? (product.price * sampleData.discount / 100)
-        : sampleData.discount;
 
     return (
         <Box>
@@ -263,7 +191,7 @@ export default function ProductDetail() {
                                         Total Orders
                                     </Typography>
                                     <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                        {sampleData.totalOrders}
+                                        {productStats?.total_orders ?? 0}
                                     </Typography>
                                 </Box>
                             </Box>
@@ -282,7 +210,7 @@ export default function ProductDetail() {
                                         Units Sold
                                     </Typography>
                                     <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                        {sampleData.totalUnitsSold}
+                                        {productStats?.units_sold ?? 0}
                                     </Typography>
                                 </Box>
                             </Box>
@@ -301,7 +229,7 @@ export default function ProductDetail() {
                                         Revenue Generated
                                     </Typography>
                                     <Typography variant="h5" sx={{ fontWeight: 600, color: 'info.main' }}>
-                                        ₹{(sampleData.revenueGenerated / 1000000).toFixed(1)}M
+                                        ₹{productStats?.revenue_generated ? (productStats.revenue_generated / 1000000).toFixed(1) + 'M' : '0'}
                                     </Typography>
                                 </Box>
                             </Box>
@@ -313,18 +241,15 @@ export default function ProductDetail() {
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                 <Avatar sx={{ bgcolor: 'warning.main' }}>
-                                    <StarIcon />
+                                    <WarehouseIcon />
                                 </Avatar>
                                 <Box>
                                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                        Average Rating
+                                        Current Stock
                                     </Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                            {sampleData.averageRating}
-                                        </Typography>
-                                        <Rating value={sampleData.averageRating} readOnly size="small" precision={0.1} />
-                                    </Box>
+                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'warning.main' }}>
+                                        {productStats?.current_stock?.toLocaleString() ?? product.quantity?.toLocaleString() ?? 0}
+                                    </Typography>
                                 </Box>
                             </Box>
                         </CardContent>
@@ -374,21 +299,14 @@ export default function ProductDetail() {
                                 color={getAvailabilityColor(product.product_status)}
                                 size="small"
                             />
-                            {sampleData.flashSale && (
-                                <Chip
-                                    label="Flash Sale"
-                                    color="error"
-                                    size="small"
-                                />
-                            )}
                         </Box>
                         <Divider sx={{ my: 2 }} />
                         <Box>
                             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                SKU
+                                Product ID
                             </Typography>
                             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                {sampleData.sku}
+                                #{product.id}
                             </Typography>
                         </Box>
                     </Paper>
@@ -399,15 +317,8 @@ export default function ProductDetail() {
                     <Paper sx={{ p: 3 }}>
                         <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider' }}>
                             <Tab label="Overview" />
-                            <Tab label="Pricing" />
-                            <Tab label="Inventory" />
                             <Tab label="Media" />
                             <Tab label="Variants" />
-                            <Tab label="Attributes" />
-                            <Tab label="SEO" />
-                            <Tab label="Offers" />
-                            <Tab label="Sales" />
-                            <Tab label="Reviews" />
                             <Tab label="Audit" />
                         </Tabs>
 
@@ -428,14 +339,16 @@ export default function ProductDetail() {
                                         #{product.id}
                                     </Typography>
                                 </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        SKU
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.sku}
-                                    </Typography>
-                                </Grid>
+                                {(product.updated_at || product.updatedAt) && (
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                                            Updated At
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                            {format(new Date(product.updated_at || product.updatedAt || ''), 'MMM dd, yyyy HH:mm')}
+                                        </Typography>
+                                    </Grid>
+                                )}
                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
                                         Category
@@ -514,650 +427,308 @@ export default function ProductDetail() {
                             )}
                         </TabPanel>
 
-                        {/* Pricing Tab */}
-                        <TabPanel value={tabValue} index={1}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                                Pricing Information
-                            </Typography>
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Base Price
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                ₹{product.price?.toLocaleString() || '0.00'}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Sale Price
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                ₹{product.selling_price?.toLocaleString() || '0.00'}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Discount
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'error.main' }}>
-                                                {sampleData.discountType === 'percentage' ? `${sampleData.discount}%` : `₹${sampleData.discount}`}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Cost Price (Internal)
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                ₹{(product.price - discountAmount).toLocaleString()}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Tax Class
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.taxClass}
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        GST %
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.gstPercent}%
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <Card variant="outlined" sx={{ bgcolor: 'primary.light', color: 'primary.contrastText' }}>
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'inherit', opacity: 0.9 }}>
-                                                Final Price (After Tax)
-                                            </Typography>
-                                            <Typography variant="h5" sx={{ fontWeight: 600, color: 'inherit' }}>
-                                                ₹{sampleData.finalPrice.toLocaleString()}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            </Grid>
-                        </TabPanel>
-
-                        {/* Inventory Tab */}
-                        <TabPanel value={tabValue} index={2}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                                Inventory Information
-                            </Typography>
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Stock Quantity
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                {product.quantity?.toLocaleString() || 0} {product.units || 'units'}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Unit
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                {product.units || 'N/A'}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                {product.itemsPerUnit && (
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Card variant="outlined">
-                                            <CardContent>
-                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                    Items Per Unit
-                                                </Typography>
-                                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                    {product.itemsPerUnit} items
-                                                </Typography>
-                                            </CardContent>
-                                        </Card>
-                                </Grid>
-                                )}
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Low Stock Threshold
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.lowStockThreshold}
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Stock Status
-                                    </Typography>
-                                    <Chip
-                                        label={product.product_status}
-                                        color={getAvailabilityColor(product.product_status)}
-                                        size="small"
-                                    />
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Backorder Allowed
-                                    </Typography>
-                                    <Chip
-                                        label={sampleData.backorderAllowed ? 'Yes' : 'No'}
-                                        color={sampleData.backorderAllowed ? 'success' : 'default'}
-                                        size="small"
-                                    />
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Warehouse
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.warehouse}
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Location
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.location}
-                                    </Typography>
-                                </Grid>
-                                {product.expiryDate && (
-                                    <Grid size={{ xs: 12 }}>
-                                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Expiry Date
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500, color: getExpiryDateColor(product.expiryDate) }}>
-                                            {formatExpiryDate(product.expiryDate)}
-                                        </Typography>
-                                    </Grid>
-                                )}
-                            </Grid>
-                        </TabPanel>
-
                         {/* Media Tab */}
-                        <TabPanel value={tabValue} index={3}>
+                        <TabPanel value={tabValue} index={1}>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
                                 Product Media
                             </Typography>
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                                        Primary Image
-                                    </Typography>
-                                    {product.image && (
-                                        <Box
-                                            component="img"
-                                            src={product.image}
-                                            alt={product.title}
-                                            sx={{
-                                                width: '100%',
-                                                maxWidth: 400,
-                                                height: 'auto',
-                                                borderRadius: 2,
-                                                border: '1px solid #e0e0e0',
-                                            }}
-                                        />
-                                    )}
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography variant="subtitle2" sx={{ mb: 1, mt: 2, fontWeight: 600 }}>
-                                        Image Gallery
-                                    </Typography>
-                                    <Grid container spacing={2}>
-                                        {sampleData.imageGallery.map((img, index) => (
-                                            <Grid size={{ xs: 12, sm: 4 }} key={index}>
-                                                <Box
-                                                    component="img"
-                                                    src={img}
-                                                    alt={`${product.title} - Image ${index + 1}`}
-                                                    sx={{
-                                                        width: '100%',
-                                                        height: 150,
-                                                        objectFit: 'cover',
-                                                        borderRadius: 2,
-                                                        border: '1px solid #e0e0e0',
-                                                    }}
-                                                />
+                            {product.images && product.images.length > 0 ? (
+                                <Grid container spacing={2}>
+                                    {product.images
+                                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0))
+                                        .map((image) => (
+                                            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={image.id}>
+                                                <Box sx={{ position: 'relative' }}>
+                                                    <Box
+                                                        component="img"
+                                                        src={image.image_url}
+                                                        alt={`${product.title} - Image ${image.display_order || image.id}`}
+                                                        sx={{
+                                                            width: '100%',
+                                                            height: 200,
+                                                            objectFit: 'cover',
+                                                            borderRadius: 2,
+                                                            border: '1px solid #e0e0e0',
+                                                        }}
+                                                    />
+                                                    {image.is_default && (
+                                                        <Chip
+                                                            label="Default"
+                                                            color="primary"
+                                                            size="small"
+                                                            sx={{
+                                                                position: 'absolute',
+                                                                top: 8,
+                                                                right: 8,
+                                                            }}
+                                                        />
+                                                    )}
+                                                    <Box sx={{ mt: 1 }}>
+                                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                            Display Order: {image.display_order || 'N/A'}
+                                                        </Typography>
+                                                        {image.variant_id && (
+                                                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                                                                Variant ID: {image.variant_id}
+                                                            </Typography>
+                                                        )}
+                                                    </Box>
+                                                </Box>
                                             </Grid>
                                         ))}
-                                    </Grid>
                                 </Grid>
-                                {sampleData.videoUrl && (
-                                    <Grid size={{ xs: 12 }}>
-                                        <Typography variant="subtitle2" sx={{ mb: 1, mt: 2, fontWeight: 600 }}>
-                                            Video URL
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: 'primary.main', textDecoration: 'underline' }}>
-                                            {sampleData.videoUrl}
-                                        </Typography>
-                                    </Grid>
-                                )}
-                                {sampleData.documents.length > 0 && (
-                                    <Grid size={{ xs: 12 }}>
-                                        <Typography variant="subtitle2" sx={{ mb: 1, mt: 2, fontWeight: 600 }}>
-                                            Documents
-                                        </Typography>
-                                        <Stack spacing={1}>
-                                            {sampleData.documents.map((doc, index) => (
-                                                <Button
-                                                    key={index}
-                                                    variant="outlined"
-                                                    size="small"
-                                                    href={doc.url}
-                                                    target="_blank"
-                                                    sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
-                                                >
-                                                    {doc.name}
-                                                </Button>
-                                            ))}
-                                        </Stack>
-                                    </Grid>
-                                )}
-                            </Grid>
+                            ) : (
+                                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                    No images available
+                                </Typography>
+                            )}
                         </TabPanel>
 
                         {/* Variants Tab */}
-                        <TabPanel value={tabValue} index={4}>
+                        <TabPanel value={tabValue} index={2}>
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
                                 Product Variants
                             </Typography>
-                            <TableContainer>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Type</TableCell>
-                                            <TableCell>Value</TableCell>
-                                            <TableCell>SKU</TableCell>
-                                            <TableCell align="right">Price</TableCell>
-                                            <TableCell align="right">Stock</TableCell>
-                                            <TableCell>Image</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {sampleData.variants.map((variant) => (
-                                            <TableRow key={variant.id}>
-                                                <TableCell>{variant.type}</TableCell>
-                                                <TableCell>{variant.value}</TableCell>
-                                                <TableCell>{variant.sku}</TableCell>
-                                                <TableCell align="right">₹{variant.price.toLocaleString()}</TableCell>
-                                                <TableCell align="right">{variant.stock}</TableCell>
-                                                <TableCell>
-                                                    <Avatar
-                                                        src={variant.image}
-                                                        alt={variant.value}
-                                                        sx={{ width: 40, height: 40 }}
-                                                    />
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </TabPanel>
-
-                        {/* Attributes Tab */}
-                        <TabPanel value={tabValue} index={5}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                                Product Attributes & Specifications
-                            </Typography>
-                            <TableContainer>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Attribute</TableCell>
-                                            <TableCell>Value</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {sampleData.attributes.map((attr, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell sx={{ fontWeight: 500 }}>{attr.key}</TableCell>
-                                                <TableCell>{attr.value}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </TabPanel>
-
-                        {/* SEO Tab */}
-                        <TabPanel value={tabValue} index={6}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                                SEO Information
-                            </Typography>
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        URL Slug
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.slug}
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Meta Title
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.metaTitle}
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Meta Description
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-                                        {sampleData.metaDescription}
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Meta Keywords
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-                                        {sampleData.metaKeywords}
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Canonical URL
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ color: 'primary.main', textDecoration: 'underline' }}>
-                                        {sampleData.canonicalUrl}
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Open Graph Image
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ color: 'primary.main', textDecoration: 'underline' }}>
-                                        {sampleData.ogImage}
-                                    </Typography>
-                                </Grid>
-                            </Grid>
-                        </TabPanel>
-
-                        {/* Offers Tab */}
-                        <TabPanel value={tabValue} index={7}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                                Offers & Promotions
-                            </Typography>
-                            <Box sx={{ mb: 3 }}>
-                                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                                    Linked Offers
-                                </Typography>
-                                <Stack spacing={2}>
-                                    {sampleData.linkedOffers.map((offer) => (
-                                        <Card key={offer.id} variant="outlined">
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Box>
-                                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                                            {offer.name}
-                                                        </Typography>
-                                                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                                            Discount: {offer.discount}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Chip
-                                                        label={`Valid until ${format(new Date(offer.validUntil), 'MMM dd, yyyy')}`}
-                                                        color="success"
-                                                        size="small"
-                                                    />
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </Stack>
-                            </Box>
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                                    Promo Codes Applied
-                                </Typography>
-                                <Stack spacing={2}>
-                                    {sampleData.promoCodes.map((promo, index) => (
-                                        <Card key={index} variant="outlined">
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Box>
-                                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                                            {promo.code}
-                                                        </Typography>
-                                                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                                            Discount: {promo.discount}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Chip
-                                                        label={`Valid until ${format(new Date(promo.validUntil), 'MMM dd, yyyy')}`}
-                                                        color="info"
-                                                        size="small"
-                                                    />
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </Stack>
-                            </Box>
-                        </TabPanel>
-
-                        {/* Sales Tab */}
-                        <TabPanel value={tabValue} index={8}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                                Order & Sales Insights
-                            </Typography>
-                            <Grid container spacing={2} sx={{ mb: 3 }}>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Total Orders
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                {sampleData.totalOrders}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Total Units Sold
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                {sampleData.totalUnitsSold}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Revenue Generated
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'info.main' }}>
-                                                ₹{sampleData.revenueGenerated.toLocaleString()}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Last Ordered Date
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                                {format(new Date(sampleData.lastOrderedDate), 'MMM dd, yyyy')}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <Card variant="outlined">
-                                        <CardContent>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                Cart Abandonment Count
-                                            </Typography>
-                                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'warning.main' }}>
-                                                {sampleData.cartAbandonmentCount}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            </Grid>
-                            <Button variant="outlined" sx={{ textTransform: 'none' }}>
-                                View Orders Containing This Product
-                            </Button>
-                        </TabPanel>
-
-                        {/* Reviews Tab */}
-                        <TabPanel value={tabValue} index={9}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                                <Box>
-                                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#333' }}>
-                                        Reviews & Ratings
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                                        <Rating value={sampleData.averageRating} readOnly precision={0.1} />
-                                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                            ({sampleData.reviewCount} reviews)
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                                <Button variant="outlined" size="small" sx={{ textTransform: 'none' }}>
-                                    Moderate Reviews
-                                </Button>
-                            </Box>
-                            <Stack spacing={2}>
-                                {sampleData.recentReviews.map((review) => (
-                                    <Card key={review.id} variant="outlined">
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                                                <Box>
-                                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                                        {review.user}
-                                                    </Typography>
-                                                    <Rating value={review.rating} readOnly size="small" />
-                                                </Box>
+                            {product.variants && product.variants.length > 0 ? (
+                                (() => {
+                                    const variantColumns: Column<ProductVariant>[] = [
+                                        {
+                                            id: 'variant_name',
+                                            label: 'Variant Name',
+                                            render: (row: ProductVariant) => (
+                                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                    {row.variant_name || row.variant_value || 'Default'}
+                                                </Typography>
+                                            ),
+                                        },
+                                        {
+                                            id: 'variant_type',
+                                            label: 'Type',
+                                            render: (row: ProductVariant) => (
                                                 <Chip
-                                                    label={review.status}
-                                                    color={review.status === 'APPROVED' ? 'success' : 'warning'}
+                                                    label={row.variant_type || 'N/A'}
                                                     size="small"
+                                                    variant="outlined"
                                                 />
-                                            </Box>
-                                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1 }}>
-                                                {review.comment}
-                                            </Typography>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                {format(new Date(review.date), 'MMM dd, yyyy')}
-                                            </Typography>
-                                        </CardContent>
-                                    </Card>
-                                ))}
-                            </Stack>
+                                            ),
+                                        },
+                                        {
+                                            id: 'price',
+                                            label: 'Base Price',
+                                            align: 'right',
+                                            format: (value: number) => `₹${value?.toLocaleString() || '0.00'}`,
+                                        },
+                                        {
+                                            id: 'selling_price',
+                                            label: 'Selling Price',
+                                            align: 'right',
+                                            render: (row: ProductVariant) => (
+                                                <Typography sx={{ color: 'success.main', fontWeight: 600 }}>
+                                                    ₹{row.selling_price?.toLocaleString() || '0.00'}
+                                                </Typography>
+                                            ),
+                                        },
+                                        {
+                                            id: 'quantity',
+                                            label: 'Quantity',
+                                            align: 'right',
+                                            format: (value: number) => value?.toLocaleString() || '0',
+                                        },
+                                        {
+                                            id: 'units',
+                                            label: 'Units',
+                                            format: (value: string | null) => value || 'N/A',
+                                        },
+                                        {
+                                            id: 'items_per_unit',
+                                            label: 'Items/Unit',
+                                            align: 'right',
+                                            format: (value: number | null) => value?.toString() || '-',
+                                        },
+                                        {
+                                            id: 'status',
+                                            label: 'Status',
+                                            render: (row: ProductVariant) => (
+                                                <Box>
+                                                    <Chip
+                                                        label={row.status || 'N/A'}
+                                                        color={getStatusColor(row.status || 'ACTIVE')}
+                                                        size="small"
+                                                    />
+                                                    <Box sx={{ mt: 0.5 }}>
+                                                        <Chip
+                                                            label={row.product_status || 'N/A'}
+                                                            color={getAvailabilityColor(row.product_status || 'INSTOCK')}
+                                                            size="small"
+                                                            variant="outlined"
+                                                        />
+                                                    </Box>
+                                                </Box>
+                                            ),
+                                        },
+                                        {
+                                            id: 'expiry_date',
+                                            label: 'Expiry Date',
+                                            render: (row: ProductVariant) => (
+                                                row.expiry_date ? (
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{ color: getExpiryDateColor(row.expiry_date) }}
+                                                    >
+                                                        {formatExpiryDate(row.expiry_date)}
+                                                    </Typography>
+                                                ) : (
+                                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                                        No expiry
+                                                    </Typography>
+                                                )
+                                            ),
+                                        },
+                                    ];
+
+                                    // Create table state for variants (client-side pagination since data is already loaded)
+                                    const variantTableState: TableState<ProductVariant> = {
+                                        data: product.variants,
+                                        total: product.variants.length,
+                                        page: 1,
+                                        rowsPerPage: 10,
+                                        order: 'asc',
+                                        orderBy: 'variant_name',
+                                        loading: false,
+                                        search: '',
+                                    };
+
+                                    // Create handlers for variants table
+                                    const variantHandlers = {
+                                        handleRequestSort: () => {
+                                            // Sorting can be added if needed
+                                        },
+                                        handleChangePage: () => {
+                                            // Pagination handled by DataTable
+                                        },
+                                        handleChangeRowsPerPage: () => {
+                                            // Rows per page handled by DataTable
+                                        },
+                                    };
+
+                                    return (
+                                        <DataTable<ProductVariant>
+                                            columns={variantColumns}
+                                            state={variantTableState}
+                                            handlers={variantHandlers}
+                                        />
+                                    );
+                                })()
+                            ) : (
+                                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                    No variants available
+                                </Typography>
+                            )}
                         </TabPanel>
 
                         {/* Audit Tab */}
-                        <TabPanel value={tabValue} index={10}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#333' }}>
-                                Audit & Logs
+                        <TabPanel value={tabValue} index={3}>
+                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
+                                Inventory Movements
                             </Typography>
-                            <Box sx={{ mb: 3 }}>
-                                <Grid container spacing={2}>
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Created By
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                            {sampleData.createdBy}
-                                        </Typography>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Last Updated By
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                            {sampleData.lastUpdatedBy}
-                                        </Typography>
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                                Price Change History
-                            </Typography>
-                            <TableContainer sx={{ mb: 3 }}>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Date</TableCell>
-                                            <TableCell align="right">Price</TableCell>
-                                            <TableCell>Changed By</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {sampleData.priceHistory.map((history, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>{format(new Date(history.date), 'MMM dd, yyyy')}</TableCell>
-                                                <TableCell align="right">₹{history.price.toLocaleString()}</TableCell>
-                                                <TableCell>{history.changedBy}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-                                Stock Change History
-                            </Typography>
-                            <TableContainer>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Date</TableCell>
-                                            <TableCell align="right">Quantity</TableCell>
-                                            <TableCell>Action</TableCell>
-                                            <TableCell>Changed By</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {sampleData.stockHistory.map((history, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>{format(new Date(history.date), 'MMM dd, yyyy')}</TableCell>
-                                                <TableCell align="right">{history.quantity}</TableCell>
-                                                <TableCell>{history.action}</TableCell>
-                                                <TableCell>{history.changedBy}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
+                            
+                            {(() => {
+                                const columns: Column<InventoryMovement>[] = [
+                                    {
+                                        id: 'createdAt',
+                                        label: 'Date',
+                                        minWidth: 150,
+                                        format: (value: string) => format(new Date(value), 'MMM dd, yyyy HH:mm'),
+                                    },
+                                    {
+                                        id: 'movementType',
+                                        label: 'Type',
+                                        minWidth: 120,
+                                        render: (row: InventoryMovement) => (
+                                            <Chip
+                                                label={row.movementType}
+                                                size="small"
+                                                color={
+                                                    row.movementType === 'REMOVED' ? 'error' :
+                                                    row.movementType === 'ADDED' ? 'success' :
+                                                    row.movementType === 'REVERTED' ? 'warning' : 'default'
+                                                }
+                                            />
+                                        ),
+                                    },
+                                    {
+                                        id: 'quantityChange',
+                                        label: 'Change',
+                                        minWidth: 100,
+                                        align: 'right',
+                                        render: (row: InventoryMovement) => (
+                                            <Typography
+                                                sx={{
+                                                    color: row.quantityChange >= 0 ? 'success.main' : 'error.main',
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                {row.quantityChange >= 0 ? '+' : ''}{row.quantityChange}
+                                            </Typography>
+                                        ),
+                                    },
+                                    {
+                                        id: 'quantityBefore',
+                                        label: 'Before',
+                                        minWidth: 100,
+                                        align: 'right',
+                                    },
+                                    {
+                                        id: 'quantityAfter',
+                                        label: 'After',
+                                        minWidth: 100,
+                                        align: 'right',
+                                        render: (row: InventoryMovement) => (
+                                            <Typography sx={{ fontWeight: 600 }}>
+                                                {row.quantityAfter}
+                                            </Typography>
+                                        ),
+                                    },
+                                    {
+                                        id: 'referenceType',
+                                        label: 'Reference',
+                                        minWidth: 120,
+                                        render: (row: InventoryMovement) => (
+                                            <Box>
+                                                <Typography variant="body2">{row.referenceType}</Typography>
+                                                {row.referenceId && (
+                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                        ID: {row.referenceId}
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        ),
+                                    },
+                                    {
+                                        id: 'notes',
+                                        label: 'Notes',
+                                        minWidth: 200,
+                                        format: (value: string | null) => value || '-',
+                                    },
+                                    {
+                                        id: 'user',
+                                        label: 'User',
+                                        minWidth: 150,
+                                        format: (value: InventoryMovement['user']) => {
+                                            if (!value) return 'N/A';
+                                            return value.name || value.email || `User ${value.id}`;
+                                        },
+                                    },
+                                ];
+
+                                return (
+                                    <DataTable<InventoryMovement>
+                                        columns={columns}
+                                        state={tableState}
+                                        handlers={tableHandlers}
+                                    />
+                                );
+                            })()}
                         </TabPanel>
                     </Paper>
                 </Grid>

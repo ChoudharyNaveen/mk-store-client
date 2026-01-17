@@ -58,8 +58,11 @@ export interface Product {
   status: ProductStatus;
   nutritional: string | null;
   concurrency_stamp?: string;
+  concurrencyStamp?: string;
   created_at?: string; // API returns snake_case
   createdAt?: string;
+  updated_at?: string; // API returns snake_case
+  updatedAt?: string;
   // Variants array (new structure)
   variants: ProductVariant[];
   // Images array (new structure)
@@ -179,5 +182,60 @@ export interface UpdateProductResponse {
   success: boolean;
   message?: string;
   doc?: Product;
+}
+
+export interface ProductStats {
+  product_id: number;
+  product_title: string;
+  total_orders: number;
+  units_sold: number;
+  revenue_generated: number;
+  current_stock: number;
+}
+
+export interface ProductStatsResponse {
+  success: boolean;
+  doc: ProductStats;
+}
+
+export interface InventoryMovement {
+  id: number;
+  productId: number;
+  variantId: number;
+  vendorId: number;
+  branchId: number;
+  movementType: string;
+  quantityChange: number;
+  quantityBefore: number;
+  quantityAfter: number;
+  referenceType: string;
+  referenceId: number;
+  userId: number;
+  notes: string | null;
+  createdAt: string;
+  product?: {
+    id: number;
+    title: string;
+  };
+  variant?: {
+    id: number;
+    variantName: string;
+  };
+  user?: {
+    id: number;
+    name: string | null;
+    email: string | null;
+  };
+}
+
+export interface InventoryMovementsResponse {
+  success: boolean;
+  doc: InventoryMovement[];
+  pagination: {
+    pageSize: number;
+    pageNumber: number;
+    totalCount: number;
+    paginationEnabled: boolean;
+  };
 }
 

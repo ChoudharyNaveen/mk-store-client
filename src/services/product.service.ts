@@ -12,7 +12,13 @@ import type {
   CreateProductRequest,
   CreateProductResponse,
   UpdateProductRequest,
-  UpdateProductResponse
+  UpdateProductResponse,
+  ProductVariant,
+  ProductImage,
+  ProductStats,
+  ProductStatsResponse,
+  InventoryMovement,
+  InventoryMovementsResponse
 } from '../types/product';
 import type { ServerFilter, ServerSorting } from '../types/filter';
 import { convertSimpleFiltersToServerFilters } from '../utils/filterBuilder';
@@ -156,6 +162,86 @@ export const fetchProducts = async (
 };
 
 /**
+ * Fetch product statistics by product ID
+ * Uses POST request to fetch product stats
+ */
+export const fetchProductStats = async (
+  productId: string | number
+): Promise<ProductStats> => {
+  try {
+    const response = await http.post<ProductStatsResponse>(
+      API_URLS.PRODUCTS.GET_STATS,
+      { productId: Number(productId) }
+    );
+
+    if (!response.success || !response.doc) {
+      throw {
+        message: 'Product stats not found',
+        status: 404,
+        data: { error: 'Product stats not found' },
+      };
+    }
+
+    return response.doc;
+  } catch (error) {
+    console.error('Error fetching product stats:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch inventory movements for a product
+ * Uses POST request with pagination
+ */
+export const fetchInventoryMovements = async (
+  productId: string | number,
+  page: number = 0,
+  pageSize: number = 10
+): Promise<ServerPaginationResponse<InventoryMovement>> => {
+  try {
+    const pageNumber = page + 1; // Convert 0-based to 1-based
+
+    const response = await http.post<InventoryMovementsResponse>(
+      API_URLS.PRODUCTS.GET_INVENTORY_MOVEMENTS,
+      {
+        productId: Number(productId),
+        pageSize,
+        pageNumber,
+      }
+    );
+
+    if (!response.success || !response.doc) {
+      return {
+        list: [],
+        totalCount: 0,
+        pageDetails: {
+          paginationEnabled: false,
+        },
+      };
+    }
+
+    return {
+      list: response.doc,
+      totalCount: response.pagination?.totalCount || 0,
+      pageDetails: {
+        pageNumber: response.pagination?.pageNumber,
+        pageSize: response.pagination?.pageSize,
+        paginationEnabled: response.pagination?.paginationEnabled,
+      },
+    };
+  } catch (error) {
+    console.error('Error fetching inventory movements:', error);
+    return {
+      list: [],
+      totalCount: 0,
+      pageDetails: {
+        paginationEnabled: false,
+      },
+    };
+  }
+};
+
+/**
  * Create a new product
  * Handles multipart/form-data for file upload
  */
@@ -245,6 +331,92 @@ export const createProduct = async (
     return result as CreateProductResponse;
   } catch (error) {
     console.error('Error creating product:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch product details by ID
+ * Uses GET request to fetch detailed product information
+ */
+export const fetchProductDetails = async (
+  id: string | number
+): Promise<Product> => {
+  try {
+    const response = await http.get<{ success: boolean; doc: Product }>(
+      API_URLS.PRODUCTS.GET_DETAILS(id)
+    );
+
+    if (!response.success || !response.doc) {
+      throw {
+        message: 'Product not found',
+        status: 404,
+        data: { error: 'Product not found' },
+      };
+    }
+
+    // Map snake_case fields to camelCase and handle nested objects
+    const product = response.doc as unknown as Record<string, unknown>;
+    
+    // Map variants array if present
+    const variants = Array.isArray(product.variants) 
+      ? (product.variants as unknown[]).map((variant: unknown) => {
+          const v = variant as Record<string, unknown>;
+          return {
+            ...v,
+            items_per_unit: v.items_per_unit ?? v.itemsPerUnit ?? null,
+            units: v.units ?? null,
+            expiry_date: v.expiry_date ?? v.expiryDate ?? null,
+            product_status: v.product_status ?? v.productStatus ?? 'INSTOCK',
+            concurrency_stamp: v.concurrency_stamp ?? v.concurrencyStamp,
+          };
+        })
+      : product.variants || [];
+    
+    // Map images array if present
+    const images = Array.isArray(product.images)
+      ? (product.images as unknown[]).map((image: unknown) => {
+          const img = image as Record<string, unknown>;
+          return {
+            ...img,
+            image_url: img.image_url ?? img.imageUrl,
+            is_default: img.is_default ?? img.isDefault ?? false,
+            display_order: img.display_order ?? img.displayOrder ?? 0,
+            variant_id: img.variant_id ?? img.variantId ?? null,
+            concurrency_stamp: img.concurrency_stamp ?? img.concurrencyStamp,
+          };
+        })
+      : product.images || [];
+
+    // Find default image or use first image
+    const defaultImage = images.find((img: ProductImage) => img.is_default) || images[0] || null;
+    const defaultImageUrl = defaultImage ? defaultImage.image_url : null;
+
+    // Map the product with proper field names
+    const mappedProduct = {
+      ...product,
+      variants,
+      images,
+      createdAt: product.created_at || product.createdAt,
+      updatedAt: product.updated_at || product.updatedAt,
+      concurrencyStamp: product.concurrency_stamp || product.concurrencyStamp,
+      // Handle nested objects
+      category: product.category || undefined,
+      subCategory: product.subCategory || product.sub_category || undefined,
+      brand: product.brand || null,
+      brandId: (product.brand as { id?: number })?.id || product.brandId || undefined,
+      // Legacy fields for backward compatibility (use first variant if available)
+      price: variants.length > 0 ? (variants[0] as ProductVariant).price : product.price,
+      selling_price: variants.length > 0 ? (variants[0] as ProductVariant).selling_price : product.selling_price,
+      quantity: variants.length > 0 ? (variants[0] as ProductVariant).quantity : product.quantity,
+      image: defaultImageUrl || product.image,
+      product_status: variants.length > 0 ? (variants[0] as ProductVariant).product_status : product.product_status,
+      units: variants.length > 0 ? (variants[0] as ProductVariant).units : product.units,
+    } as unknown as Product;
+
+    return mappedProduct;
+  } catch (error) {
+    console.error('Error fetching product details:', error);
     throw error;
   }
 };
@@ -391,6 +563,9 @@ export const updateProduct = async (
 
 const productService = {
   fetchProducts,
+  fetchProductDetails,
+  fetchProductStats,
+  fetchInventoryMovements,
   createProduct,
   updateProduct,
 };
