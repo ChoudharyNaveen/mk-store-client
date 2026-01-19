@@ -8,37 +8,21 @@ import {
     Avatar,
     Chip,
     CircularProgress,
-    Card,
-    CardContent,
     Tabs,
     Tab,
     IconButton,
     Stack,
-    Popover,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import InventoryIcon from '@mui/icons-material/Inventory';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import DateRangeIcon from '@mui/icons-material/DateRange';
-import CancelIcon from '@mui/icons-material/Cancel';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchCategories } from '../../services/category.service';
 import { fetchSubCategoriesByCategoryId } from '../../services/sub-category.service';
 import { showErrorToast } from '../../utils/toast';
 import type { Category } from '../../types/category';
 import type { SubCategoryByCategoryIdItem } from '../../types/sub-category';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
-import { DateRange } from 'react-date-range';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
-import Highcharts from 'highcharts';
-import HighchartsReact from 'highcharts-react-official';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { setDateRange } from '../../store/dateRangeSlice';
 import DataTable from '../../components/DataTable';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import type { Column } from '../../types/table';
@@ -176,54 +160,13 @@ function SubCategoriesTable({ categoryId }: SubCategoriesTableProps) {
     );
 }
 
-// Sample data - will be replaced with API data later
-const sampleData = {
-    slug: 'electronics',
-    displayOrder: 1,
-    subCategoriesCount: 8,
-    totalProducts: 245,
-    activeProducts: 198,
-    inactiveProducts: 47,
-    createdBy: 'Admin User',
-    lastModifiedBy: 'Manager User',
-    // Reports data
-    totalRevenue: 12500000,
-    averageProductPrice: 51020,
-    lowStockProducts: 12,
-    outOfStockProducts: 3,
-    totalOrders: 1245,
-    growthRate: 15.5,
-    subCategories: [
-        { id: 1, name: 'Smartphones', products: 45, status: 'ACTIVE' },
-        { id: 2, name: 'Laptops', products: 32, status: 'ACTIVE' },
-        { id: 3, name: 'Tablets', products: 28, status: 'ACTIVE' },
-        { id: 4, name: 'Accessories', products: 67, status: 'ACTIVE' },
-    ],
-    recentProducts: [
-        { id: 1, name: 'iPhone 15 Pro', sku: 'IPH15P', price: 99999, status: 'ACTIVE', stock: 45 },
-        { id: 2, name: 'MacBook Pro M3', sku: 'MBP-M3', price: 199999, status: 'ACTIVE', stock: 12 },
-        { id: 3, name: 'iPad Air', sku: 'IPAD-AIR', price: 59999, status: 'ACTIVE', stock: 28 },
-    ],
-};
-
-
 export default function CategoryDetail() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const dispatch = useAppDispatch();
-    const { startDate, endDate } = useAppSelector((state) => state.dateRange);
     const [category, setCategory] = React.useState<Category | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [tabValue, setTabValue] = React.useState(0);
     const [overviewTabValue, setOverviewTabValue] = React.useState(0);
-    const [dateRangeAnchor, setDateRangeAnchor] = React.useState<HTMLButtonElement | null>(null);
-    const [dateRangeState, setDateRangeState] = React.useState([
-        {
-            startDate: startDate || subDays(new Date(), 30),
-            endDate: endDate || new Date(),
-            key: 'selection',
-        },
-    ]);
 
     React.useEffect(() => {
         const loadCategory = async () => {
@@ -282,70 +225,6 @@ export default function CategoryDetail() {
         setOverviewTabValue(newValue);
     };
 
-    const handleDateRangeChange = (item: { selection: { startDate: Date; endDate: Date; key: string } }) => {
-        setDateRangeState([item.selection]);
-        if (item.selection.startDate && item.selection.endDate) {
-            dispatch(
-                setDateRange({
-                    startDate: startOfDay(item.selection.startDate),
-                    endDate: endOfDay(item.selection.endDate),
-                })
-            );
-        }
-    };
-
-    const handleDateRangeClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-        setDateRangeAnchor(event.currentTarget);
-    };
-
-    const handleDateRangeClose = () => {
-        setDateRangeAnchor(null);
-    };
-
-    // Highcharts options
-    const productStatusChartOptions: Highcharts.Options = {
-        chart: { type: 'pie', height: 300 },
-        title: { text: 'Product Status Distribution' },
-        series: [
-            {
-                name: 'Products',
-                type: 'pie',
-                data: [
-                    { name: 'Active', y: sampleData.activeProducts, color: '#2e7d32' },
-                    { name: 'Inactive', y: sampleData.inactiveProducts, color: '#ed6c02' },
-                ],
-            },
-        ],
-        tooltip: {
-            pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b><br/>Count: {point.y}',
-        },
-    };
-
-    const subCategoryChartOptions: Highcharts.Options = {
-        chart: { type: 'bar', height: 300 },
-        title: { text: 'Products by Sub-Category' },
-        xAxis: {
-            categories: sampleData.subCategories.map((sc) => sc.name),
-            title: { text: 'Sub-Category' },
-        },
-        yAxis: {
-            title: { text: 'Number of Products' },
-        },
-        series: [
-            {
-                name: 'Products',
-                type: 'bar',
-                data: sampleData.subCategories.map((sc) => sc.products),
-                color: '#1976d2',
-            },
-        ],
-        tooltip: {
-            formatter: function () {
-                return `<b>${this.x}</b><br/>Products: ${this.y}`;
-            },
-        },
-    };
-
     return (
         <Box>
             {/* Header */}
@@ -383,7 +262,7 @@ export default function CategoryDetail() {
                             textTransform: 'none',
                             '&:hover': { bgcolor: 'error.dark' }
                         }}
-                        disabled={sampleData.subCategoriesCount > 0 || sampleData.totalProducts > 0}
+disabled={false}
                     >
                         Delete
                     </Button>
@@ -397,7 +276,6 @@ export default function CategoryDetail() {
                         <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider' }}>
                             <Tab label="Overview" />
                             <Tab label="Sub-Categories" />
-                            <Tab label="Reports" />
                         </Tabs>
 
                         {/* Overview Tab */}
@@ -464,14 +342,6 @@ export default function CategoryDetail() {
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Slug
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.slug}
-                                    </Typography>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
                                         Status
                                     </Typography>
                                     <Chip
@@ -480,14 +350,6 @@ export default function CategoryDetail() {
                                         size="small"
                                     />
                                 </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Display Order
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                            {sampleData.displayOrder}
-                                        </Typography>
-                                    </Grid>
                                 </Grid>
                             </TabPanel>
 
@@ -511,218 +373,15 @@ export default function CategoryDetail() {
 
                             {/* Metadata Tab */}
                             <TabPanel value={overviewTabValue} index={2}>
-                                <Grid container spacing={2}>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Created By
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        {sampleData.createdBy}
-                                    </Typography>
-                                </Grid>
-                                {sampleData.createdBy && (
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Created At
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                            {format(new Date(), 'MMM dd, yyyy HH:mm')}
-                                        </Typography>
-                                    </Grid>
-                                )}
-                                    {sampleData.lastModifiedBy && (
-                                        <Grid size={{ xs: 12, sm: 6 }}>
-                                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                                Last Modified By
-                                            </Typography>
-                                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                                {sampleData.lastModifiedBy}
-                                        </Typography>
-                                    </Grid>
-                                )}
-                                {sampleData.lastModifiedBy && (
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Last Updated
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                            {format(new Date(), 'MMM dd, yyyy HH:mm')}
-                                        </Typography>
-                                    </Grid>
-                                )}
-                            </Grid>
+                                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                    No metadata available.
+                                </Typography>
                             </TabPanel>
                         </TabPanel>
 
                         {/* Sub-Categories Tab */}
                         <TabPanel value={tabValue} index={1}>
                             <SubCategoriesTable categoryId={category.id} />
-                        </TabPanel>
-
-                        {/* Reports Tab */}
-                        <TabPanel value={tabValue} index={2}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                                <Typography variant="h6" sx={{ fontWeight: 600, color: '#333' }}>
-                                    Category Reports & Statistics
-                                </Typography>
-                                <Button
-                                    variant="outlined"
-                                    startIcon={<DateRangeIcon />}
-                                    onClick={handleDateRangeClick}
-                                    sx={{ textTransform: 'none' }}
-                                >
-                                    {startDate && endDate
-                                        ? `${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`
-                                        : 'Select Date Range'}
-                                </Button>
-                                <Popover
-                                    open={Boolean(dateRangeAnchor)}
-                                    anchorEl={dateRangeAnchor}
-                                    onClose={handleDateRangeClose}
-                                    anchorOrigin={{
-                                        vertical: 'bottom',
-                                        horizontal: 'right',
-                                    }}
-                                    transformOrigin={{
-                                        vertical: 'top',
-                                        horizontal: 'right',
-                                    }}
-                                >
-                                    <Box sx={{ p: 2 }}>
-                                        <DateRange
-                                            ranges={dateRangeState}
-                                            onChange={handleDateRangeChange}
-                                            showDateDisplay={false}
-                                            rangeColors={['#1976d2']}
-                                        />
-                                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2, gap: 1 }}>
-                                            <Button
-                                                size="small"
-                                                onClick={() => {
-                                                    const today = new Date();
-                                                    const last30Days = subDays(today, 30);
-                                                    setDateRangeState([
-                                                        {
-                                                            startDate: last30Days,
-                                                            endDate: today,
-                                                            key: 'selection',
-                                                        },
-                                                    ]);
-                                                    dispatch(
-                                                        setDateRange({
-                                                            startDate: startOfDay(last30Days),
-                                                            endDate: endOfDay(today),
-                                                        })
-                                                    );
-                                                }}
-                                            >
-                                                Last 30 Days
-                                            </Button>
-                                            <Button
-                                                size="small"
-                                                variant="contained"
-                                                onClick={handleDateRangeClose}
-                                            >
-                                                Apply
-                                            </Button>
-                                        </Box>
-                                    </Box>
-                                </Popover>
-                            </Box>
-
-                            {/* Summary Cards */}
-                            <Grid container spacing={2} sx={{ mb: 4 }}>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'success.main' }}>
-                                                    <InventoryIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Total Products
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                                        {sampleData.totalProducts}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'info.main' }}>
-                                                    <ShoppingCartIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Active Products
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                        {sampleData.activeProducts}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'success.dark' }}>
-                                                    <AttachMoneyIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Total Revenue
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                        ₹{sampleData.totalRevenue.toLocaleString()}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'error.main' }}>
-                                                    <CancelIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Out of Stock
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'error.main' }}>
-                                                        {sampleData.outOfStockProducts}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                            </Grid>
-
-                            {/* Charts Section */}
-                            <Grid container spacing={3} sx={{ mb: 4 }}>
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <Paper sx={{ p: 2 }}>
-                                        <HighchartsReact highcharts={Highcharts} options={productStatusChartOptions} />
-                                    </Paper>
-                                </Grid>
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <Paper sx={{ p: 2 }}>
-                                        <HighchartsReact highcharts={Highcharts} options={subCategoryChartOptions} />
-                                    </Paper>
-                                </Grid>
-                            </Grid>
                         </TabPanel>
                     </Paper>
                 </Grid>

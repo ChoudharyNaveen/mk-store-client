@@ -33,6 +33,10 @@ import { useServerPagination } from '../../hooks/useServerPagination';
 import type { Column, TableState } from '../../types/table';
 import { formatExpiryDate, getExpiryDateColor } from '../../utils/productHelpers';
 import { format } from 'date-fns';
+import Highcharts from 'highcharts';
+import HighchartsReact from 'highcharts-react-official';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import CancelIcon from '@mui/icons-material/Cancel';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -48,6 +52,31 @@ function TabPanel(props: TabPanelProps) {
         </div>
     );
 }
+
+// Sample data for Reports
+const sampleReportsData = {
+    salesByMonth: [
+        { month: 'Jan', sales: 45000, orders: 45 },
+        { month: 'Feb', sales: 52000, orders: 52 },
+        { month: 'Mar', sales: 48000, orders: 48 },
+        { month: 'Apr', sales: 61000, orders: 61 },
+        { month: 'May', sales: 55000, orders: 55 },
+        { month: 'Jun', sales: 67000, orders: 67 },
+    ],
+    salesByVariant: [
+        { name: '500ml', sales: 35000, percentage: 45 },
+        { name: '1L', sales: 28000, percentage: 36 },
+        { name: '2L', sales: 15000, percentage: 19 },
+    ],
+    orderStatusDistribution: {
+        completed: 85,
+        pending: 10,
+        cancelled: 5,
+    },
+    averageOrderValue: 1250,
+    growthRate: 12.5,
+    returnRate: 2.3,
+};
 
 
 export default function ProductDetail() {
@@ -124,6 +153,79 @@ export default function ProductDetail() {
 
     const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
         setTabValue(newValue);
+    };
+
+    // Highcharts options for Reports
+    const salesByMonthChartOptions: Highcharts.Options = {
+        chart: { type: 'line', height: 300 },
+        title: { text: 'Sales Trend (Last 6 Months)' },
+        xAxis: {
+            categories: sampleReportsData.salesByMonth.map((item) => item.month),
+            title: { text: 'Month' },
+        },
+        yAxis: {
+            title: { text: 'Sales (₹)' },
+        },
+        series: [
+            {
+                name: 'Sales',
+                type: 'line',
+                data: sampleReportsData.salesByMonth.map((item) => item.sales),
+                color: '#1976d2',
+            },
+        ],
+        tooltip: {
+            formatter: function () {
+                return `<b>${this.x}</b><br/>Sales: ₹${this.y?.toLocaleString()}`;
+            },
+        },
+    };
+
+    const salesByVariantChartOptions: Highcharts.Options = {
+        chart: { type: 'pie', height: 300 },
+        title: { text: 'Sales by Variant' },
+        series: [
+            {
+                name: 'Sales',
+                type: 'pie',
+                data: sampleReportsData.salesByVariant.map((item) => ({
+                    name: item.name,
+                    y: item.sales,
+                })),
+            },
+        ],
+        tooltip: {
+            pointFormat: '{series.name}: <b>₹{point.y:,.0f}</b><br/>Percentage: <b>{point.percentage:.1f}%</b>',
+        },
+    };
+
+    const orderStatusChartOptions: Highcharts.Options = {
+        chart: { type: 'bar', height: 300 },
+        title: { text: 'Order Status Distribution' },
+        xAxis: {
+            categories: ['Completed', 'Pending', 'Cancelled'],
+            title: { text: 'Status' },
+        },
+        yAxis: {
+            title: { text: 'Number of Orders' },
+        },
+        series: [
+            {
+                name: 'Orders',
+                type: 'bar',
+                data: [
+                    sampleReportsData.orderStatusDistribution.completed,
+                    sampleReportsData.orderStatusDistribution.pending,
+                    sampleReportsData.orderStatusDistribution.cancelled,
+                ],
+                color: '#1976d2',
+            },
+        ],
+        tooltip: {
+            formatter: function () {
+                return `<b>${this.x}</b><br/>Orders: ${this.y}`;
+            },
+        },
     };
 
 
@@ -320,6 +422,7 @@ export default function ProductDetail() {
                             <Tab label="Media" />
                             <Tab label="Variants" />
                             <Tab label="Audit" />
+                            <Tab label="Reports" />
                         </Tabs>
 
                         {/* Overview Tab */}
@@ -729,6 +832,27 @@ export default function ProductDetail() {
                                     />
                                 );
                             })()}
+                        </TabPanel>
+
+                        {/* Reports Tab */}
+                        <TabPanel value={tabValue} index={4}>
+                            <Grid container spacing={3} sx={{ mb: 4 }}>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <Paper sx={{ p: 2 }}>
+                                        <HighchartsReact highcharts={Highcharts} options={salesByMonthChartOptions} />
+                                    </Paper>
+                                </Grid>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <Paper sx={{ p: 2 }}>
+                                        <HighchartsReact highcharts={Highcharts} options={salesByVariantChartOptions} />
+                                    </Paper>
+                                </Grid>
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <Paper sx={{ p: 2 }}>
+                                        <HighchartsReact highcharts={Highcharts} options={orderStatusChartOptions} />
+                                    </Paper>
+                                </Grid>
+                            </Grid>
                         </TabPanel>
                     </Paper>
                 </Grid>

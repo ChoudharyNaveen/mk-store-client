@@ -42,6 +42,7 @@ export const API_URLS = {
     UPDATE: (id: string | number) => `${API_PREFIX}/update-sub-category/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/sub-categories/${id}`,
     GET_BY_CATEGORY_ID: `${API_PREFIX}/get-sub-categories-by-category-id`,
+    GET_STATS: `${API_PREFIX}/get-sub-category-stats`,
   },
   
   // Product endpoints
@@ -105,6 +106,16 @@ export const API_URLS = {
     MARK_READ: (id: string | number) => `${API_PREFIX}/mark-notification-read/${id}`,
     MARK_ALL_READ: `${API_PREFIX}/mark-all-notifications-read`,
     DELETE: (id: string | number) => `${API_PREFIX}/delete-notification/${id}`,
+  },
+  
+  // Dashboard endpoints
+  DASHBOARD: {
+    GET_KPIS: `${API_PREFIX}/get-dashboard-kpis`,
+    GET_SALES_OVERVIEW: `${API_PREFIX}/get-sales-overview`,
+    GET_SALES_BY_CATEGORY: `${API_PREFIX}/get-sales-by-category`,
+    GET_TOP_PRODUCTS: `${API_PREFIX}/get-top-products`,
+    GET_RECENT_ORDERS: `${API_PREFIX}/get-recent-orders`,
+    GET_EXPIRING_PRODUCTS: `${API_PREFIX}/get-expiring-products`,
   },
 } as const;
 

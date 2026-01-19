@@ -29,6 +29,8 @@ interface DataTableProps<T> {
         handleChangeRowsPerPage: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
     };
     hidePagination?: boolean; // Option to hide pagination and show all data
+    compact?: boolean; // Option to make table rows more compact
+    onRowClick?: (row: T) => void; // Optional callback when a row is clicked
 }
 
 export default function DataTable<T extends { id: string | number }>({
@@ -36,6 +38,8 @@ export default function DataTable<T extends { id: string | number }>({
     state,
     handlers,
     hidePagination = false,
+    compact = false,
+    onRowClick,
 }: DataTableProps<T>) {
     const { data, total, page, rowsPerPage, order, orderBy, loading } = state;
 
@@ -57,7 +61,12 @@ export default function DataTable<T extends { id: string | number }>({
                                         align={column.align}
                                         style={{ minWidth: column.minWidth }}
                                         sortDirection={orderBy === column.id ? order : false}
-                                        sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }}
+                                        sx={{ 
+                                            fontWeight: 'bold', 
+                                            borderBottom: '1px solid #e0e0e0',
+                                            py: compact ? 1 : 1.5,
+                                            fontSize: compact ? '0.8rem' : 'inherit',
+                                        }}
                                     >
                                         {column.sortable ? (
                                             <TableSortLabel
@@ -94,11 +103,26 @@ export default function DataTable<T extends { id: string | number }>({
                                         role="checkbox"
                                         tabIndex={-1}
                                         key={row.id || index}
+                                        onClick={onRowClick ? () => onRowClick(row) : undefined}
+                                        sx={{
+                                            cursor: onRowClick ? 'pointer' : 'default',
+                                            '&:hover': onRowClick ? {
+                                                bgcolor: 'action.hover',
+                                            } : {},
+                                        }}
                                     >
                                         {columns.map((column) => {
                                             const value = row[column.id] as any;
                                             return (
-                                                <TableCell key={String(column.id)} align={column.align} sx={{ borderBottom: '1px solid #e0e0e0', py: 2 }}>
+                                                <TableCell 
+                                                    key={String(column.id)} 
+                                                    align={column.align} 
+                                                    sx={{ 
+                                                        borderBottom: '1px solid #e0e0e0', 
+                                                        py: compact ? 0.75 : 2,
+                                                        fontSize: compact ? '0.8rem' : 'inherit',
+                                                    }}
+                                                >
                                                     {column.render ? column.render(row) : (column.format && typeof value !== 'undefined' ? column.format(value) : value)}
                                                 </TableCell>
                                             );

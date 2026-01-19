@@ -78,3 +78,33 @@ export interface SubCategoryByCategoryIdResponse {
   };
 }
 
+export interface SubCategoryStats {
+  sub_category_id: number;
+  sub_category_title: string;
+  total_products: number;
+  active_products: number;
+  total_revenue: number;
+  out_of_stock: number;
+  charts: {
+    product_status_distribution: {
+      active: number;
+      inactive: number;
+    };
+    stock_status_distribution: {
+      in_stock: number;
+      low_stock: number;
+      out_of_stock: number;
+    };
+  };
+}
+
+export interface SubCategoryStatsResponse {
+  success: boolean;
+  doc: SubCategoryStats;
+}
+
+export interface FetchSubCategoryStatsParams {
+  subCategoryId: number;
+  startDate: string; // ISO date string
+  endDate: string; // ISO date string
+}

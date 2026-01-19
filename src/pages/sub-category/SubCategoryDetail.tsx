@@ -25,13 +25,14 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import DateRangeIcon from '@mui/icons-material/DateRange';
 import CancelIcon from '@mui/icons-material/Cancel';
+import InfoIcon from '@mui/icons-material/Info';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchSubCategories } from '../../services/sub-category.service';
+import { fetchSubCategories, fetchSubCategoryStats } from '../../services/sub-category.service';
 import { fetchProducts } from '../../services/product.service';
 import { showErrorToast } from '../../utils/toast';
-import type { SubCategory } from '../../types/sub-category';
-import type { Product } from '../../types/product';
-import type { Column } from '../../types/table';
+import type { SubCategory, SubCategoryStats } from '../../types/sub-category';
+import type { Product, ProductVariant } from '../../types/product';
+import type { Column, TableState } from '../../types/table';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { DateRange } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
@@ -58,6 +59,185 @@ function TabPanel(props: TabPanelProps) {
     );
 }
 
+// Helper function to get default image from images array
+const getDefaultImage = (product: Product): string | undefined => {
+    if (product.images && product.images.length > 0) {
+        const defaultImage = product.images.find(img => img.is_default);
+        return defaultImage?.image_url || product.images[0]?.image_url;
+    }
+    return product.image;
+};
+
+// Helper function to get first variant
+const getFirstVariant = (product: Product): ProductVariant | null => {
+    if (product.variants && product.variants.length > 0) {
+        return product.variants[0];
+    }
+    return null;
+};
+
+// Helper function to format variant item details
+const formatVariantItemDetails = (variant: ProductVariant): string => {
+    const parts: string[] = [];
+
+    // Quantity (units)
+    if (variant.quantity !== undefined && variant.quantity !== null) {
+        parts.push(`${variant.quantity} unit${variant.quantity !== 1 ? 's' : ''}`);
+    }
+
+    // Item quantity + unit
+    if (variant.item_quantity !== undefined && variant.item_quantity !== null && variant.item_unit) {
+        parts.push(`${variant.item_quantity} ${variant.item_unit}`);
+    } else if (variant.item_quantity !== undefined && variant.item_quantity !== null) {
+        parts.push(`${variant.item_quantity}`);
+    } else if (variant.item_unit) {
+        parts.push(variant.item_unit);
+    }
+
+    return parts.length > 0 ? parts.join(' × ') : 'N/A';
+};
+
+// Helper function to format expiry date with color coding
+const formatExpiryDate = (expiryDate: string | Date | undefined | null): { text: string; color: string } => {
+    if (!expiryDate) {
+        return { text: 'N/A', color: '#666' };
+    }
+
+    try {
+        const date = typeof expiryDate === 'string' ? new Date(expiryDate) : expiryDate;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const expiry = new Date(date);
+        expiry.setHours(0, 0, 0, 0);
+
+        const diffTime = expiry.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        const formattedDate = format(date, 'MMM dd, yyyy');
+
+        if (diffDays < 0) {
+            return { text: formattedDate, color: '#d32f2f' }; // Red - expired
+        } else if (diffDays <= 7) {
+            return { text: formattedDate, color: '#ed6c02' }; // Orange - expiring soon
+        } else {
+            return { text: formattedDate, color: '#2e7d32' }; // Green - valid
+        }
+    } catch {
+        return { text: 'Invalid Date', color: '#666' };
+    }
+};
+
+// Helper component for Variants Popover
+const VariantsPopover: React.FC<{ product: Product }> = ({ product }) => {
+    if (!product.variants || product.variants.length === 0) {
+        return (
+            <Box sx={{ p: 2 }}>
+                <Typography variant="body2" color="text.secondary">No variants available</Typography>
+            </Box>
+        );
+    }
+
+    // Define columns for variants table
+    const variantColumns: Column<ProductVariant>[] = [
+        {
+            id: 'variant_name',
+            label: 'Variant Name',
+            minWidth: 120,
+        },
+        {
+            id: 'price',
+            label: 'MRP',
+            minWidth: 100,
+            align: 'right',
+            format: (value: number) => `₹${value}`,
+        },
+        {
+            id: 'selling_price',
+            label: 'Selling Price',
+            minWidth: 120,
+            align: 'right',
+            format: (value: number) => `₹${value}`,
+        },
+        {
+            id: 'quantity',
+            label: 'Quantity',
+            minWidth: 100,
+            align: 'right',
+        },
+        {
+            id: 'item_quantity' as keyof ProductVariant,
+            label: 'Item Details',
+            minWidth: 150,
+            render: (row: ProductVariant) => formatVariantItemDetails(row),
+        },
+        {
+            id: 'expiry_date' as keyof ProductVariant,
+            label: 'Expiry Date',
+            minWidth: 120,
+            render: (row: ProductVariant) => {
+                const { text: expiryText, color: expiryColor } = formatExpiryDate(row.expiry_date);
+                return (
+                    <Typography variant="body2" sx={{ color: expiryColor, fontWeight: 500 }}>
+                        {expiryText}
+                    </Typography>
+                );
+            },
+        },
+        {
+            id: 'product_status' as keyof ProductVariant,
+            label: 'Status',
+            minWidth: 100,
+            render: (row: ProductVariant) => (
+                <Chip
+                    label={row.product_status}
+                    size="small"
+                    color={row.product_status === 'INSTOCK' ? 'success' : 'error'}
+                    sx={{ fontWeight: 500 }}
+                />
+            ),
+        },
+    ];
+
+    // Create static table state (no pagination needed for popover)
+    const variantTableState: TableState<ProductVariant> = {
+        data: product.variants,
+        total: product.variants.length,
+        page: 0,
+        rowsPerPage: product.variants.length, // Show all variants
+        order: 'asc',
+        orderBy: 'variant_name',
+        loading: false,
+        search: '',
+    };
+
+    // Create handlers (no-ops since we're showing all variants without pagination/sorting)
+    const variantHandlers = {
+        handleRequestSort: () => {
+            // No-op: sorting not needed for popover
+        },
+        handleChangePage: () => {
+            // No-op: pagination not needed for popover
+        },
+        handleChangeRowsPerPage: () => {
+            // No-op: pagination not needed for popover
+        },
+    };
+
+    return (
+        <Box sx={{ width: 900, maxHeight: '80vh', overflow: 'auto', p: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>
+                Variants for {product.title}
+            </Typography>
+            <DataTable
+                columns={variantColumns}
+                state={variantTableState}
+                handlers={variantHandlers}
+                hidePagination={true}
+            />
+        </Box>
+    );
+};
+
 interface ProductsTableProps {
     subCategoryId: number;
 }
@@ -65,19 +245,25 @@ interface ProductsTableProps {
 function ProductsTable({ subCategoryId }: ProductsTableProps) {
     const navigate = useNavigate();
 
+    // Variants popover state
+    const [variantsAnchorEl, setVariantsAnchorEl] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
+
     const columns: Column<Product>[] = [
         {
             id: 'image' as keyof Product,
             label: 'Image',
             minWidth: 80,
-            render: (row: Product) => (
-                <Avatar
-                    src={row.image}
-                    alt={row.title}
-                    variant="rounded"
-                    sx={{ width: 50, height: 50 }}
-                />
-            ),
+            render: (row: Product) => {
+                const imageUrl = getDefaultImage(row);
+                return (
+                    <Avatar
+                        src={imageUrl}
+                        alt={row.title}
+                        variant="rounded"
+                        sx={{ width: 50, height: 50 }}
+                    />
+                );
+            },
         },
         {
             id: 'title' as keyof Product,
@@ -108,27 +294,70 @@ function ProductsTable({ subCategoryId }: ProductsTableProps) {
             label: 'Selling Price',
             minWidth: 120,
             align: 'right',
-            render: (row: Product) => `₹${row.selling_price}`,
+            render: (row: Product) => {
+                const firstVariant = getFirstVariant(row);
+                const sellingPrice = firstVariant?.selling_price ?? row.selling_price;
+                return sellingPrice !== undefined && sellingPrice !== null ? `₹${sellingPrice}` : 'N/A';
+            },
         },
         {
             id: 'quantity' as keyof Product,
             label: 'Qty',
             minWidth: 80,
             align: 'right',
-            render: (row: Product) => (row.quantity ?? 'N/A').toString(),
+            render: (row: Product) => {
+                const firstVariant = getFirstVariant(row);
+                const quantity = firstVariant?.quantity ?? row.quantity;
+                return quantity !== undefined && quantity !== null ? quantity.toString() : 'N/A';
+            },
         },
         {
             id: 'product_status' as keyof Product,
             label: 'Stock Status',
             minWidth: 120,
             align: 'center',
-            render: (row: Product) => (
-                <Chip
-                    label={row.product_status}
-                    color={row.product_status === 'INSTOCK' ? 'success' : 'error'}
-                    size="small"
-                />
-            ),
+            render: (row: Product) => {
+                const firstVariant = getFirstVariant(row);
+                const status = firstVariant?.product_status ?? row.product_status;
+                if (!status) return 'N/A';
+                return (
+                    <Chip
+                        label={status}
+                        color={status === 'INSTOCK' ? 'success' : 'error'}
+                        size="small"
+                    />
+                );
+            },
+        },
+        {
+            id: 'variants' as keyof Product,
+            label: 'Variants',
+            minWidth: 100,
+            align: 'center' as const,
+            render: (row: Product) => {
+                const variantCount = row.variants?.length || 0;
+                return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                        <Chip
+                            label={`${variantCount} variant${variantCount !== 1 ? 's' : ''}`}
+                            size="small"
+                            sx={{ fontWeight: 500 }}
+                        />
+                        <IconButton
+                            size="small"
+                            onClick={(e) => setVariantsAnchorEl({ el: e.currentTarget, product: row })}
+                            sx={{
+                                border: '1px solid #e0e0e0',
+                                borderRadius: 2,
+                                color: 'primary.main',
+                                '&:hover': { bgcolor: '#e3f2fd', borderColor: 'primary.main' }
+                            }}
+                        >
+                            <InfoIcon fontSize="small" />
+                        </IconButton>
+                    </Box>
+                );
+            },
         },
         {
             id: 'status' as keyof Product,
@@ -147,8 +376,10 @@ function ProductsTable({ subCategoryId }: ProductsTableProps) {
             id: 'createdAt' as keyof Product,
             label: 'Created',
             minWidth: 120,
-            render: (row: Product) =>
-                row.createdAt ? format(new Date(row.createdAt), 'MMM dd, yyyy') : 'N/A',
+            render: (row: Product) => {
+                const createdDate = row.created_at ?? row.createdAt;
+                return createdDate ? format(new Date(createdDate), 'MMM dd, yyyy') : 'N/A';
+            },
         },
         {
             id: 'action' as keyof Product,
@@ -222,35 +453,32 @@ function ProductsTable({ subCategoryId }: ProductsTableProps) {
     });
 
     return (
-        <DataTable
-            key={`sub-category-products-table-${paginationModel.page}-${paginationModel.pageSize}`}
-            columns={columns}
-            state={tableState}
-            handlers={tableHandlers}
-        />
+        <>
+            <DataTable
+                key={`sub-category-products-table-${paginationModel.page}-${paginationModel.pageSize}`}
+                columns={columns}
+                state={tableState}
+                handlers={tableHandlers}
+            />
+            <Popover
+                open={Boolean(variantsAnchorEl)}
+                anchorEl={variantsAnchorEl?.el}
+                onClose={() => setVariantsAnchorEl(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+                PaperProps={{
+                    sx: {
+                        maxHeight: '80vh',
+                        overflow: 'auto',
+                    }
+                }}
+            >
+                {variantsAnchorEl && <VariantsPopover product={variantsAnchorEl.product} />}
+            </Popover>
+        </>
     );
 }
 
-// Sample data - will be replaced with API data later
-const sampleData = {
-    slug: 'smartphones',
-    displayOrder: 1,
-    totalProducts: 45,
-    activeProducts: 38,
-    inactiveProducts: 7,
-    stockSummary: {
-        inStock: 32,
-        lowStock: 6,
-        outOfStock: 7,
-    },
-    // Reports data
-    totalRevenue: 8500000,
-    averageProductPrice: 78900,
-    lowStockProducts: 6,
-    outOfStockProducts: 7,
-    totalOrders: 342,
-    growthRate: 12.5,
-};
 
 export default function SubCategoryDetail() {
     const navigate = useNavigate();
@@ -269,6 +497,8 @@ export default function SubCategoryDetail() {
             key: 'selection',
         },
     ]);
+    const [stats, setStats] = React.useState<SubCategoryStats | null>(null);
+    const [statsLoading, setStatsLoading] = React.useState(false);
 
     React.useEffect(() => {
         const loadSubCategory = async () => {
@@ -303,6 +533,36 @@ export default function SubCategoryDetail() {
         loadSubCategory();
     }, [id, navigate]);
 
+    // Fetch stats when Reports tab is active and when date range changes
+    React.useEffect(() => {
+        const loadStats = async () => {
+            if (!subCategory || tabValue !== 2) {
+                return; // Only fetch when Reports tab is active
+            }
+
+            try {
+                setStatsLoading(true);
+                const startDateStr = dateRangeState[0].startDate.toISOString().split('T')[0];
+                const endDateStr = dateRangeState[0].endDate.toISOString().split('T')[0];
+
+                const statsData = await fetchSubCategoryStats({
+                    subCategoryId: subCategory.id,
+                    startDate: startDateStr,
+                    endDate: endDateStr,
+                });
+
+                setStats(statsData);
+            } catch (error) {
+                console.error('Error fetching sub-category stats:', error);
+                showErrorToast('Failed to load statistics');
+            } finally {
+                setStatsLoading(false);
+            }
+        };
+
+        loadStats();
+    }, [subCategory, tabValue, dateRangeState]);
+
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
@@ -336,6 +596,7 @@ export default function SubCategoryDetail() {
                     endDate: endOfDay(item.selection.endDate),
                 })
             );
+            // Stats will be refreshed automatically via useEffect when dateRangeState changes
         }
     };
 
@@ -356,8 +617,8 @@ export default function SubCategoryDetail() {
                 name: 'Products',
                 type: 'pie',
                 data: [
-                    { name: 'Active', y: sampleData.activeProducts, color: '#2e7d32' },
-                    { name: 'Inactive', y: sampleData.inactiveProducts, color: '#ed6c02' },
+                    { name: 'Active', y: stats?.charts.product_status_distribution.active || 0, color: '#2e7d32' },
+                    { name: 'Inactive', y: stats?.charts.product_status_distribution.inactive || 0, color: '#ed6c02' },
                 ],
             },
         ],
@@ -381,9 +642,9 @@ export default function SubCategoryDetail() {
                 name: 'Products',
                 type: 'bar',
                 data: [
-                    sampleData.stockSummary.inStock,
-                    sampleData.stockSummary.lowStock,
-                    sampleData.stockSummary.outOfStock,
+                    stats?.charts.stock_status_distribution.in_stock || 0,
+                    stats?.charts.stock_status_distribution.low_stock || 0,
+                    stats?.charts.stock_status_distribution.out_of_stock || 0,
                 ],
                 color: '#1976d2',
             },
@@ -432,7 +693,7 @@ export default function SubCategoryDetail() {
                             textTransform: 'none',
                             '&:hover': { bgcolor: 'error.dark' }
                         }}
-                        disabled={sampleData.totalProducts > 0}
+                        disabled={false}
                     >
                         Delete
                     </Button>
@@ -511,14 +772,6 @@ export default function SubCategoryDetail() {
                                             #{subCategory.id}
                                         </Typography>
                                     </Grid>
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Slug
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                            {sampleData.slug}
-                                        </Typography>
-                                    </Grid>
                                     {subCategory.category && (
                                         <Grid size={{ xs: 12, sm: 6 }}>
                                             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
@@ -543,14 +796,6 @@ export default function SubCategoryDetail() {
                                             size="small"
                                         />
                                     </Grid>
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Display Order
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                            {sampleData.displayOrder}
-                                        </Typography>
-                                    </Grid>
                                 </Grid>
                             </TabPanel>
 
@@ -571,50 +816,6 @@ export default function SubCategoryDetail() {
                                     </Typography>
                                 )}
 
-                                {/* Stock Summary */}
-                                <Box sx={{ mt: 3 }}>
-                                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#333' }}>
-                                        Stock Summary
-                                    </Typography>
-                                    <Grid container spacing={2}>
-                                        <Grid size={{ xs: 12, sm: 4 }}>
-                                            <Card variant="outlined">
-                                                <CardContent>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        In Stock
-                                                    </Typography>
-                                                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                        {sampleData.stockSummary.inStock}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                        <Grid size={{ xs: 12, sm: 4 }}>
-                                            <Card variant="outlined">
-                                                <CardContent>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Low Stock
-                                                    </Typography>
-                                                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'warning.main' }}>
-                                                        {sampleData.stockSummary.lowStock}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                        <Grid size={{ xs: 12, sm: 4 }}>
-                                            <Card variant="outlined">
-                                                <CardContent>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Out of Stock
-                                                    </Typography>
-                                                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'error.main' }}>
-                                                        {sampleData.stockSummary.outOfStock}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                    </Grid>
-                                </Box>
                             </TabPanel>
 
                             {/* Metadata Tab */}
@@ -651,8 +852,8 @@ export default function SubCategoryDetail() {
                                     onClick={handleDateRangeClick}
                                     sx={{ textTransform: 'none' }}
                                 >
-                                    {startDate && endDate
-                                        ? `${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`
+                                    {dateRangeState[0].startDate && dateRangeState[0].endDate
+                                        ? `${format(dateRangeState[0].startDate, 'MMM dd, yyyy')} - ${format(dateRangeState[0].endDate, 'MMM dd, yyyy')}`
                                         : 'Select Date Range'}
                                 </Button>
                                 <Popover
@@ -711,101 +912,117 @@ export default function SubCategoryDetail() {
                             </Box>
 
                             {/* Summary Cards */}
-                            <Grid container spacing={2} sx={{ mb: 4 }}>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'success.main' }}>
-                                                    <InventoryIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Total Products
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                                        {sampleData.totalProducts}
-                                                    </Typography>
+                            {statsLoading ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+                                    <CircularProgress />
+                                </Box>
+                            ) : stats ? (
+                                <Grid container spacing={2} sx={{ mb: 4 }}>
+                                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                        <Card>
+                                            <CardContent>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                    <Avatar sx={{ bgcolor: 'success.main' }}>
+                                                        <InventoryIcon />
+                                                    </Avatar>
+                                                    <Box>
+                                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                            Total Products
+                                                        </Typography>
+                                                        <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                                                            {stats.total_products}
+                                                        </Typography>
+                                                    </Box>
                                                 </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'info.main' }}>
-                                                    <ShoppingCartIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Active Products
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                        {sampleData.activeProducts}
-                                                    </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                        <Card>
+                                            <CardContent>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                    <Avatar sx={{ bgcolor: 'info.main' }}>
+                                                        <ShoppingCartIcon />
+                                                    </Avatar>
+                                                    <Box>
+                                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                            Active Products
+                                                        </Typography>
+                                                        <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
+                                                            {stats.active_products}
+                                                        </Typography>
+                                                    </Box>
                                                 </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'success.dark' }}>
-                                                    <AttachMoneyIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Total Revenue
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                        ₹{sampleData.totalRevenue.toLocaleString()}
-                                                    </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                        <Card>
+                                            <CardContent>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                    <Avatar sx={{ bgcolor: 'success.dark' }}>
+                                                        <AttachMoneyIcon />
+                                                    </Avatar>
+                                                    <Box>
+                                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                            Total Revenue
+                                                        </Typography>
+                                                        <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
+                                                            ₹{stats.total_revenue.toLocaleString()}
+                                                        </Typography>
+                                                    </Box>
                                                 </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'error.main' }}>
-                                                    <CancelIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Out of Stock
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'error.main' }}>
-                                                        {sampleData.outOfStockProducts}
-                                                    </Typography>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                        <Card>
+                                            <CardContent>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                                    <Avatar sx={{ bgcolor: 'error.main' }}>
+                                                        <CancelIcon />
+                                                    </Avatar>
+                                                    <Box>
+                                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                            Out of Stock
+                                                        </Typography>
+                                                        <Typography variant="h5" sx={{ fontWeight: 600, color: 'error.main' }}>
+                                                            {stats.out_of_stock}
+                                                        </Typography>
+                                                    </Box>
                                                 </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
                                 </Grid>
-                            </Grid>
+                            ) : (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                        No statistics available for the selected date range
+                                    </Typography>
+                                </Box>
+                            )}
 
                             {/* Charts Section */}
-                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, mt: 2, color: '#333' }}>
-                                Visual Analytics
-                            </Typography>
-                            <Grid container spacing={3} sx={{ mb: 4 }}>
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <Paper sx={{ p: 2 }}>
-                                        <HighchartsReact highcharts={Highcharts} options={productStatusChartOptions} />
-                                    </Paper>
-                                </Grid>
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <Paper sx={{ p: 2 }}>
-                                        <HighchartsReact highcharts={Highcharts} options={stockStatusChartOptions} />
-                                    </Paper>
-                                </Grid>
-                            </Grid>
+                            {stats && (
+                                <>
+                                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, mt: 2, color: '#333' }}>
+                                        Visual Analytics
+                                    </Typography>
+                                    <Grid container spacing={3} sx={{ mb: 4 }}>
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                            <Paper sx={{ p: 2 }}>
+                                                <HighchartsReact highcharts={Highcharts} options={productStatusChartOptions} />
+                                            </Paper>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                            <Paper sx={{ p: 2 }}>
+                                                <HighchartsReact highcharts={Highcharts} options={stockStatusChartOptions} />
+                                            </Paper>
+                                        </Grid>
+                                    </Grid>
+                                </>
+                            )}
                         </TabPanel>
                     </Paper>
                 </Grid>

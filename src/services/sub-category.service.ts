@@ -14,7 +14,10 @@ import type {
   UpdateSubCategoryRequest,
   UpdateSubCategoryResponse,
   SubCategoryByCategoryIdItem,
-  SubCategoryByCategoryIdResponse
+  SubCategoryByCategoryIdResponse,
+  SubCategoryStats,
+  SubCategoryStatsResponse,
+  FetchSubCategoryStatsParams
 } from '../types/sub-category';
 import type { ServerFilter, ServerSorting } from '../types/filter';
 import { convertSimpleFiltersToServerFilters } from '../utils/filterBuilder';
@@ -311,11 +314,44 @@ export const fetchSubCategoriesByCategoryId = async (
   }
 };
 
+/**
+ * Fetch sub-category statistics
+ * Uses POST request with subCategoryId, startDate, and endDate
+ */
+export const fetchSubCategoryStats = async (
+  params: FetchSubCategoryStatsParams
+): Promise<SubCategoryStats> => {
+  try {
+    const response = await http.post<SubCategoryStatsResponse>(
+      API_URLS.SUB_CATEGORIES.GET_STATS,
+      {
+        subCategoryId: params.subCategoryId,
+        startDate: params.startDate,
+        endDate: params.endDate,
+      }
+    );
+
+    if (!response.success || !response.doc) {
+      throw {
+        message: 'Sub-category stats not found',
+        status: 404,
+        data: { error: 'Sub-category stats not found' },
+      };
+    }
+
+    return response.doc;
+  } catch (error) {
+    console.error('Error fetching sub-category stats:', error);
+    throw error;
+  }
+};
+
 const subCategoryService = {
   fetchSubCategories,
   createSubCategory,
   updateSubCategory,
   fetchSubCategoriesByCategoryId,
+  fetchSubCategoryStats,
 };
 
 export default subCategoryService;

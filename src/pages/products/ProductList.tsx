@@ -314,9 +314,7 @@ export default function ProductList() {
             label: 'Quantity', 
             minWidth: 80,
             render: (row: Product) => {
-                const firstVariant = getFirstVariant(row);
-                const quantity = firstVariant?.quantity ?? row.quantity;
-                return quantity !== undefined && quantity !== null ? quantity : 'N/A';
+                return row.variants.reduce((acc, variant) => acc + variant.quantity, 0);
             }
         },
         { 

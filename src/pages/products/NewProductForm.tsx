@@ -893,7 +893,7 @@ export default function ProductForm() {
     }
 
     return (
-        <Box sx={{ maxWidth: 1400, mx: 'auto', p: 3 }}>
+        <Paper sx={{ p: 3 }}>
             {/* Header Section */}
             <Paper
                 elevation={0}
@@ -1692,7 +1692,7 @@ export default function ProductForm() {
                     </Button>
                 </Paper>
             </FormProvider>
-        </Box>
+        </Paper>
     );
 }
 
