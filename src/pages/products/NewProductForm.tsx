@@ -1389,6 +1389,18 @@ export default function ProductForm() {
                                                 Optional: Auto-calculated based on Stock Unit and Quantity
                                             </Typography>
                                         </Grid>
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                            <FormAutocomplete
+                                                name={`variants.${index}.itemUnit`}
+                                                label="Item Unit (Optional)"
+                                                disabled={loading}
+                                                options={getItemUnitOptions()}
+                                                size="small"
+                                            />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                                Optional: The unit of measurement (e.g., G for grams, KG for kilograms, ML for milliliters)
+                                            </Typography>
+                                        </Grid>
 
                                         <Grid size={{ xs: 12, md: 6 }}>
                                             <FormNumberField
@@ -1403,19 +1415,6 @@ export default function ProductForm() {
                                             />
                                             <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
                                                 Optional: The quantity measurement per individual item (e.g., 500 for 500 grams)
-                                            </Typography>
-                                        </Grid>
-
-                                        <Grid size={{ xs: 12, md: 6 }}>
-                                            <FormAutocomplete
-                                                name={`variants.${index}.itemUnit`}
-                                                label="Item Unit (Optional)"
-                                                disabled={loading}
-                                                options={getItemUnitOptions()}
-                                                size="small"
-                                            />
-                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
-                                                Optional: The unit of measurement (e.g., G for grams, KG for kilograms, ML for milliliters)
                                             </Typography>
                                         </Grid>
 

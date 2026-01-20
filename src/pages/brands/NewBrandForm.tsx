@@ -22,7 +22,7 @@ import type { BrandStatus, Brand } from '../../types/brand';
 // Base validation schema - shared fields
 const baseBrandFormSchema = {
     name: yup.string().required('Name is required').min(2, 'Name must be at least 2 characters'),
-    description: yup.string().optional().default(''),
+    description: yup.string().required('Description is required'),
     status: yup.string().oneOf(['ACTIVE', 'INACTIVE'], 'Status must be ACTIVE or INACTIVE').required('Status is required'),
 };
 
@@ -257,6 +257,7 @@ export default function BrandForm() {
                                 name="description"
                                 control={control}
                                 label="Description"
+                                required
                                 placeholder="Type here"
                                 variant="outlined"
                                 multiline

@@ -128,9 +128,13 @@ const httpRequest = async <T = unknown>(
   // Build full URL
   const fullUrl = buildUrl(url);
 
+  // Check if body is FormData
+  const isFormData = fetchOptions.body instanceof FormData;
+
   // Prepare headers
   const requestHeaders: HeadersInit = {
-    'Content-Type': 'application/json',
+    // Don't set Content-Type for FormData - browser will set it with boundary
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...headers,
   };
 
@@ -251,10 +255,12 @@ export const http = {
     data?: unknown,
     options?: HttpRequestOptions
   ): Promise<T> => {
+    // If data is FormData, use it directly; otherwise stringify JSON
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined);
     return httpRequest<T>(url, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body,
     });
   },
 
@@ -266,10 +272,12 @@ export const http = {
     data?: unknown,
     options?: HttpRequestOptions
   ): Promise<T> => {
+    // If data is FormData, use it directly; otherwise stringify JSON
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined);
     return httpRequest<T>(url, {
       ...options,
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
+      body,
     });
   },
 
@@ -281,10 +289,12 @@ export const http = {
     data?: unknown,
     options?: HttpRequestOptions
   ): Promise<T> => {
+    // If data is FormData, use it directly; otherwise stringify JSON
+    const body = data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined);
     return httpRequest<T>(url, {
       ...options,
       method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
+      body,
     });
   },
 

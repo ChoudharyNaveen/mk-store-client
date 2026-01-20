@@ -4,7 +4,6 @@
  */
 
 import http from '../utils/http';
-import config from '../config/env';
 import { API_URLS } from '../constants/urls';
 import type { 
   Brand, 
@@ -149,43 +148,13 @@ export const createBrand = async (
     formData.append('status', data.status);
     formData.append('file', data.file);
 
-    // Build full URL (same logic as http.ts buildUrl)
-    const endpoint = API_URLS.BRANDS.CREATE;
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-    const baseUrl = config.apiBaseUrl.endsWith('/') 
-      ? config.apiBaseUrl.slice(0, -1) 
-      : config.apiBaseUrl;
-    const url = `${baseUrl}/${cleanEndpoint}`;
+    // Make API call with FormData using httpRequest
+    const response = await http.post<CreateBrandResponse>(
+      API_URLS.BRANDS.CREATE,
+      formData
+    );
 
-    // Get auth token
-    const token = localStorage.getItem('auth_token');
-
-    // Make API call with FormData
-    // Note: Don't set Content-Type header, browser will set it with boundary
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      let errorData: unknown;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = await response.text();
-      }
-      throw {
-        message: `HTTP ${response.status}: ${response.statusText}`,
-        status: response.status,
-        data: errorData,
-      };
-    }
-
-    const result = await response.json();
-    return result as CreateBrandResponse;
+    return response;
   } catch (error) {
     console.error('Error creating brand:', error);
     throw error;
@@ -213,43 +182,18 @@ export const updateBrand = async (
       formData.append('file', data.file);
     }
 
-    // Build full URL
-    const endpoint = API_URLS.BRANDS.UPDATE(id);
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-    const baseUrl = config.apiBaseUrl.endsWith('/') 
-      ? config.apiBaseUrl.slice(0, -1) 
-      : config.apiBaseUrl;
-    const url = `${baseUrl}/${cleanEndpoint}`;
-
-    // Get auth token
-    const token = localStorage.getItem('auth_token');
-
-    // Make API call with FormData and concurrencyStamp header
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        'x-concurrencystamp': data.concurrencyStamp,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      let errorData: unknown;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = await response.text();
+    // Make API call with FormData and concurrencyStamp header using httpRequest
+    const response = await http.patch<UpdateBrandResponse>(
+      API_URLS.BRANDS.UPDATE(id),
+      formData,
+      {
+        headers: {
+          'x-concurrencystamp': data.concurrencyStamp,
+        },
       }
-      throw {
-        message: `HTTP ${response.status}: ${response.statusText}`,
-        status: response.status,
-        data: errorData,
-      };
-    }
+    );
 
-    const result = await response.json();
-    return result as UpdateBrandResponse;
+    return response;
   } catch (error) {
     console.error('Error updating brand:', error);
     throw error;

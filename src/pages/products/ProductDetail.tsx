@@ -364,10 +364,10 @@ export default function ProductDetail() {
                 <Grid size={{ xs: 12, md: 4 }}>
                     <Paper sx={{ p: 3, mb: 3 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-                            {product.image ? (
+                            {product?.images?.[0]?.image_url ? (
                                 <Box
                                     component="img"
-                                    src={product.image}
+                                    src={product?.images?.[0]?.image_url}
                                     alt={product.title}
                                     sx={{
                                         width: '100%',
@@ -394,11 +394,6 @@ export default function ProductDetail() {
                             <Chip
                                 label={product.status}
                                 color={getStatusColor(product.status)}
-                                size="small"
-                            />
-                            <Chip
-                                label={product.product_status}
-                                color={getAvailabilityColor(product.product_status)}
                                 size="small"
                             />
                         </Box>

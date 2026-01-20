@@ -4,7 +4,6 @@
  */
 
 import http from '../utils/http';
-import config from '../config/env';
 import { API_URLS } from '../constants/urls';
 import type { 
   Product, 
@@ -292,43 +291,13 @@ export const createProduct = async (
       });
     }
 
-    // Build full URL (same logic as http.ts buildUrl)
-    const endpoint = API_URLS.PRODUCTS.CREATE;
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-    const baseUrl = config.apiBaseUrl.endsWith('/') 
-      ? config.apiBaseUrl.slice(0, -1) 
-      : config.apiBaseUrl;
-    const url = `${baseUrl}/${cleanEndpoint}`;
+    // Make API call with FormData using httpRequest
+    const response = await http.post<CreateProductResponse>(
+      API_URLS.PRODUCTS.CREATE,
+      formData
+    );
 
-    // Get auth token
-    const token = localStorage.getItem('auth_token');
-
-    // Make API call with FormData
-    // Note: Don't set Content-Type header, browser will set it with boundary
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      let errorData: unknown;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = await response.text();
-      }
-      throw {
-        message: `HTTP ${response.status}: ${response.statusText}`,
-        status: response.status,
-        data: errorData,
-      };
-    }
-
-    const result = await response.json();
-    return result as CreateProductResponse;
+    return response;
   } catch (error) {
     console.error('Error creating product:', error);
     throw error;
@@ -389,7 +358,9 @@ export const fetchProductDetails = async (
       : product.images || [];
 
     // Find default image or use first image
-    const defaultImage = images.find((img: ProductImage) => img.is_default) || images[0] || null;
+    const defaultImage = Array.isArray(images)
+      ? (images.find((img: ProductImage) => img && (img as ProductImage).is_default) || images[0] || null)
+      : null;
     const defaultImageUrl = defaultImage ? defaultImage.image_url : null;
 
     // Map the product with proper field names
@@ -405,13 +376,6 @@ export const fetchProductDetails = async (
       subCategory: product.subCategory || product.sub_category || undefined,
       brand: product.brand || null,
       brandId: (product.brand as { id?: number })?.id || product.brandId || undefined,
-      // Legacy fields for backward compatibility (use first variant if available)
-      price: variants.length > 0 ? (variants[0] as ProductVariant).price : product.price,
-      selling_price: variants.length > 0 ? (variants[0] as ProductVariant).selling_price : product.selling_price,
-      quantity: variants.length > 0 ? (variants[0] as ProductVariant).quantity : product.quantity,
-      image: defaultImageUrl || product.image,
-      product_status: variants.length > 0 ? (variants[0] as ProductVariant).product_status : product.product_status,
-      units: variants.length > 0 ? (variants[0] as ProductVariant).units : product.units,
     } as unknown as Product;
 
     return mappedProduct;
@@ -518,43 +482,18 @@ export const updateProduct = async (
       formData.append('imageIdsToDelete', JSON.stringify(data.imageIdsToDelete));
     }
   
-    // Build full URL
-    const endpoint = API_URLS.PRODUCTS.UPDATE(id);
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-    const baseUrl = config.apiBaseUrl.endsWith('/') 
-      ? config.apiBaseUrl.slice(0, -1) 
-      : config.apiBaseUrl;
-    const url = `${baseUrl}/${cleanEndpoint}`;
-
-    // Get auth token
-    const token = localStorage.getItem('auth_token');
-
-    // Make API call with FormData and concurrencyStamp header
-    const response = await fetch(url, {
-      method: 'PATCH',
-      headers: {
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        'x-concurrencystamp': data.concurrencyStamp,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      let errorData: unknown;
-      try {
-        errorData = await response.json();
-      } catch {
-        errorData = await response.text();
+    // Make API call with FormData and concurrencyStamp header using httpRequest
+    const response = await http.patch<UpdateProductResponse>(
+      API_URLS.PRODUCTS.UPDATE(id),
+      formData,
+      {
+        headers: {
+          'x-concurrencystamp': data.concurrencyStamp,
+        },
       }
-      throw {
-        message: `HTTP ${response.status}: ${response.statusText}`,
-        status: response.status,
-        data: errorData,
-      };
-    }
+    );
 
-    const result = await response.json();
-    return result as UpdateProductResponse;
+    return response;
   } catch (error) {
     console.error('Error updating product:', error);
     throw error;

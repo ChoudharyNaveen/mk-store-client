@@ -7,6 +7,14 @@ import { getToastService } from '../contexts/ToastContext';
 import type { ApiError } from './http';
 
 /**
+ * Validation Error Format
+ */
+export interface ValidationError {
+  name: string;
+  message: string;
+}
+
+/**
  * API Error Response Format
  */
 export interface ApiErrorResponse {
@@ -15,6 +23,8 @@ export interface ApiErrorResponse {
     message: string;
     code?: string;
   };
+  message?: string;
+  validationErrors?: ValidationError[];
 }
 
 /**
@@ -36,14 +46,43 @@ export const showApiErrorToast = (
   let errorMessage = defaultMessage;
   let errorTitle: string | undefined;
 
+  // Helper function to extract error data from various structures
+  const extractErrorData = (err: unknown): ApiErrorResponse | null => {
+    if (!err || typeof err !== 'object') return null;
+    
+    const apiError = err as ApiError;
+    
+    // Check if error data is nested in 'data' property (from http.ts)
+    if ('data' in apiError && apiError.data && typeof apiError.data === 'object') {
+      return apiError.data as ApiErrorResponse;
+    }
+    
+    // Check if error itself is the ApiErrorResponse structure
+    if ('success' in apiError || 'validationErrors' in apiError || 'errors' in apiError) {
+      return apiError as unknown as ApiErrorResponse;
+    }
+    
+    return null;
+  };
+
   // Handle ApiErrorResponse format
   if (error && typeof error === 'object') {
-    const apiError = error as ApiError;
+    const errorData = extractErrorData(error);
     
-    // Check if it's the standard API error response format
-    if ('data' in apiError && apiError.data) {
-      const errorData = apiError.data as ApiErrorResponse;
+    if (errorData) {
+      // Handle validation errors first (most specific)
+      if (errorData.validationErrors && Array.isArray(errorData.validationErrors) && errorData.validationErrors.length > 0) {
+        // Format validation errors: "field1: message1\nfield2: message2"
+        const validationMessages = errorData.validationErrors.map(
+          (err) => `${err.name}: ${err.message}`
+        );
+        errorMessage = validationMessages.join('\n');
+        errorTitle = errorData.errors?.code || errorData.message || 'Validation Error';
+        toastService.showErrorToast(errorMessage, errorTitle);
+        return;
+      }
       
+      // Handle standard API error response
       if (errorData.success === false && errorData.errors) {
         errorMessage = errorData.errors.message || defaultMessage;
         errorTitle = errorData.errors.code || 'Error';
@@ -52,7 +91,8 @@ export const showApiErrorToast = (
       }
     }
     
-    // Handle ApiError format (from http.ts)
+    // Handle ApiError format (from http.ts) - fallback to message
+    const apiError = error as ApiError;
     if ('message' in apiError) {
       errorMessage = apiError.message || defaultMessage;
       errorTitle = apiError.status ? `Error ${apiError.status}` : 'Error';
