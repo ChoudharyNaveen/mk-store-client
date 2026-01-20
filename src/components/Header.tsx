@@ -3,7 +3,6 @@ import {
     AppBar,
     Toolbar,
     Typography,
-    InputBase,
     Box,
     IconButton,
     Avatar,
@@ -22,9 +21,7 @@ import {
     ListItemText,
     CircularProgress,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -150,39 +147,10 @@ export default function Header({ open }: HeaderProps) {
                 }),
             }}
         >
-            <Toolbar sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                {/* Search Bar */}
-                <Box
-                    sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        bgcolor: '#f5f7fa',
-                        borderRadius: 8,
-                        px: 2,
-                        py: 0.5,
-                        width: '400px',
-                    }}
-                >
-                    <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />
-                    <InputBase
-                        placeholder="Search"
-                        sx={{ flex: 1 }}
-                    />
-                </Box>
+            <Toolbar sx={{ display: 'flex', justifyContent: 'flex-end' }}>
 
                 {/* Right Icons */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box
-                        sx={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: '50%',
-                            bgcolor: '#ffcdd2'
-                        }}
-                    />
-                    <IconButton>
-                        <DarkModeIcon sx={{ color: '#204564' }} />
-                    </IconButton>
 
                     <IconButton onClick={handleNotificationClick}>
                         <Badge badgeContent={unreadCount > 0 && typeof unreadCount === 'number' ? unreadCount : undefined} color="error">
