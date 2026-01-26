@@ -33,8 +33,6 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import WarningIcon from '@mui/icons-material/Warning';
 import CloseIcon from '@mui/icons-material/Close';
-import Highcharts from 'highcharts';
-import HighchartsReact from 'highcharts-react-official';
 import { format, differenceInDays } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
@@ -45,16 +43,12 @@ import type { Column, TableState } from '../types/table';
 import { getLastNDaysRangeForDatePicker } from '../utils/date';
 import { 
     fetchDashboardKPIs, 
-    fetchSalesOverview,
-    fetchSalesByCategory,
     fetchTopProducts,
     fetchRecentOrders,
     fetchExpiringProducts,
 } from '../services/dashboard.service';
 import type { 
     DashboardKPIs, 
-    SalesOverviewDataPoint,
-    SalesByCategoryDataPoint,
     TopProductDataPoint,
     RecentOrderDataPoint,
     ExpiringProductVariantResponse,
@@ -66,8 +60,6 @@ import { useAppSelector } from '../store/hooks';
 import { showErrorToast } from '../utils/toast';
 import { formatDateToYYYYMMDD } from '../utils/date';
 
-
-type SalesDataPoint = { date?: string; month?: string; sales: number; orders: number };
 
 type ExpiringProductVariant = {
     id: number;
@@ -97,19 +89,6 @@ const getExpiryStatus = (expiryDate: Date): { text: string; color: string; days:
     } else {
         return { text: `Expires in ${days} days`, color: '#2e7d32', days };
     }
-};
-
-// Helper function to convert API sales overview data to chart format
-const convertSalesOverviewToChartData = (
-    apiData: SalesOverviewDataPoint[]
-): SalesDataPoint[] => {
-    return apiData.map((item) => {
-        const baseData = { sales: item.sales, orders: item.orders };
-        if (item.period_type === 'month') {
-            return { ...baseData, month: item.period_label };
-        }
-        return { ...baseData, date: item.period_label };
-    });
 };
 
 // Helper function to build base API params
@@ -180,8 +159,6 @@ export default function Dashboard() {
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
 
-    const [salesChartData, setSalesChartData] = React.useState<SalesDataPoint[]>([]);
-    const [chartError, setChartError] = React.useState<string | null>(null);
     const [expiringDialogOpen, setExpiringDialogOpen] = React.useState(false);
 
     // KPI state
@@ -237,13 +214,6 @@ export default function Dashboard() {
         loadKPIs();
     }, [vendorId, selectedBranchId]);
 
-    // Sales overview state
-    const [salesOverviewLoading, setSalesOverviewLoading] = React.useState(false);
-    
-    // Sales by category state
-    const [salesByCategory, setSalesByCategory] = React.useState<SalesByCategoryDataPoint[]>([]);
-    const [salesByCategoryLoading, setSalesByCategoryLoading] = React.useState(false);
-    
     // Top products state
     const [topProducts, setTopProducts] = React.useState<TopProductDataPoint[]>([]);
     const [topProductsLoading, setTopProductsLoading] = React.useState(false);
@@ -369,72 +339,6 @@ export default function Dashboard() {
     const [dashboardExpiringProducts, setDashboardExpiringProducts] = React.useState<ExpiringProductVariant[]>([]);
     const [dashboardExpiringProductsLoading, setDashboardExpiringProductsLoading] = React.useState(false);
     const [expiringProductsTotalCount, setExpiringProductsTotalCount] = React.useState(0);
-
-    // Fetch sales overview data when date range changes
-    React.useEffect(() => {
-        if (!vendorId || !selectedBranchId) {
-            setSalesChartData([]);
-            return;
-        }
-
-        const fetchKey = `salesOverview_${vendorId}_${selectedBranchId}_${dateRangeKey}`;
-        if (fetchRefs.current[fetchKey] === true) {
-            return;
-        }
-        fetchRefs.current[fetchKey] = true;
-
-        const loadSalesOverview = async () => {
-            try {
-                setSalesOverviewLoading(true);
-                setChartError(null);
-
-                const params = buildBaseParams(vendorId, selectedBranchId, true, dateRange);
-                if (!params.startDate) {
-                    params.days = 7;
-                }
-
-                const apiData = await fetchSalesOverview(params);
-                const chartData = convertSalesOverviewToChartData(apiData);
-                setSalesChartData(chartData);
-            } catch (error) {
-                console.error('Error fetching sales overview:', error);
-                setChartError('Failed to load sales data');
-                setSalesChartData([]);
-                fetchRefs.current[fetchKey] = null;
-            } finally {
-                setSalesOverviewLoading(false);
-                fetchRefs.current[fetchKey] = false;
-            }
-        };
-
-        loadSalesOverview();
-    }, [dateRangeKey, vendorId, selectedBranchId]);
-
-    // Fetch sales by category data
-    React.useEffect(() => {
-        if (!vendorId || !selectedBranchId) return;
-
-        const fetchKey = `salesByCategory_${vendorId}_${selectedBranchId}_${dateRangeKey}`;
-        if (fetchRefs.current[fetchKey] === true) return;
-        fetchRefs.current[fetchKey] = true;
-
-        const loadSalesByCategory = async () => {
-            try {
-                setSalesByCategoryLoading(true);
-                const params = buildBaseParams(vendorId, selectedBranchId, true, dateRange);
-                const data = await fetchSalesByCategory(params);
-                setSalesByCategory(data);
-            } catch (error) {
-                console.error('Error fetching sales by category:', error);
-                fetchRefs.current[fetchKey] = null;
-            } finally {
-                setSalesByCategoryLoading(false);
-                fetchRefs.current[fetchKey] = false;
-            }
-        };
-
-        loadSalesByCategory();
-    }, [dateRangeKey, vendorId, selectedBranchId]);
 
     // Fetch top products data
     React.useEffect(() => {
@@ -564,10 +468,6 @@ export default function Dashboard() {
             expiringDialogFetchedRef.current = false;
         }
     }, [expiringDialogOpen, vendorId, selectedBranchId]);
-
-    // Check if Highcharts is available
-    const chartsAvailable = typeof Highcharts !== 'undefined' && typeof HighchartsReact !== 'undefined';
-
 
     // Table state for dashboard expiring products (limited display - 10 rows, no pagination)
     const dashboardExpiringTableState: TableState<ExpiringProductVariant> = React.useMemo(() => ({
@@ -823,173 +723,6 @@ export default function Dashboard() {
         },
     ], []);
 
-    // Determine chart type based on sales data
-    const chartType = React.useMemo(() => {
-        if (!salesChartData || salesChartData.length === 0) {
-            return 'daily';
-        }
-        // Check if data has 'month' field (monthly) or 'date' field
-        const firstItem = salesChartData[0];
-        if (firstItem.month) {
-            return 'monthly';
-        }
-        // Check if date contains time (hourly) or week range (weekly)
-        if (firstItem.date) {
-            if (firstItem.date.includes(':')) {
-                return 'hourly';
-            }
-            if (firstItem.date.includes(' - ')) {
-                return 'weekly';
-            }
-            return 'daily';
-        }
-        return 'daily';
-    }, [salesChartData]);
-
-    // Sales Chart Options
-    const salesChartOptions: Highcharts.Options = React.useMemo(() => {
-        if (!salesChartData || salesChartData.length === 0) {
-            return {
-                title: { text: 'No data available' },
-                chart: { type: 'line', height: 350 },
-            };
-        }
-
-        const xAxisTitle = 
-            chartType === 'hourly' ? 'Hour' :
-            chartType === 'daily' ? 'Day' :
-            chartType === 'weekly' ? 'Week' : 'Month';
-
-        return {
-            chart: {
-                type: 'line',
-                height: 350,
-                backgroundColor: 'transparent',
-            },
-            title: {
-                text: 'Sales Overview',
-                style: { fontSize: '18px', fontWeight: '600', color: '#333' },
-            },
-            xAxis: {
-                categories: salesChartData.map((item) => (item.date || item.month) || ''),
-                title: { text: xAxisTitle },
-                gridLineColor: '#e0e0e0',
-            },
-            yAxis: [
-                {
-                    title: { text: 'Sales (₹)' },
-                    gridLineColor: '#e0e0e0',
-                },
-                {
-                    title: { text: 'Orders' },
-                    opposite: true,
-                    gridLineColor: '#e0e0e0',
-                },
-            ],
-            series: [
-                {
-                    name: 'Sales',
-                    type: 'line',
-                    data: salesChartData.map((item) => item.sales),
-                    color: '#1976d2',
-                    lineWidth: 3,
-                    marker: {
-                        radius: 5,
-                        fillColor: '#1976d2',
-                    },
-                },
-                {
-                    name: 'Orders',
-                    type: 'column',
-                    data: salesChartData.map((item) => item.orders),
-                    color: '#66bb6a',
-                    yAxis: 1,
-                },
-            ],
-            tooltip: {
-                shared: true,
-                formatter: function () {
-                    let tooltip = `<b>${this.x}</b><br/>`;
-                    this.points?.forEach((point) => {
-                        if (point.series.name === 'Sales') {
-                            tooltip += `${point.series.name}: ₹${point.y?.toLocaleString()}<br/>`;
-                        } else {
-                            tooltip += `${point.series.name}: ${point.y}<br/>`;
-                        }
-                    });
-                    return tooltip;
-                },
-            },
-            legend: {
-                enabled: true,
-                align: 'right',
-                verticalAlign: 'top',
-            },
-            plotOptions: {
-                line: {
-                    dataLabels: {
-                        enabled: false,
-                    },
-                },
-                column: {
-                    dataLabels: {
-                        enabled: false,
-                    },
-                },
-            },
-        };
-    }, [salesChartData, chartType]);
-
-    // Category colors mapping
-    const categoryColors: Record<string, string> = {
-        'Dairy': '#1976d2',
-        'Bakery': '#2e7d32',
-        'Beverages': '#ed6c02',
-        'Snacks': '#d32f2f',
-        'Others': '#7b1fa2',
-    };
-
-    // Category Distribution Chart Options
-    const categoryChartOptions: Highcharts.Options = React.useMemo(() => {
-        const chartData = salesByCategory.map((item) => ({
-            name: item.category_name,
-            y: parseFloat(item.percentage),
-            color: categoryColors[item.category_name] || '#9e9e9e',
-        }));
-
-        return {
-            chart: {
-                type: 'pie',
-                height: 300,
-                backgroundColor: 'transparent',
-            },
-            title: {
-                text: 'Sales by Category',
-                style: { fontSize: '16px', fontWeight: '600', color: '#333' },
-            },
-            series: [
-                {
-                    name: 'Sales',
-                    type: 'pie',
-                    data: chartData,
-                },
-            ],
-            tooltip: {
-                pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b><br/>Value: <b>{point.y}%</b>',
-            },
-            plotOptions: {
-                pie: {
-                    allowPointSelect: true,
-                    cursor: 'pointer',
-                    dataLabels: {
-                        enabled: true,
-                        format: '<b>{point.name}</b>: {point.percentage:.1f} %',
-                    },
-                },
-            },
-        };
-    }, [salesByCategory]);
-
     return (
         <Box sx={{ p: 3 }}>
             {/* Header */}
@@ -1217,66 +950,6 @@ export default function Dashboard() {
                         </Grid>
                     ))
                 )}
-            </Grid>
-
-            {/* Charts Row */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid size={{ xs: 12, md: 8 }}>
-                    <Paper
-                        sx={{
-                            p: 3,
-                                borderRadius: 3,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                            height: '100%',
-                        }}
-                    >
-                        {chartError ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 350 }}>
-                                <Typography color="error">{chartError}</Typography>
-                            </Box>
-                        ) : !chartsAvailable ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 350 }}>
-                                <Typography color="text.secondary">Charts library loading...</Typography>
-                            </Box>
-                        ) : salesOverviewLoading ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 350 }}>
-                                <Typography color="text.secondary">Loading sales data...</Typography>
-                            </Box>
-                        ) : salesChartData && salesChartData.length > 0 ? (
-                            <HighchartsReact highcharts={Highcharts} options={salesChartOptions} />
-                        ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 350 }}>
-                                <Typography color="text.secondary">No sales data available</Typography>
-                            </Box>
-                        )}
-                    </Paper>
-                </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                    <Paper
-                        sx={{
-                            p: 3,
-                            borderRadius: 3,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                            height: '100%',
-                        }}
-                    >
-                        {!chartsAvailable ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
-                                <Typography color="text.secondary">Charts library loading...</Typography>
-                            </Box>
-                        ) : salesByCategoryLoading ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
-                                <Typography color="text.secondary">Loading category data...</Typography>
-                            </Box>
-                        ) : salesByCategory.length > 0 ? (
-                            <HighchartsReact highcharts={Highcharts} options={categoryChartOptions} />
-                        ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300 }}>
-                                <Typography color="text.secondary">No category data available</Typography>
-                            </Box>
-                        )}
-                    </Paper>
-                </Grid>
             </Grid>
 
             {/* Bottom Row - Top Products and Recent Orders */}

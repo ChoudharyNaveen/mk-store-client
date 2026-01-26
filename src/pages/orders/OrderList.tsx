@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
-import EditIcon from '@mui/icons-material/EditOutlined';
-import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
@@ -284,19 +282,7 @@ export default function OrderList() {
                     >
                         <VisibilityIcon fontSize="small" />
                     </IconButton>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/orders/edit/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                        }}
-                    >
-                        <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
+                    {/* <IconButton
                         size="small"
                         sx={{
                             border: '1px solid #e0e0e0',
@@ -307,7 +293,7 @@ export default function OrderList() {
                         }}
                     >
                         <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    </IconButton> */}
                 </Box>
             )
         },

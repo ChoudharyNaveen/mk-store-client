@@ -20,7 +20,6 @@ import {
     CircularProgress,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -58,6 +57,8 @@ interface OrderItem {
     total_price: number;
     discount_amount: number;
     final_price: number;
+    is_combo?: boolean;
+    subtotal?: number;
 }
 
 // Order status history item
@@ -68,12 +69,14 @@ interface StatusHistoryItem {
     changedBy?: string;
     notes?: string;
     isCurrent?: boolean;
+    previousStatus?: string | null;
 }
 
 interface OrderDetailData extends Order {
     concurrency_stamp: string;
     rawOrderStatus?: string; // Store raw API status to check for ACCEPTED
     orderItems: OrderItem[];
+    statusHistory?: StatusHistoryItem[];
     appliedDiscounts?: Array<{
         type: string;
         code?: string;
@@ -125,7 +128,7 @@ const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDe
         product_id: item.product.id,
         product_name: item.product.title,
         product_image: item.product.image,
-        variant_name: item.variant?.variant_name,
+        variant_name: item.variant?.variant_name || item.variant?.name,
         variant_type: item.variant?.variant_type,
         variant_value: item.variant?.variant_value,
         quantity: item.quantity,
@@ -133,7 +136,18 @@ const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDe
         total_price: item.unit_price * item.quantity,
         discount_amount: item.discount,
         final_price: item.total,
+        is_combo: item.is_combo || false,
+        subtotal: item.total,
     })),
+    statusHistory: apiData.status_history?.reverse()?.map((historyItem) => ({
+        id: historyItem.id,
+        status: historyItem.status,
+        timestamp: historyItem.changed_at,
+        changedBy: historyItem.changed_by?.name || historyItem.changed_by?.email || 'System',
+        notes: historyItem.notes || undefined,
+        previousStatus: historyItem.previous_status || undefined,
+        isCurrent: historyItem.status === apiData.order_information.order_status,
+    })) || [],
     appliedDiscounts: apiData.applied_discounts,
 });
 
@@ -315,124 +329,6 @@ export default function OrderDetail() {
             default:
                 return 'default';
         }
-    };
-
-    // Generate static status history based on current order status
-    const generateStatusHistory = (order: OrderDetailData): StatusHistoryItem[] => {
-        const history: StatusHistoryItem[] = [];
-        const orderDate = new Date(order.created_at);
-        
-        // Always start with PENDING
-        history.push({
-            id: 1,
-            status: ORDER_STATUS_API.PENDING,
-            timestamp: order.created_at,
-            changedBy: 'System',
-            isCurrent: order.status === ORDER_STATUS_API.PENDING,
-        });
-
-        // Based on current status, add appropriate history
-        if (order.status !== ORDER_STATUS_API.PENDING && order.status !== ORDER_STATUS_API.CANCELLED) {
-            // Add ACCEPTED if order was accepted
-            if (order.rawOrderStatus === ORDER_STATUS_API.ACCEPTED || 
-                order.status === ORDER_STATUS_API.CONFIRMED || 
-                order.status === ORDER_STATUS_API.PROCESSING || 
-                order.status === ORDER_STATUS_API.SHIPPED || 
-                order.status === ORDER_STATUS_API.DELIVERED) {
-                const acceptedTime = new Date(orderDate.getTime() + 30 * 60000); // 30 mins after order
-                history.push({
-                    id: 2,
-                    status: ORDER_STATUS_API.ACCEPTED,
-                    timestamp: acceptedTime.toISOString(),
-                    changedBy: user?.name || 'Admin User',
-                    isCurrent: order.rawOrderStatus === ORDER_STATUS_API.ACCEPTED,
-                });
-            }
-
-            // Add CONFIRMED
-            if (order.status === ORDER_STATUS_API.CONFIRMED || 
-                order.status === ORDER_STATUS_API.PROCESSING || 
-                order.status === ORDER_STATUS_API.SHIPPED || 
-                order.status === ORDER_STATUS_API.DELIVERED) {
-                const confirmedTime = new Date(orderDate.getTime() + 60 * 60000); // 1 hour after order
-                history.push({
-                    id: 3,
-                    status: ORDER_STATUS_API.CONFIRMED,
-                    timestamp: confirmedTime.toISOString(),
-                    changedBy: user?.name || 'Admin User',
-                    isCurrent: order.status === ORDER_STATUS_API.CONFIRMED,
-                });
-            }
-
-            // Add PROCESSING
-            if (order.status === ORDER_STATUS_API.PROCESSING || 
-                order.status === ORDER_STATUS_API.SHIPPED || 
-                order.status === ORDER_STATUS_API.DELIVERED) {
-                const processingTime = new Date(orderDate.getTime() + 2 * 60 * 60000); // 2 hours after order
-                history.push({
-                    id: 4,
-                    status: ORDER_STATUS_API.PROCESSING,
-                    timestamp: processingTime.toISOString(),
-                    changedBy: user?.name || 'Admin User',
-                    isCurrent: order.status === ORDER_STATUS_API.PROCESSING,
-                });
-            }
-
-            // Add READY_FOR_PICKUP if applicable
-            if (order.rawOrderStatus === ORDER_STATUS_API.READY_FOR_PICKUP || 
-                order.status === ORDER_STATUS_API.SHIPPED || 
-                order.status === ORDER_STATUS_API.DELIVERED) {
-                const readyTime = new Date(orderDate.getTime() + 3 * 60 * 60000); // 3 hours after order
-                history.push({
-                    id: 5,
-                    status: ORDER_STATUS_API.READY_FOR_PICKUP,
-                    timestamp: readyTime.toISOString(),
-                    changedBy: user?.name || 'Admin User',
-                    isCurrent: order.rawOrderStatus === ORDER_STATUS_API.READY_FOR_PICKUP,
-                });
-            }
-
-            // Add SHIPPED
-            if (order.status === ORDER_STATUS_API.SHIPPED || order.status === ORDER_STATUS_API.DELIVERED) {
-                const shippedTime = new Date(orderDate.getTime() + 4 * 60 * 60000); // 4 hours after order
-                history.push({
-                    id: 6,
-                    status: ORDER_STATUS_API.SHIPPED,
-                    timestamp: shippedTime.toISOString(),
-                    changedBy: user?.name || 'Admin User',
-                    isCurrent: order.status === ORDER_STATUS_API.SHIPPED,
-                });
-            }
-
-            // Add DELIVERED
-            if (order.status === ORDER_STATUS_API.DELIVERED) {
-                const deliveredTime = new Date(orderDate.getTime() + 24 * 60 * 60000); // 24 hours after order
-                history.push({
-                    id: 7,
-                    status: ORDER_STATUS_API.DELIVERED,
-                    timestamp: deliveredTime.toISOString(),
-                    changedBy: 'Delivery Partner',
-                    notes: 'Order successfully delivered to customer',
-                    isCurrent: true,
-                });
-            }
-        } else if (order.status === ORDER_STATUS_API.CANCELLED || order.rawOrderStatus === ORDER_STATUS_API.REJECTED) {
-            // If cancelled/rejected, add that status
-            const cancelledTime = new Date(orderDate.getTime() + 30 * 60000);
-            history.push({
-                id: 2,
-                status: order.rawOrderStatus === ORDER_STATUS_API.REJECTED ? ORDER_STATUS_API.REJECTED : ORDER_STATUS_API.CANCELLED,
-                timestamp: cancelledTime.toISOString(),
-                changedBy: user?.name || 'Admin User',
-                notes: 'Order was cancelled by admin',
-                isCurrent: true,
-            });
-        }
-
-        // Sort by timestamp (most recent first)
-        return history.sort((a, b) => 
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
     };
 
     // Get status icon
@@ -713,37 +609,40 @@ export default function OrderDetail() {
                         productId={row.product_id}
                     />
                     <Box>
-                        <Typography
-                            component="button"
-                            onClick={() => navigate(`/products/detail/${row.product_id}`)}
-                            variant="body1"
-                            sx={{
-                                fontWeight: 500,
-                                background: 'none',
-                                border: 'none',
-                                color: '#204564',
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                                padding: 0,
-                                display: 'block',
-                                '&:hover': {
-                                    textDecoration: 'underline',
-                                },
-                            }}
-                        >
-                            {row.product_name}
-                        </Typography>
-                        {row.variant_name && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                             <Typography
-                                variant="body2"
+                                component="button"
+                                onClick={() => navigate(`/products/detail/${row.product_id}`)}
+                                variant="body1"
                                 sx={{
-                                    color: 'text.secondary',
-                                    mt: 0.5,
+                                    fontWeight: 500,
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#204564',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    padding: 0,
+                                    display: 'block',
+                                    '&:hover': {
+                                        textDecoration: 'underline',
+                                    },
                                 }}
                             >
                                 {row.variant_name}
                             </Typography>
-                        )}
+                            {row.is_combo && (
+                                <Chip
+                                    label="Combo Discount"
+                                    size="small"
+                                    color="success"
+                                    sx={{
+                                        height: 20,
+                                        fontSize: '0.7rem',
+                                        fontWeight: 600,
+                                    }}
+                                />
+                            )}
+                        </Box>
                         {row.variant_type && row.variant_value && (
                             <Typography
                                 variant="body2"
@@ -773,6 +672,18 @@ export default function OrderDetail() {
             align: 'right',
             sortable: true,
             format: (value: number) => `₹${value.toFixed(2)}`,
+        },
+        {
+            id: 'subtotal' as keyof OrderItem,
+            label: 'Subtotal',
+            minWidth: 120,
+            align: 'right',
+            sortable: true,
+            render: (row: OrderItem) => (
+                <Typography>
+                    ₹{row.subtotal.toFixed(2)}
+                </Typography>
+            ),
         },
         {
             id: 'discount_amount' as keyof OrderItem,
@@ -881,14 +792,6 @@ export default function OrderDetail() {
                         color={getPaymentStatusColor(order.payment_status)}
                         size="medium"
                     />
-                    <Button
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={() => navigate(`/orders/edit/${id}`)}
-                        sx={{ textTransform: 'none' }}
-                    >
-                        Edit
-                    </Button>
                 </Stack>
             </Box>
 
@@ -1107,92 +1010,93 @@ export default function OrderDetail() {
                             </Typography>
                         </Box>
                         <Box>
-                            {order && generateStatusHistory(order).map((item, index, array) => (
-                                <Box key={item.id}>
-                                    <Box sx={{ 
-                                        display: 'flex', 
-                                        gap: 2, 
-                                        position: 'relative',
-                                        pb: index < array.length - 1 ? 3 : 0,
-                                    }}>
-                                        {/* Timeline line */}
-                                        {index < array.length - 1 && (
-                                            <Box
-                                                sx={{
-                                                    position: 'absolute',
-                                                    left: 20,
-                                                    top: 40,
-                                                    bottom: 0,
-                                                    width: 2,
-                                                    bgcolor: 'divider',
-                                                }}
-                                            />
-                                        )}
-                                        
-                                        {/* Status icon */}
-                                        <Box
-                                            sx={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                width: 40,
-                                                height: 40,
-                                                borderRadius: '50%',
-                                                bgcolor: item.isCurrent 
-                                                    ? (getHistoryStatusColor(item.status, true) === 'success' ? 'success.main' :
-                                                       getHistoryStatusColor(item.status, true) === 'error' ? 'error.main' :
-                                                       getHistoryStatusColor(item.status, true) === 'info' ? 'info.main' : 'primary.main')
-                                                    : 'action.selected',
-                                                color: item.isCurrent ? 'white' : 'text.secondary',
-                                                border: item.isCurrent ? 'none' : '2px solid',
-                                                borderColor: 'divider',
-                                                flexShrink: 0,
-                                                zIndex: 1,
-                                            }}
-                                        >
-                                            {getStatusIcon(item.status)}
-                                        </Box>
-
-                                        {/* Status content */}
-                                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                                                <Chip
-                                                    label={item.status}
-                                                    color={getHistoryStatusColor(item.status, item.isCurrent || false)}
-                                                    size="small"
+                            {order && order.statusHistory && order.statusHistory.length > 0 ? (
+                                order.statusHistory.map((item, index, array) => (
+                                    <Box key={item.id}>
+                                        <Box sx={{ 
+                                            display: 'flex', 
+                                            gap: 2, 
+                                            position: 'relative',
+                                            pb: index < array.length - 1 ? 3 : 0,
+                                        }}>
+                                            {/* Timeline line */}
+                                            {index < array.length - 1 && (
+                                                <Box
                                                     sx={{
-                                                        fontWeight: item.isCurrent ? 600 : 400,
+                                                        position: 'absolute',
+                                                        left: 20,
+                                                        top: 40,
+                                                        bottom: 0,
+                                                        width: 2,
+                                                        bgcolor: 'divider',
                                                     }}
                                                 />
-                                                {item.isCurrent && (
+                                            )}
+                                            
+                                            {/* Status icon */}
+                                            <Box
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: 40,
+                                                    height: 40,
+                                                    borderRadius: '50%',
+                                                    bgcolor: item.isCurrent 
+                                                        ? (getHistoryStatusColor(item.status, true) === 'success' ? 'success.main' :
+                                                           getHistoryStatusColor(item.status, true) === 'error' ? 'error.main' :
+                                                           getHistoryStatusColor(item.status, true) === 'info' ? 'info.main' : 'primary.main')
+                                                        : 'action.selected',
+                                                    color: item.isCurrent ? 'white' : 'text.secondary',
+                                                    border: item.isCurrent ? 'none' : '2px solid',
+                                                    borderColor: 'divider',
+                                                    flexShrink: 0,
+                                                    zIndex: 1,
+                                                }}
+                                            >
+                                                {getStatusIcon(item.status)}
+                                            </Box>
+
+                                            {/* Status content */}
+                                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
                                                     <Chip
-                                                        label="Current"
-                                                        color="primary"
+                                                        label={item.status}
+                                                        color={getHistoryStatusColor(item.status, item.isCurrent || false)}
                                                         size="small"
-                                                        variant="outlined"
+                                                        sx={{
+                                                            fontWeight: item.isCurrent ? 600 : 400,
+                                                        }}
                                                     />
+                                                    {item.isCurrent && (
+                                                        <Chip
+                                                            label="Current"
+                                                            color="primary"
+                                                            size="small"
+                                                            variant="outlined"
+                                                        />
+                                                    )}
+                                                </Box>
+                                                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                                                    {format(new Date(item.timestamp), 'MMM dd, yyyy HH:mm')}
+                                                </Typography>
+                                                {item.changedBy && (
+                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                        Changed by: {item.changedBy}
+                                                    </Typography>
+                                                )}
+                                                {item.notes && (
+                                                    <Box sx={{ mt: 1, p: 1.5, bgcolor: 'background.default', borderRadius: 1 }}>
+                                                        <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                                                            {item.notes}
+                                                        </Typography>
+                                                    </Box>
                                                 )}
                                             </Box>
-                                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                                {format(new Date(item.timestamp), 'MMM dd, yyyy HH:mm')}
-                                            </Typography>
-                                            {item.changedBy && (
-                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                    Changed by: {item.changedBy}
-                                                </Typography>
-                                            )}
-                                            {item.notes && (
-                                                <Box sx={{ mt: 1, p: 1.5, bgcolor: 'background.default', borderRadius: 1 }}>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                                                        {item.notes}
-                                                    </Typography>
-                                                </Box>
-                                            )}
                                         </Box>
                                     </Box>
-                                </Box>
-                            ))}
-                            {(!order || generateStatusHistory(order).length === 0) && (
+                                ))
+                            ) : (
                                 <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', py: 2 }}>
                                     No activity history available
                                 </Typography>

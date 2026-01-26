@@ -260,7 +260,6 @@ export const createProduct = async (
     // Create FormData for multipart/form-data
     const formData = new FormData();
     formData.append('title', data.title);
-    formData.append('description', data.description || '');
     formData.append('categoryId', String(data.categoryId));
     formData.append('subCategoryId', String(data.subCategoryId));
     formData.append('branchId', String(data.branchId));
@@ -269,10 +268,6 @@ export const createProduct = async (
     
     if (data.brandId) {
       formData.append('brandId', String(data.brandId));
-    }
-    
-    if (data.nutritional) {
-      formData.append('nutritional', data.nutritional);
     }
     
     // Add createdBy if available (from user context)
@@ -331,6 +326,22 @@ export const fetchProductDetails = async (
     const variants = Array.isArray(product.variants) 
       ? (product.variants as unknown[]).map((variant: unknown) => {
           const v = variant as Record<string, unknown>;
+          
+          // Map combo_discounts if present
+          const comboDiscounts = Array.isArray(v.combo_discounts)
+            ? (v.combo_discounts as unknown[]).map((discount: unknown) => {
+                const d = discount as Record<string, unknown>;
+                return {
+                  comboQuantity: d.combo_quantity ?? d.comboQuantity,
+                  discountType: d.discount_type ?? d.discountType,
+                  discountValue: d.discount_value ?? d.discountValue,
+                  startDate: d.start_date ?? d.startDate,
+                  endDate: d.end_date ?? d.endDate,
+                  status: d.status || 'ACTIVE',
+                };
+              })
+            : undefined;
+          
           return {
             ...v,
             items_per_unit: v.items_per_unit ?? v.itemsPerUnit ?? null,
@@ -338,6 +349,7 @@ export const fetchProductDetails = async (
             expiry_date: v.expiry_date ?? v.expiryDate ?? null,
             product_status: v.product_status ?? v.productStatus ?? 'INSTOCK',
             concurrency_stamp: v.concurrency_stamp ?? v.concurrencyStamp,
+            combo_discounts: comboDiscounts,
           };
         })
       : product.variants || [];
@@ -425,9 +437,6 @@ export const updateProduct = async (
     if (data.title !== undefined) {
       formData.append('title', data.title);
     }
-    if (data.description !== undefined) {
-      formData.append('description', data.description || '');
-    }
     if (data.categoryId !== undefined) {
       formData.append('categoryId', String(data.categoryId));
     }
@@ -449,10 +458,6 @@ export const updateProduct = async (
       } else {
         formData.append('brandId', String(data.brandId));
       }
-    }
-    
-    if (data.nutritional !== undefined && data.nutritional !== null) {
-      formData.append('nutritional', data.nutritional);
     }
     
     // Variants - send as a single JSON string array

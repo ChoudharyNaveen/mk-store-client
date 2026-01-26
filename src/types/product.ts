@@ -4,6 +4,20 @@
 
 export type ProductStatus = 'ACTIVE' | 'INACTIVE';
 export type ProductStatusType = 'INSTOCK' | 'OUTOFSTOCK';
+export type ComboDiscountType = 'PERCENT' | 'FLATOFF';
+export type ComboDiscountStatus = 'ACTIVE' | 'INACTIVE';
+
+/**
+ * Combo Discount for Product Variants
+ */
+export interface ComboDiscount {
+  comboQuantity: number;
+  discountType: ComboDiscountType;
+  discountValue: number; // Percentage (1-100) for PERCENT, Flat amount for FLATOFF
+  startDate: string; // ISO format: YYYY-MM-DD
+  endDate: string; // ISO format: YYYY-MM-DD
+  status?: ComboDiscountStatus; // Optional, defaults to ACTIVE
+}
 
 /**
  * Item Unit Enum - 32 valid unit types
@@ -25,8 +39,6 @@ export type ItemUnit =
 export interface ProductVariant {
   id: number;
   variant_name: string;
-  variant_type: string;
-  variant_value: string | null;
   price: number;
   selling_price: number;
   quantity: number;
@@ -37,6 +49,9 @@ export interface ProductVariant {
   expiry_date: string | Date | null;
   product_status: ProductStatusType;
   status: ProductStatus;
+  description?: string | null;
+  nutritional?: string | null;
+  combo_discounts?: ComboDiscount[];
   concurrency_stamp?: string;
   concurrencyStamp?: string;
 }
@@ -54,9 +69,7 @@ export interface ProductImage {
 export interface Product {
   id: number;
   title: string;
-  description: string;
   status: ProductStatus;
-  nutritional: string | null;
   concurrency_stamp?: string;
   concurrencyStamp?: string;
   created_at?: string; // API returns snake_case
@@ -109,19 +122,15 @@ export interface ProductListResponse {
 
 export interface CreateProductRequest {
   title: string;
-  description: string;
   categoryId: string | number;
   subCategoryId: string | number;
   branchId: string | number;
   vendorId: string | number;
   status: ProductStatus;
   brandId?: string | number;
-  nutritional?: string | null;
   images: File[];
   variants: Array<{
     variantName: string;
-    variantType: string;
-    variantValue?: string;
     price: number;
     sellingPrice: number;
     quantity: number;
@@ -131,6 +140,9 @@ export interface CreateProductRequest {
     itemUnit?: string;
     expiryDate?: string;
     status: ProductStatus;
+    description?: string | null;
+    nutritional?: string | null;
+    comboDiscounts?: ComboDiscount[];
   }>;
 }
 
@@ -142,14 +154,12 @@ export interface CreateProductResponse {
 
 export interface UpdateProductRequest {
   title?: string;
-  description?: string;
   categoryId?: string | number;
   subCategoryId?: string | number;
   status?: ProductStatus;
   updatedBy: string | number;
   concurrencyStamp: string;
   brandId?: string | number | null; // Can be null to remove brand
-  nutritional?: string | null;
   images?: File[]; // File uploads (multipart/form-data)
   imagesData?: Array<{
     id?: number; // For existing images
@@ -162,8 +172,6 @@ export interface UpdateProductRequest {
   variants?: Array<{
     id?: number; // For existing variants
     variantName: string;
-    variantType: string;
-    variantValue?: string;
     price: number;
     sellingPrice: number;
     quantity: number;
@@ -173,6 +181,9 @@ export interface UpdateProductRequest {
     itemUnit?: string;
     expiryDate?: string;
     status: ProductStatus;
+    description?: string | null;
+    nutritional?: string | null;
+    comboDiscounts?: ComboDiscount[];
     concurrencyStamp?: string; // For existing variants
   }>;
   variantIdsToDelete?: number[];

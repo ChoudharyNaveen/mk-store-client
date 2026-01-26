@@ -192,12 +192,40 @@ export const convertUserToRider = async (
   }
 };
 
+/**
+ * Update user status (ACTIVE/INACTIVE)
+ */
+export const updateUserStatus = async (
+  id: string | number,
+  status: 'ACTIVE' | 'INACTIVE',
+  updatedBy: string | number,
+  concurrencyStamp?: string
+): Promise<UpdateUserResponse> => {
+  try {
+    const requestData: UpdateUserRequest & { status?: string } = {
+      updatedBy,
+      concurrencyStamp: concurrencyStamp || '',
+      status,
+    };
+    
+    const response = await http.patch<UpdateUserResponse>(
+      API_URLS.USERS.UPDATE(id),
+      requestData
+    );
+    return response;
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    throw error;
+  }
+};
+
 const userService = {
   fetchUsers,
   createUser,
   updateUser,
   deleteUser,
   convertUserToRider,
+  updateUserStatus,
 };
 
 export default userService;

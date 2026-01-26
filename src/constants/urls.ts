@@ -20,7 +20,7 @@ export const API_URLS = {
     LIST: `${API_PREFIX}/get-users`,
     CREATE: `${API_PREFIX}/users`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/users/${id}`,
-    UPDATE: (id: string | number) => `${API_PREFIX}/users/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-user/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/users/${id}`,
     CONVERT_TO_RIDER: `${API_PREFIX}/convert-user-to-rider`,
   },

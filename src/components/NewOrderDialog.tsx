@@ -330,9 +330,23 @@ const NewOrderDialog: React.FC<NewOrderDialogProps> = ({
                   <Box key={item.id} sx={{ p: 2, borderBottom: index < orderDetails.order_items.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
                     <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', gap: 2 }}>
                       <Box sx={{ flex: 1 }}>
-                        <Typography variant="body1" fontWeight={500}>
-                          {item.product?.title || 'N/A'}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                          <Typography variant="body1" fontWeight={500}>
+                            {item.product?.title || 'N/A'}
+                          </Typography>
+                          {item.is_combo && (
+                            <Chip
+                              label="Combo Discount"
+                              size="small"
+                              color="success"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.7rem',
+                                fontWeight: 600,
+                              }}
+                            />
+                          )}
+                        </Box>
                         {item.variant?.variant_name && (
                           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                             {item.variant.variant_name}
@@ -348,6 +362,9 @@ const NewOrderDialog: React.FC<NewOrderDialogProps> = ({
                         </Typography>
                       </Box>
                       <Box sx={{ flex: 1, textAlign: { xs: 'left', sm: 'right' } }}>
+                        <Typography variant="body2" color="text.secondary">
+                          Subtotal: ₹{((item.unit_price || 0) * (item.quantity || 0)).toFixed(2)}
+                        </Typography>
                         <Typography variant="body2" color="text.secondary">
                           Discount: ₹{item.discount?.toFixed(2) || '0.00'}
                         </Typography>

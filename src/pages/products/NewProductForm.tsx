@@ -19,10 +19,10 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import InfoIcon from '@mui/icons-material/Info';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import CategoryIcon from '@mui/icons-material/Category';
-import DescriptionIcon from '@mui/icons-material/Description';
 import ImageIcon from '@mui/icons-material/Image';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -35,7 +35,7 @@ import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import { useAppSelector } from '../../store/hooks';
 import { FormTextField, FormFileUpload, FormSelect, FormAutocomplete, FormNumberField, FormDatePicker, FormProvider } from '../../components/forms';
 import { mergeWithDefaultFilters } from '../../utils/filterBuilder';
-import type { ProductStatus, Product, ItemUnit } from '../../types/product';
+import type { ProductStatus, Product, ItemUnit, ComboDiscount } from '../../types/product';
 import type { Category } from '../../types/category';
 import type { SubCategory } from '../../types/sub-category';
 import type { Brand } from '../../types/brand';
@@ -44,14 +44,34 @@ import { getItemUnitOptions } from '../../constants/itemUnits';
 // Valid item unit values
 const validItemUnits = ['LTR', 'ML', 'GAL', 'FL_OZ', 'KG', 'G', 'MG', 'OZ', 'LB', 'TON', 'PCS', 'UNIT', 'DOZEN', 'SET', 'PAIR', 'BUNDLE', 'PKG', 'BOX', 'BOTTLE', 'CAN', 'CARTON', 'TUBE', 'JAR', 'BAG', 'POUCH', 'M', 'CM', 'MM', 'FT', 'IN', 'SQFT', 'SQM'] as const;
 
-// Valid variant type values
-const validVariantTypes = ['WEIGHT', 'SIZE', 'COLOR', 'MATERIAL', 'FLAVOR', 'PACKAGING', 'OTHER'] as const;
+
+// Combo discount validation schema
+const comboDiscountSchema = yup.object().shape({
+    comboQuantity: yup.number().required('Combo quantity is required').min(1, 'Combo quantity must be at least 1').integer('Combo quantity must be a whole number'),
+    discountType: yup.string().oneOf(['PERCENT', 'FLATOFF'], 'Discount type must be PERCENT or FLATOFF').required('Discount type is required'),
+    discountValue: yup.number().required('Discount value is required').when('discountType', {
+        is: 'PERCENT',
+        then: (schema) => schema.min(1, 'Percentage must be between 1 and 100').max(100, 'Percentage must be between 1 and 100'),
+        otherwise: (schema) => schema.min(0.01, 'Flat amount must be greater than 0'),
+    }),
+    startDate: yup.date().required('Start date is required').nullable().transform((value, originalValue) => {
+        if (originalValue === '' || originalValue == null) return undefined;
+        return value;
+    }),
+    endDate: yup.date().required('End date is required').nullable().transform((value, originalValue) => {
+        if (originalValue === '' || originalValue == null) return undefined;
+        return value;
+    }).test('isAfterStart', 'End date must be after start date', function(value) {
+        const { startDate } = this.parent;
+        if (!value || !startDate) return true;
+        return new Date(value) > new Date(startDate);
+    }),
+    status: yup.string().oneOf(['ACTIVE', 'INACTIVE'], 'Status must be ACTIVE or INACTIVE').optional(),
+});
 
 // Variant validation schema
 const variantSchema = yup.object().shape({
     variantName: yup.string().required('Variant name is required').min(1, 'Variant name is required'),
-    variantType: yup.string().oneOf([...validVariantTypes], 'Invalid variant type').required('Variant type is required'),
-    variantValue: yup.string().nullable().optional(),
     price: yup.number().required('Price is required').min(0, 'Price must be greater than 0'),
     sellingPrice: yup.number().required('Selling Price is required').min(0, 'Selling Price must be greater than 0'),
     quantity: yup.number().required('Quantity is required').min(0, 'Quantity must be greater than or equal to 0').integer('Quantity must be a whole number'),
@@ -64,12 +84,14 @@ const variantSchema = yup.object().shape({
         return value;
     }),
     status: yup.string().oneOf(['ACTIVE', 'INACTIVE'], 'Status must be ACTIVE or INACTIVE').required('Status is required'),
+    description: yup.string().nullable().optional(),
+    nutritional: yup.string().nullable().optional(),
+    comboDiscounts: yup.array().of(comboDiscountSchema).optional(),
 });
 
-// Base validation schema - shared fields (removed price, sellingPrice, quantity, expiryDate - now in variants)
+// Base validation schema - shared fields (removed price, sellingPrice, quantity, expiryDate, description, nutritional - now in variants)
 const baseProductFormSchema = {
     title: yup.string().required('Title is required').min(2, 'Title must be at least 2 characters'),
-    description: yup.string().optional().default(''),
     categoryId: yup.number().required('Category is required').min(1, 'Please select a category'),
     subCategoryId: yup.number().required('Sub Category is required').min(1, 'Please select a sub category'),
     status: yup.string().oneOf(['ACTIVE', 'INACTIVE'], 'Status must be ACTIVE or INACTIVE').required('Status is required'),
@@ -120,18 +142,24 @@ const createProductFormSchema = (isEditMode: boolean) => {
     return yup.object({
         ...baseProductFormSchema,
         images: imagesValidation,
-        nutritional: yup.string().optional().nullable(),
         brandId: yup.number().optional().nullable(),
         variants: yup.array().of(variantSchema).min(1, 'At least one variant is required'),
     });
 };
 
+interface ComboDiscountFormData {
+    comboQuantity: number;
+    discountType: 'PERCENT' | 'FLATOFF';
+    discountValue: number;
+    startDate: Date | string | null;
+    endDate: Date | string | null;
+    status?: 'ACTIVE' | 'INACTIVE';
+}
+
 interface VariantFormData {
     id?: number; // For existing variants
     concurrencyStamp?: string; // For existing variants
     variantName: string;
-    variantType: 'WEIGHT' | 'SIZE' | 'COLOR' | 'MATERIAL' | 'FLAVOR' | 'PACKAGING' | 'OTHER';
-    variantValue?: string | null;
     price: number;
     sellingPrice: number;
     quantity: number;
@@ -141,6 +169,9 @@ interface VariantFormData {
     itemUnit?: ItemUnit | null;
     expiryDate: Date | string | null;
     status: 'ACTIVE' | 'INACTIVE';
+    description?: string | null;
+    nutritional?: string | null;
+    comboDiscounts?: ComboDiscountFormData[];
 }
 
 interface ImageFormData {
@@ -154,11 +185,9 @@ interface ImageFormData {
 
 interface ProductFormData {
     title: string;
-    description?: string;
     categoryId: number;
     subCategoryId: number;
     status: 'ACTIVE' | 'INACTIVE';
-    nutritional?: string | null;
     brandId?: number | null;
     images: ImageFormData[];
     variants: VariantFormData[];
@@ -206,18 +235,14 @@ export default function ProductForm() {
         resolver: yupResolver(createProductFormSchema(isEditMode)) as any,
         defaultValues: {
             title: '',
-            description: '',
             categoryId: 0,
             subCategoryId: 0,
             status: 'ACTIVE' as ProductStatus,
-            nutritional: null,
             brandId: null,
             images: [{ file: null, preview: null }],
             variants: [
                 {
                     variantName: '',
-                    variantType: 'OTHER',
-                    variantValue: null,
                     price: 0,
                     sellingPrice: 0,
                     quantity: 0,
@@ -227,6 +252,9 @@ export default function ProductForm() {
                     itemUnit: null,
                     expiryDate: null,
                     status: 'ACTIVE',
+                    description: null,
+                    nutritional: null,
+                    comboDiscounts: [],
                 },
             ],
         },
@@ -268,8 +296,6 @@ export default function ProductForm() {
     const handleAddVariant = () => {
         appendVariant({
             variantName: '',
-            variantType: 'OTHER',
-            variantValue: null,
             price: 0,
             sellingPrice: 0,
             quantity: 0,
@@ -279,6 +305,9 @@ export default function ProductForm() {
             itemUnit: null,
             expiryDate: useSameExpiryDate ? sharedExpiryDate : null,
             status: 'ACTIVE',
+            description: null,
+            nutritional: null,
+            comboDiscounts: [],
         });
     };
 
@@ -621,22 +650,10 @@ export default function ProductForm() {
                 expiryDateValue = typeof variant.expiry_date === 'string' ? new Date(variant.expiry_date) : variant.expiry_date;
             }
 
-            const variantTypeMap: Record<string, VariantFormData['variantType']> = {
-                'WEIGHT': 'WEIGHT',
-                'SIZE': 'SIZE',
-                'COLOR': 'COLOR',
-                'MATERIAL': 'MATERIAL',
-                'FLAVOR': 'FLAVOR',
-                'PACKAGING': 'PACKAGING',
-                'OTHER': 'OTHER',
-            };
-
             return {
                 id: variant.id,
                 concurrencyStamp: variant.concurrency_stamp || variant.concurrencyStamp,
                 variantName: variant.variant_name,
-                variantType: variantTypeMap[variant.variant_type] || 'OTHER',
-                variantValue: variant.variant_value,
                 price: variant.price,
                 sellingPrice: variant.selling_price,
                 quantity: variant.quantity,
@@ -646,6 +663,16 @@ export default function ProductForm() {
                 itemUnit: variant.item_unit as ItemUnit | null,
                 expiryDate: expiryDateValue,
                 status: variant.status,
+                description: variant.description ?? null,
+                nutritional: variant.nutritional ?? null,
+                comboDiscounts: variant.combo_discounts?.map((discount) => ({
+                    comboQuantity: discount.comboQuantity,
+                    discountType: discount.discountType,
+                    discountValue: discount.discountValue,
+                    startDate: discount.startDate ? new Date(discount.startDate) : null,
+                    endDate: discount.endDate ? new Date(discount.endDate) : null,
+                    status: discount.status || 'ACTIVE',
+                })) || [],
             };
         }) || []) as VariantFormData[];
 
@@ -669,18 +696,14 @@ export default function ProductForm() {
 
         return {
             title: data.title,
-            description: data.description || '',
             categoryId: data.category?.id || 0,
             subCategoryId: data.subCategory?.id || 0,
             status: data.status,
-            nutritional: data.nutritional,
             brandId: brandId,
             images: images.length > 0 ? images : [{ file: null, preview: null }],
             variants: variants.length > 0 ? variants : [
                 {
                     variantName: '',
-                    variantType: 'OTHER',
-                    variantValue: null,
                     price: 0,
                     sellingPrice: 0,
                     quantity: 0,
@@ -690,6 +713,9 @@ export default function ProductForm() {
                     itemUnit: null,
                     expiryDate: null,
                     status: 'ACTIVE',
+                    description: null,
+                    nutritional: null,
+                    comboDiscounts: [],
                 },
             ],
         };
@@ -729,8 +755,6 @@ export default function ProductForm() {
             const variantData: {
                 id?: number;
                 variantName: string;
-                variantType: string;
-                variantValue?: string;
                 price: number;
                 sellingPrice: number;
                 quantity: number;
@@ -740,11 +764,12 @@ export default function ProductForm() {
                 itemUnit?: string;
                 expiryDate?: string;
                 status: ProductStatus;
+                description?: string | null;
+                nutritional?: string | null;
+                comboDiscounts?: ComboDiscount[];
                 concurrencyStamp?: string;
             } = {
                 variantName: variant.variantName,
-                variantType: variant.variantType,
-                variantValue: variant.variantValue || undefined,
                 price: variant.price,
                 sellingPrice: variant.sellingPrice,
                 quantity: variant.quantity,
@@ -754,6 +779,39 @@ export default function ProductForm() {
                 itemUnit: variant.itemUnit ?? undefined,
                 expiryDate: expiryDateValue,
                 status: variant.status,
+                description: variant.description ?? undefined,
+                nutritional: variant.nutritional ?? undefined,
+                comboDiscounts: variant.comboDiscounts && variant.comboDiscounts.length > 0
+                    ? variant.comboDiscounts.map((discount) => {
+                        let startDateValue: string | undefined = undefined;
+                        let endDateValue: string | undefined = undefined;
+                        
+                        if (discount.startDate) {
+                            if (discount.startDate instanceof Date) {
+                                startDateValue = discount.startDate.toISOString().split('T')[0];
+                            } else if (typeof discount.startDate === 'string') {
+                                startDateValue = discount.startDate;
+                            }
+                        }
+                        
+                        if (discount.endDate) {
+                            if (discount.endDate instanceof Date) {
+                                endDateValue = discount.endDate.toISOString().split('T')[0];
+                            } else if (typeof discount.endDate === 'string') {
+                                endDateValue = discount.endDate;
+                            }
+                        }
+                        
+                        return {
+                            comboQuantity: discount.comboQuantity,
+                            discountType: discount.discountType,
+                            discountValue: discount.discountValue,
+                            startDate: startDateValue || '',
+                            endDate: endDateValue || '',
+                            status: discount.status || 'ACTIVE',
+                        };
+                    })
+                    : undefined,
             };
 
             // Include id and concurrencyStamp for existing variants
@@ -837,12 +895,10 @@ export default function ProductForm() {
 
                 await productService.updateProduct(id!, {
                     title: data.title,
-                    description: data.description || '',
                     categoryId: data.categoryId,
                     subCategoryId: data.subCategoryId,
                     status: data.status,
                     brandId: brandIdValue,
-                    nutritional: data.nutritional ?? undefined,
                     updatedBy: userId,
                     concurrencyStamp: productData!.concurrency_stamp,
                     variants: variantsData.length > 0 ? variantsData : undefined,
@@ -861,14 +917,12 @@ export default function ProductForm() {
 
                 await productService.createProduct({
                     title: data.title,
-                    description: data.description || '',
                     categoryId: data.categoryId,
                     subCategoryId: data.subCategoryId,
                     branchId: selectedBranchId!,
                     vendorId: user?.vendorId || 1,
                     status: data.status as ProductStatus,
                     brandId: brandIdValue !== null ? brandIdValue : undefined,
-                    nutritional: data.nutritional ?? undefined,
                     variants: variantsData,
                     images: images,
                 } as any);
@@ -1261,7 +1315,8 @@ export default function ProductForm() {
                                     <Divider sx={{ mb: 3 }} />
 
                                     <Grid container spacing={2}>
-                                        <Grid size={{ xs: 12, md: 4 }}>
+                                        {/* Basic Information */}
+                                        <Grid size={{ xs: 12, md: 6 }}>
                                             <FormTextField
                                                 name={`variants.${index}.variantName`}
                                                 control={control}
@@ -1274,38 +1329,7 @@ export default function ProductForm() {
                                             />
                                         </Grid>
 
-                                        <Grid size={{ xs: 12, md: 4 }}>
-                                            <FormSelect
-                                                name={`variants.${index}.variantType`}
-                                                control={control}
-                                                label="Variant Type"
-                                                required
-                                                disabled={loading}
-                                                options={[
-                                                    { value: 'WEIGHT', label: 'Weight' },
-                                                    { value: 'SIZE', label: 'Size' },
-                                                    { value: 'COLOR', label: 'Color' },
-                                                    { value: 'MATERIAL', label: 'Material' },
-                                                    { value: 'FLAVOR', label: 'Flavor' },
-                                                    { value: 'PACKAGING', label: 'Packaging' },
-                                                    { value: 'OTHER', label: 'Other' },
-                                                ]}
-                                            />
-                                        </Grid>
-
-                                        <Grid size={{ xs: 12, md: 4 }}>
-                                            <FormTextField
-                                                name={`variants.${index}.variantValue`}
-                                                control={control}
-                                                label="Variant Value (Optional)"
-                                                placeholder="e.g., 500g, Red, Large"
-                                                variant="outlined"
-                                                size="small"
-                                                disabled={loading}
-                                            />
-                                        </Grid>
-
-                                        <Grid size={{ xs: 12, md: 4 }}>
+                                        <Grid size={{ xs: 12, md: 6 }}>
                                             <FormSelect
                                                 name={`variants.${index}.status`}
                                                 control={control}
@@ -1319,7 +1343,8 @@ export default function ProductForm() {
                                             />
                                         </Grid>
 
-                                        <Grid size={{ xs: 12, md: 4 }}>
+                                        {/* Pricing Information */}
+                                        <Grid size={{ xs: 12, md: 6 }}>
                                             <FormTextField
                                                 name={`variants.${index}.price`}
                                                 control={control}
@@ -1333,7 +1358,7 @@ export default function ProductForm() {
                                             />
                                         </Grid>
 
-                                        <Grid size={{ xs: 12, md: 4 }}>
+                                        <Grid size={{ xs: 12, md: 6 }}>
                                             <FormTextField
                                                 name={`variants.${index}.sellingPrice`}
                                                 control={control}
@@ -1361,6 +1386,7 @@ export default function ProductForm() {
                                             />
                                         </Grid>
 
+                                        {/* Stock Details */}
                                         <Grid size={{ xs: 12, md: 4 }}>
                                             <FormTextField
                                                 name={`variants.${index}.units`}
@@ -1371,10 +1397,11 @@ export default function ProductForm() {
                                                 size="small"
                                                 disabled={loading}
                                             />
-                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
-                                                Optional: Number of items per stock unit (used to calculate items per unit)
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                                Items per stock unit
                                             </Typography>
                                         </Grid>
+
                                         <Grid size={{ xs: 12, md: 4 }}>
                                             <FormNumberField
                                                 name={`variants.${index}.itemsPerUnit`}
@@ -1385,11 +1412,12 @@ export default function ProductForm() {
                                                 size="small"
                                                 disabled={true}
                                             />
-                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
-                                                Optional: Auto-calculated based on Stock Unit and Quantity
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                                Auto-calculated
                                             </Typography>
                                         </Grid>
-                                        <Grid size={{ xs: 12, md: 6 }}>
+
+                                        <Grid size={{ xs: 12, md: 4 }}>
                                             <FormAutocomplete
                                                 name={`variants.${index}.itemUnit`}
                                                 label="Item Unit (Optional)"
@@ -1397,12 +1425,12 @@ export default function ProductForm() {
                                                 options={getItemUnitOptions()}
                                                 size="small"
                                             />
-                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
-                                                Optional: The unit of measurement (e.g., G for grams, KG for kilograms, ML for milliliters)
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                                Unit of measurement
                                             </Typography>
                                         </Grid>
 
-                                        <Grid size={{ xs: 12, md: 6 }}>
+                                        <Grid size={{ xs: 12, md: 4 }}>
                                             <FormNumberField
                                                 name={`variants.${index}.itemQuantity`}
                                                 control={control}
@@ -1413,13 +1441,13 @@ export default function ProductForm() {
                                                 disabled={loading}
                                                 inputProps={{ step: 'any' }}
                                             />
-                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
-                                                Optional: The quantity measurement per individual item (e.g., 500 for 500 grams)
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                                Quantity per item
                                             </Typography>
                                         </Grid>
 
-
-                                        <Grid size={{ xs: 12, md: 6 }}>
+                                        {/* Dates and Additional Info */}
+                                        <Grid size={{ xs: 12, md: 4 }}>
                                             <FormDatePicker
                                                 name={`variants.${index}.expiryDate`}
                                                 control={control}
@@ -1440,66 +1468,223 @@ export default function ProductForm() {
                                                 </Typography>
                                             )}
                                         </Grid>
+
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                            <FormTextField
+                                                name={`variants.${index}.description`}
+                                                control={control}
+                                                label="Variant Description"
+                                                placeholder="Enter a detailed description..."
+                                                variant="outlined"
+                                                multiline
+                                                rows={3}
+                                                disabled={loading}
+                                            />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                                Optional: Variant description
+                                            </Typography>
+                                        </Grid>
+
+                                        <Grid size={{ xs: 12, md: 6 }}>
+                                            <FormTextField
+                                                name={`variants.${index}.nutritional`}
+                                                control={control}
+                                                label="Nutritional Information"
+                                                placeholder="Enter nutritional details..."
+                                                variant="outlined"
+                                                multiline
+                                                rows={3}
+                                                disabled={loading}
+                                            />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                                Optional: Nutritional facts
+                                            </Typography>
+                                        </Grid>
+
+                                        {/* Combo Discounts Section */}
+                                        <Grid size={{ xs: 12 }}>
+                                            <Box sx={{ mt: 2, mb: 2 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <LocalOfferIcon sx={{ color: 'primary.main', fontSize: '1.25rem' }} />
+                                                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                                            Combo Discounts (Optional)
+                                                        </Typography>
+                                                    </Box>
+                                                    <Button
+                                                        size="small"
+                                                        startIcon={<AddIcon />}
+                                                        onClick={() => {
+                                                            const currentDiscounts = watch(`variants.${index}.comboDiscounts`) || [];
+                                                            setValue(`variants.${index}.comboDiscounts`, [
+                                                                ...currentDiscounts,
+                                                                {
+                                                                    comboQuantity: 2,
+                                                                    discountType: 'PERCENT' as const,
+                                                                    discountValue: 0,
+                                                                    startDate: null,
+                                                                    endDate: null,
+                                                                    status: 'ACTIVE' as const,
+                                                                },
+                                                            ]);
+                                                        }}
+                                                        disabled={loading}
+                                                        sx={{ textTransform: 'none' }}
+                                                    >
+                                                        Add Combo Discount
+                                                    </Button>
+                                                </Box>
+                                                <Divider sx={{ mb: 2 }} />
+                                                
+                                                {watch(`variants.${index}.comboDiscounts`)?.map((discount: ComboDiscountFormData, discountIndex: number) => (
+                                                    <Paper
+                                                        key={discountIndex}
+                                                        elevation={0}
+                                                        sx={{
+                                                            p: 2,
+                                                            mb: 2,
+                                                            borderRadius: 2,
+                                                            bgcolor: 'grey.50',
+                                                            border: '1px solid',
+                                                            borderColor: 'divider',
+                                                        }}
+                                                    >
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                                                Combo Discount {discountIndex + 1}
+                                                            </Typography>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => {
+                                                                    const currentDiscounts = watch(`variants.${index}.comboDiscounts`) || [];
+                                                                    const newDiscounts = currentDiscounts.filter((_: any, i: number) => i !== discountIndex);
+                                                                    setValue(`variants.${index}.comboDiscounts`, newDiscounts);
+                                                                }}
+                                                                disabled={loading}
+                                                                sx={{ color: 'error.main' }}
+                                                            >
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Box>
+                                                        <Grid container spacing={2}>
+                                                            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                                                <FormNumberField
+                                                                    name={`variants.${index}.comboDiscounts.${discountIndex}.comboQuantity`}
+                                                                    control={control}
+                                                                    label="Combo Quantity"
+                                                                    required
+                                                                    placeholder="e.g., 2"
+                                                                    variant="outlined"
+                                                                    size="small"
+                                                                    disabled={loading}
+                                                                    inputProps={{ step: 1, min: 1 }}
+                                                                />
+                                                                <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                                                    Exact quantity required (e.g., 2 = buy exactly 2 items)
+                                                                </Typography>
+                                                            </Grid>
+                                                            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                                                <FormSelect
+                                                                    name={`variants.${index}.comboDiscounts.${discountIndex}.discountType`}
+                                                                    control={control}
+                                                                    label="Discount Type"
+                                                                    required
+                                                                    disabled={loading}
+                                                                    options={[
+                                                                        { value: 'PERCENT', label: 'Percentage' },
+                                                                        { value: 'FLATOFF', label: 'Flat Amount' },
+                                                                    ]}
+                                                                />
+                                                            </Grid>
+                                                            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                                                {watch(`variants.${index}.comboDiscounts.${discountIndex}.discountType`) === 'PERCENT' ? (
+                                                                    <FormNumberField
+                                                                        name={`variants.${index}.comboDiscounts.${discountIndex}.discountValue`}
+                                                                        control={control}
+                                                                        label="Discount Percentage"
+                                                                        required
+                                                                        placeholder="e.g., 10"
+                                                                        variant="outlined"
+                                                                        size="small"
+                                                                        disabled={loading}
+                                                                        inputProps={{ step: 1, min: 1, max: 100 }}
+                                                                    />
+                                                                ) : (
+                                                                    <FormNumberField
+                                                                        name={`variants.${index}.comboDiscounts.${discountIndex}.discountValue`}
+                                                                        control={control}
+                                                                        label="Flat Discount Amount"
+                                                                        required
+                                                                        placeholder="e.g., 50"
+                                                                        variant="outlined"
+                                                                        size="small"
+                                                                        disabled={loading}
+                                                                        inputProps={{ step: 0.01, min: 0.01 }}
+                                                                    />
+                                                                )}
+                                                                <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                                                    {watch(`variants.${index}.comboDiscounts.${discountIndex}.discountType`) === 'PERCENT'
+                                                                        ? 'Percentage value (1-100)'
+                                                                        : 'Flat discount amount in currency'}
+                                                                </Typography>
+                                                            </Grid>
+                                                            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                                                <FormSelect
+                                                                    name={`variants.${index}.comboDiscounts.${discountIndex}.status`}
+                                                                    control={control}
+                                                                    label="Status"
+                                                                    disabled={loading}
+                                                                    options={[
+                                                                        { value: 'ACTIVE', label: 'Active' },
+                                                                        { value: 'INACTIVE', label: 'Inactive' },
+                                                                    ]}
+                                                                />
+                                                            </Grid>
+                                                            <Grid size={{ xs: 12, sm: 6 }}>
+                                                                <FormDatePicker
+                                                                    name={`variants.${index}.comboDiscounts.${discountIndex}.startDate`}
+                                                                    control={control}
+                                                                    label="Start Date"
+                                                                    required
+                                                                    disabled={loading}
+                                                                    slotProps={{
+                                                                        textField: {
+                                                                            required: true,
+                                                                            size: 'small',
+                                                                            variant: 'outlined',
+                                                                        },
+                                                                    }}
+                                                                />
+                                                            </Grid>
+                                                            <Grid size={{ xs: 12, sm: 6 }}>
+                                                                <FormDatePicker
+                                                                    name={`variants.${index}.comboDiscounts.${discountIndex}.endDate`}
+                                                                    control={control}
+                                                                    label="End Date"
+                                                                    required
+                                                                    disabled={loading}
+                                                                    slotProps={{
+                                                                        textField: {
+                                                                            required: true,
+                                                                            size: 'small',
+                                                                            variant: 'outlined',
+                                                                        },
+                                                                    }}
+                                                                />
+                                                            </Grid>
+                                                        </Grid>
+                                                    </Paper>
+                                                ))}
+                                                {(!watch(`variants.${index}.comboDiscounts`) || watch(`variants.${index}.comboDiscounts`)?.length === 0) && (
+                                                    <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic', textAlign: 'center', py: 2 }}>
+                                                        No combo discounts added. Click "Add Combo Discount" to create one.
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        </Grid>
                                     </Grid>
                                 </Paper>
                             ))}
-                        </Paper>
-                    </Grid>
-
-                    {/* Additional Information Section */}
-                    <Grid size={{ xs: 12 }}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 3,
-                                borderRadius: 3,
-                                bgcolor: 'background.paper',
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                mb: 3
-                            }}
-                        >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                                <DescriptionIcon sx={{ color: 'text.secondary', fontSize: '1.25rem' }} />
-                                <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '1.125rem' }}>
-                                    Additional Information
-                                </Typography>
-                            </Box>
-                            <Divider sx={{ mb: 3 }} />
-                            <Grid container spacing={3}>
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <FormTextField
-                                        name="description"
-                                        control={control}
-                                        label="Product Description"
-                                        placeholder="Enter a detailed description of the product..."
-                                        variant="outlined"
-                                        multiline
-                                        required
-                                        rows={4}
-                                        disabled={loading}
-                                    />
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
-                                        Provide a detailed description that helps customers understand your product
-                                    </Typography>
-                                </Grid>
-
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <FormTextField
-                                        name="nutritional"
-                                        control={control}
-                                        label="Nutritional Information"
-                                        placeholder="Enter nutritional details..."
-                                        variant="outlined"
-                                        multiline
-                                        rows={4}
-                                        disabled={loading}
-                                    />
-                                    <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
-                                        Optional: Add nutritional facts, ingredients, or other relevant information
-                                    </Typography>
-                                </Grid>
-                            </Grid>
                         </Paper>
                     </Grid>
 

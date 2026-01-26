@@ -7,7 +7,8 @@ import AddIcon from '@mui/icons-material/Add';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import DeleteIcon from '@mui/icons-material/DeleteOutline';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import BlockIcon from '@mui/icons-material/Block';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
@@ -15,7 +16,7 @@ import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
 import CustomTabs from '../../components/CustomTabs';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { fetchUsers, convertUserToRider, type FetchParams } from '../../services/user.service';
+import { fetchUsers, convertUserToRider, updateUserStatus, type FetchParams } from '../../services/user.service';
 import type { User, UserRole } from '../../types/user';
 import type { ServerFilter } from '../../types/filter';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
@@ -38,6 +39,7 @@ interface AdvancedFilters {
 export default function UserList() {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
+    const currentUser = useAppSelector((state) => state.auth.user);
     
     // Tab State
     const [activeTab, setActiveTab] = React.useState<UserRole>('USER');
@@ -193,6 +195,26 @@ export default function UserList() {
         }
     };
 
+    const handleToggleStatus = async (user: User) => {
+        if (!currentUser?.id) {
+            showErrorToast('Unable to identify current user. Please try again.');
+            return;
+        }
+        
+        const currentStatus = user.status || 'INACTIVE';
+        const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        const action = newStatus === 'ACTIVE' ? 'activate' : 'deactivate';
+        
+        try {
+            await updateUserStatus(user.id, newStatus, currentUser.id, user.concurrencyStamp);
+            showSuccessToast(`User ${action}d successfully!`);
+            // Refresh the table to reflect the changes
+            tableHandlers.refresh();
+        } catch {
+            showErrorToast(`Failed to ${action} user. Please try again.`);
+        }
+    };
+
     const columns: Column<User>[] = [
         {
             id: 'name' as keyof User,
@@ -250,40 +272,53 @@ export default function UserList() {
         {
             id: 'action' as keyof User,
         label: 'Action',
-            minWidth: 100,
+            minWidth: 120,
             align: 'right' as const,
-            render: (row: User) => (
-            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                    {activeTab === 'USER' && (
-                        <Tooltip title="Convert User to Rider" arrow>
-                <IconButton
-                    size="small"
-                                onClick={() => handleConvertToRider(row.id)}
-                    sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        color: 'text.secondary',
-                        '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                    }}
-                >
-                                <SwapHorizIcon fontSize="small" />
-                </IconButton>
+            render: (row: User) => {
+                const isActive = row.status === 'ACTIVE';
+                return (
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                        {activeTab === 'USER' && (
+                            <Tooltip title="Convert User to Rider" arrow>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => handleConvertToRider(row.id)}
+                                    sx={{
+                                        border: '1px solid #e0e0e0',
+                                        borderRadius: 2,
+                                        color: 'text.secondary',
+                                        '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
+                                    }}
+                                >
+                                    <SwapHorizIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                        <Tooltip title={isActive ? 'Deactivate User' : 'Activate User'} arrow>
+                            <IconButton
+                                size="small"
+                                onClick={() => handleToggleStatus(row)}
+                                sx={{
+                                    border: `1px solid ${isActive ? '#c8e6c9' : '#ffcdd2'}`,
+                                    borderRadius: 2,
+                                    color: isActive ? 'error.main' : 'success.main',
+                                    bgcolor: isActive ? '#ffebee' : '#e8f5e9',
+                                    '&:hover': { 
+                                        bgcolor: isActive ? '#ffcdd2' : '#c8e6c9', 
+                                        borderColor: isActive ? '#ffcdd2' : '#c8e6c9' 
+                                    }
+                                }}
+                            >
+                                {isActive ? (
+                                   <BlockIcon fontSize="small" />
+                                ) : (
+                                    <CheckCircleIcon fontSize="small" />
+                                )}
+                            </IconButton>
                         </Tooltip>
-                    )}
-                <IconButton
-                    size="small"
-                    sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        color: 'error.main',
-                        bgcolor: '#ffebee',
-                        '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                    }}
-                >
-                    <DeleteIcon fontSize="small" />
-                </IconButton>
-            </Box>
-        ),
+                    </Box>
+                );
+            },
     },
 ];
 

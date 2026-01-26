@@ -16,6 +16,7 @@ import {
 import type { Notification } from '../types/notification';
 import { useAppSelector } from '../store/hooks';
 import type { User } from '../types/auth';
+import { playNotificationSound } from '../utils/sound';
 
 interface NotificationContextValue {
   notifications: Notification[];
@@ -53,6 +54,7 @@ interface NotificationProviderProps {
 }
 
 export const NotificationProvider: React.FC<NotificationProviderProps> = ({ children, user }) => {
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -75,12 +77,14 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
 
   // Initialize socket connection (only runs when user/token changes)
   useEffect(() => {
+
     // Mark component as mounted
     isMountedRef.current = true;
     
     if (!user || !token) {
       return;
     }
+    
 
     // Only connect if not already connected
     const socket = socketService.getSocket();
@@ -141,8 +145,11 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
               }
             }, 50);
             
-            // If it's an ORDER_PLACED notification, show the dialog
+            // If it's an ORDER_PLACED notification, show the dialog and play sound
             if (notif.type === 'ORDER_PLACED' && notif.entity_id && typeof notif.entity_id === 'number') {
+              // Play notification sound for order alerts
+              playNotificationSound();
+              
               requestAnimationFrame(() => {
                 if (!isMountedRef.current) {
                   return;

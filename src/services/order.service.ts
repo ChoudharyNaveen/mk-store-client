@@ -145,6 +145,7 @@ export interface OrderDetailsResponse {
       unit_price: number;
       discount: number;
       total: number;
+      is_combo?: boolean;
     }>;
     summary: {
       subtotal: number;
@@ -183,6 +184,18 @@ export interface OrderDetailsResponse {
       payment_status: string;
       order_status: string;
     };
+    status_history?: Array<{
+      id: number;
+      status: string;
+      previous_status: string | null;
+      notes: string | null;
+      changed_by: {
+        id: number;
+        name: string | null;
+        email: string | null;
+      };
+      changed_at: string;
+    }>;
   };
 }
 
