@@ -117,6 +117,15 @@ export const API_URLS = {
     GET_RECENT_ORDERS: `${API_PREFIX}/get-recent-orders`,
     GET_EXPIRING_PRODUCTS: `${API_PREFIX}/get-expiring-products`,
   },
+  
+  // Banner endpoints
+  BANNERS: {
+    LIST: `${API_PREFIX}/get-banner`,
+    CREATE: `${API_PREFIX}/save-banner`,
+    GET_BY_ID: (id: string | number) => `${API_PREFIX}/get-banner-by-id/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-banner/${id}`,
+    DELETE: (id: string | number) => `${API_PREFIX}/delete-banner/${id}`,
+  },
 } as const;
 
 export default API_URLS;

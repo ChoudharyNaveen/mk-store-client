@@ -22,6 +22,9 @@ import NewOfferForm from '../pages/offers/NewOfferForm';
 import OrderList from '../pages/orders/OrderList';
 import OrderDetail from '../pages/orders/OrderDetail';
 import LoginForm from '../pages/login/LoginForm';
+import BannerList from '../pages/banners/BannerList';
+import BannerForm from '../pages/banners/BannerForm';
+import BannerDetail from '../pages/banners/BannerDetail';
 
 /**
  * Public routes (accessible without authentication)
@@ -160,6 +163,23 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/orders/edit/:id',
     element: <OrderList />, // TODO: Create OrderEdit component
+  },
+  // Banner routes
+  {
+    path: '/banners',
+    element: <BannerList />,
+  },
+  {
+    path: '/banners/new',
+    element: <BannerForm />,
+  },
+  {
+    path: '/banners/edit/:id',
+    element: <BannerForm />,
+  },
+  {
+    path: '/banners/detail/:id',
+    element: <BannerDetail />,
   },
 ];
 

@@ -35,6 +35,7 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ImageIcon from '@mui/icons-material/Image';
 
 const drawerWidth = 260;
 const closedDrawerWidth = 70;
@@ -106,6 +107,14 @@ const menuItems: MenuItem[] = [
         path: '/offers',
         // children: [
         //     { text: 'Offers List', path: '/offers' },
+        // ],
+    },
+    {
+        text: 'Banners',
+        icon: <ImageIcon />,
+        path: '/banners',
+        // children: [
+        //     { text: 'Banner List', path: '/banners' },
         // ],
     },
     {
