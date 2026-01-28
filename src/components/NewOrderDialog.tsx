@@ -334,9 +334,9 @@ const NewOrderDialog: React.FC<NewOrderDialogProps> = ({
                           <Typography variant="body1" fontWeight={500}>
                             {item.product?.title || 'N/A'}
                           </Typography>
-                          {item.is_combo && (
+                          {item.combo_id && item.combo_quantity > 0 && (
                             <Chip
-                              label="Combo Discount"
+                              label={`Combo Discount (Pack of ${item.combo_quantity})`}
                               size="small"
                               color="success"
                               sx={{

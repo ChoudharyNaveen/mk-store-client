@@ -57,8 +57,9 @@ interface OrderItem {
     total_price: number;
     discount_amount: number;
     final_price: number;
-    is_combo?: boolean;
+    combo_id?: boolean;
     subtotal?: number;
+    combo_quantity?: number;
 }
 
 // Order status history item
@@ -136,8 +137,9 @@ const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDe
         total_price: item.unit_price * item.quantity,
         discount_amount: item.discount,
         final_price: item.total,
-        is_combo: item.is_combo || false,
+        combo_id: item.combo_id || false,
         subtotal: item.total,
+        combo_quantity: item.combo_quantity || 0,
     })),
     statusHistory: apiData.status_history?.reverse()?.map((historyItem) => ({
         id: historyItem.id,
@@ -630,9 +632,9 @@ export default function OrderDetail() {
                             >
                                 {row.variant_name}
                             </Typography>
-                            {row.is_combo && (
+                            {row.combo_id && row.combo_quantity > 0 && (
                                 <Chip
-                                    label="Combo Discount"
+                                    label={`Combo Discount (Pack of ${row.combo_quantity})`}
                                     size="small"
                                     color="success"
                                     sx={{

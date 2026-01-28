@@ -145,7 +145,8 @@ export interface OrderDetailsResponse {
       unit_price: number;
       discount: number;
       total: number;
-      is_combo?: boolean;
+      combo_id?: boolean;
+      combo_quantity?: number;
     }>;
     summary: {
       subtotal: number;
