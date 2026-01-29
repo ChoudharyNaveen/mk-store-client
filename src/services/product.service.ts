@@ -269,7 +269,10 @@ export const createProduct = async (
     if (data.brandId) {
       formData.append('brandId', String(data.brandId));
     }
-    
+    if (data.productTypeId != null && data.productTypeId !== '') {
+      formData.append('productTypeId', String(data.productTypeId));
+    }
+
     // Add createdBy if available (from user context)
     const userId = localStorage.getItem('user_id');
     if (userId) {
@@ -388,6 +391,8 @@ export const fetchProductDetails = async (
       subCategory: product.subCategory || product.sub_category || undefined,
       brand: product.brand || null,
       brandId: (product.brand as { id?: number })?.id || product.brandId || undefined,
+      productType: product.productType || product.product_type || undefined,
+      productTypeId: (product.productType as { id?: number })?.id ?? (product.product_type as { id?: number })?.id ?? product.productTypeId ?? undefined,
     } as unknown as Product;
 
     return mappedProduct;
@@ -459,7 +464,15 @@ export const updateProduct = async (
         formData.append('brandId', String(data.brandId));
       }
     }
-    
+    // Product type ID - optional
+    if (data.productTypeId !== undefined) {
+      if (data.productTypeId === null || data.productTypeId === '') {
+        formData.append('productTypeId', '');
+      } else {
+        formData.append('productTypeId', String(data.productTypeId));
+      }
+    }
+
     // Variants - send as a single JSON string array
     if (data.variants && data.variants.length > 0) {
       formData.append('variants', JSON.stringify(data.variants));

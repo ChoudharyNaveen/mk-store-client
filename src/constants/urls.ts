@@ -118,6 +118,12 @@ export const API_URLS = {
     GET_EXPIRING_PRODUCTS: `${API_PREFIX}/get-expiring-products`,
   },
   
+  // Product type endpoints
+  PRODUCT_TYPES: {
+    LIST: `${API_PREFIX}/get-product-type`,
+    CREATE: `${API_PREFIX}/save-product-type`,
+  },
+
   // Banner endpoints
   BANNERS: {
     LIST: `${API_PREFIX}/get-banner`,

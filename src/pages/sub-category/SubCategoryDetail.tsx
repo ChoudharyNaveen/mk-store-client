@@ -29,10 +29,14 @@ import InfoIcon from '@mui/icons-material/Info';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchSubCategories, fetchSubCategoryStats } from '../../services/sub-category.service';
 import { fetchProducts } from '../../services/product.service';
+import { getProductTypes } from '../../services/product-type.service';
 import { showErrorToast } from '../../utils/toast';
 import type { SubCategory, SubCategoryStats } from '../../types/sub-category';
 import type { Product, ProductVariant } from '../../types/product';
+import type { ProductType } from '../../types/product-type';
 import type { Column, TableState } from '../../types/table';
+import NewProductTypeDialog from '../../components/NewProductTypeDialog';
+import AddIcon from '@mui/icons-material/Add';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { DateRange } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
@@ -479,6 +483,109 @@ function ProductsTable({ subCategoryId }: ProductsTableProps) {
     );
 }
 
+interface ProductTypesTableProps {
+    subCategoryId: number;
+}
+
+function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
+    const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+
+    const fetchProductTypesBySubCategory = React.useCallback(
+        async (params: {
+            page?: number;
+            pageSize?: number;
+            searchKeyword?: string;
+            sorting?: Array<{ key: string; direction: 'ASC' | 'DESC' }>;
+            signal?: AbortSignal;
+        }) => {
+            return getProductTypes({
+                page: params.page,
+                pageSize: params.pageSize,
+                searchKeyword: params.searchKeyword,
+                sorting: params.sorting,
+                signal: params.signal,
+                filters: [{ key: 'subCategoryId', eq: String(subCategoryId) }],
+            });
+        },
+        [subCategoryId]
+    );
+
+    const { paginationModel, tableState, tableHandlers } = useServerPagination<ProductType>({
+        fetchFunction: fetchProductTypesBySubCategory,
+        initialPageSize: 20,
+        enabled: true,
+        autoFetch: true,
+        filters: {},
+        initialSorting: [{ key: 'id', direction: 'DESC' }],
+        searchDebounceMs: 500,
+    });
+
+    const columns: Column<ProductType>[] = [
+        {
+            id: 'id' as keyof ProductType,
+            label: 'ID',
+            minWidth: 80,
+        },
+        {
+            id: 'title' as keyof ProductType,
+            label: 'Title',
+            minWidth: 200,
+        },
+        {
+            id: 'status' as keyof ProductType,
+            label: 'Status',
+            minWidth: 100,
+            align: 'center' as const,
+            render: (row: ProductType) => (
+                <Chip
+                    label={row.status}
+                    color={row.status === 'ACTIVE' ? 'success' : 'default'}
+                    size="small"
+                />
+            ),
+        },
+        {
+            id: 'createdAt' as keyof ProductType,
+            label: 'Created',
+            minWidth: 140,
+            render: (row: ProductType) => {
+                const created = row.createdAt ?? row.created_at;
+                return created ? format(new Date(created), 'MMM dd, yyyy') : 'N/A';
+            },
+        },
+    ];
+
+    const handleCreateSuccess = () => {
+        tableHandlers.refresh();
+    };
+
+    return (
+        <>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => setCreateDialogOpen(true)}
+                    sx={{ textTransform: 'none' }}
+                >
+                    Add Product Type
+                </Button>
+            </Box>
+            <DataTable
+                key={`sub-category-product-types-table-${paginationModel.page}-${paginationModel.pageSize}`}
+                columns={columns}
+                state={tableState}
+                handlers={tableHandlers}
+            />
+            <NewProductTypeDialog
+                open={createDialogOpen}
+                onClose={() => setCreateDialogOpen(false)}
+                subCategoryId={subCategoryId}
+                onSuccess={handleCreateSuccess}
+            />
+        </>
+    );
+}
 
 export default function SubCategoryDetail() {
     const navigate = useNavigate();
@@ -536,7 +643,7 @@ export default function SubCategoryDetail() {
     // Fetch stats when Reports tab is active and when date range changes
     React.useEffect(() => {
         const loadStats = async () => {
-            if (!subCategory || tabValue !== 2) {
+            if (!subCategory || tabValue !== 3) {
                 return; // Only fetch when Reports tab is active
             }
 
@@ -707,6 +814,7 @@ export default function SubCategoryDetail() {
                         <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider' }}>
                             <Tab label="Overview" />
                             <Tab label="Products" />
+                            <Tab label="Product Types" />
                             <Tab label="Reports" />
                         </Tabs>
 
@@ -840,8 +948,13 @@ export default function SubCategoryDetail() {
                             <ProductsTable subCategoryId={subCategory.id} />
                         </TabPanel>
 
-                        {/* Reports Tab */}
+                        {/* Product Types Tab */}
                         <TabPanel value={tabValue} index={2}>
+                            <ProductTypesTable subCategoryId={subCategory.id} />
+                        </TabPanel>
+
+                        {/* Reports Tab */}
+                        <TabPanel value={tabValue} index={3}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                                 <Typography variant="h6" sx={{ fontWeight: 600, color: '#333' }}>
                                     Sub-Category Reports & Statistics

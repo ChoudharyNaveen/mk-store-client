@@ -7,7 +7,6 @@ import {
     Grid,
     Avatar,
     Chip,
-    Divider,
     CircularProgress,
     Card,
     CardContent,
@@ -18,7 +17,6 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import InventoryIcon from '@mui/icons-material/Inventory';
@@ -35,7 +33,6 @@ import type { Column, TableState } from '../../types/table';
 import { formatExpiryDate, getExpiryDateColor } from '../../utils/productHelpers';
 import { format } from 'date-fns';
 
-
 interface TabPanelProps {
     children?: React.ReactNode;
     index: number;
@@ -51,6 +48,14 @@ function TabPanel(props: TabPanelProps) {
     );
 }
 
+// Helper to get default product image
+const getDefaultImage = (product: Product): string | undefined => {
+    if (product.images && product.images.length > 0) {
+        const defaultImage = product.images.find(img => img.is_default);
+        return defaultImage?.image_url || product.images[0]?.image_url;
+    }
+    return product.image;
+};
 
 export default function ProductDetail() {
     const navigate = useNavigate();
@@ -59,8 +64,8 @@ export default function ProductDetail() {
     const [productStats, setProductStats] = React.useState<ProductStats | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [tabValue, setTabValue] = React.useState(0);
+    const [overviewTabValue, setOverviewTabValue] = React.useState(0);
 
-    // Inventory movements pagination
     const {
         tableState,
         tableHandlers,
@@ -81,12 +86,10 @@ export default function ProductDetail() {
 
             try {
                 setLoading(true);
-                // Fetch product details and stats in parallel
                 const [productData, statsData] = await Promise.all([
                     fetchProductDetails(id),
                     fetchProductStats(id).catch((error) => {
                         console.error('Error fetching product stats:', error);
-                        // Don't fail the whole page if stats fail, just log it
                         return null;
                     }),
                 ]);
@@ -128,6 +131,11 @@ export default function ProductDetail() {
         setTabValue(newValue);
     };
 
+    const handleOverviewTabChange = (event: React.SyntheticEvent, newValue: number) => {
+        setOverviewTabValue(newValue);
+    };
+
+    const imageUrl = getDefaultImage(product);
 
     return (
         <Box>
@@ -150,13 +158,6 @@ export default function ProductDetail() {
                     </Typography>
                 </Box>
                 <Stack direction="row" spacing={1}>
-                    <Button
-                        variant="outlined"
-                        startIcon={<ContentCopyIcon />}
-                        sx={{ textTransform: 'none' }}
-                    >
-                        Clone
-                    </Button>
                     <Button
                         variant="outlined"
                         startIcon={<EditIcon />}
@@ -260,57 +261,7 @@ export default function ProductDetail() {
             </Grid>
 
             <Grid container spacing={3}>
-                {/* Left Column - Image and Basic Info */}
-                <Grid size={{ xs: 12, md: 4 }}>
-                    <Paper sx={{ p: 3, mb: 3 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-                            {product?.images?.[0]?.image_url ? (
-                                <Box
-                                    component="img"
-                                    src={product?.images?.[0]?.image_url}
-                                    alt={product.title}
-                                    sx={{
-                                        width: '100%',
-                                        maxWidth: 400,
-                                        height: 'auto',
-                                        borderRadius: 2,
-                                        objectFit: 'cover',
-                                    }}
-                                />
-                            ) : (
-                                <Avatar
-                                    sx={{
-                                        width: 200,
-                                        height: 200,
-                                        bgcolor: '#e0e0e0',
-                                        fontSize: '3rem',
-                                    }}
-                                >
-                                    {product.title.charAt(0).toUpperCase()}
-                                </Avatar>
-                            )}
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap', mb: 2 }}>
-                            <Chip
-                                label={product.status}
-                                color={getStatusColor(product.status)}
-                                size="small"
-                            />
-                        </Box>
-                        <Divider sx={{ my: 2 }} />
-                        <Box>
-                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                Product ID
-                            </Typography>
-                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                #{product.id}
-                            </Typography>
-                        </Box>
-                    </Paper>
-                </Grid>
-
-                {/* Right Column - Tabs */}
-                <Grid size={{ xs: 12, md: 8 }}>
+                <Grid size={{ xs: 12 }}>
                     <Paper sx={{ p: 3 }}>
                         <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider' }}>
                             <Tab label="Overview" />
@@ -322,86 +273,180 @@ export default function ProductDetail() {
 
                         {/* Overview Tab */}
                         <TabPanel value={tabValue} index={0}>
-                            <Typography variant="h5" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                                {product.title}
-                            </Typography>
+                            <Box sx={{ mb: 3 }}>
+                                <Typography variant="h5" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
+                                    {product.title}
+                                </Typography>
 
-                            <Divider sx={{ mb: 3 }} />
+                                {/* Image Section */}
+                                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                                    {imageUrl ? (
+                                        <Box
+                                            component="img"
+                                            src={imageUrl}
+                                            alt={product.title}
+                                            sx={{
+                                                width: '100%',
+                                                maxWidth: 400,
+                                                height: 'auto',
+                                                borderRadius: 2,
+                                                objectFit: 'cover',
+                                            }}
+                                        />
+                                    ) : (
+                                        <Avatar
+                                            sx={{
+                                                width: 200,
+                                                height: 200,
+                                                bgcolor: '#e0e0e0',
+                                                fontSize: '3rem',
+                                            }}
+                                        >
+                                            {product.title.charAt(0).toUpperCase()}
+                                        </Avatar>
+                                    )}
+                                </Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+                                    <Chip
+                                        label={product.status}
+                                        color={getStatusColor(product.status)}
+                                        size="small"
+                                    />
+                                </Box>
+                            </Box>
 
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Product ID
-                                    </Typography>
-                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                        #{product.id}
-                                    </Typography>
-                                </Grid>
-                                {(product.updated_at || product.updatedAt) && (
+                            {/* Nested Tabs within Overview */}
+                            <Tabs value={overviewTabValue} onChange={handleOverviewTabChange} sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                                <Tab label="Basic Information" />
+                                <Tab label="Details" />
+                                <Tab label="Metadata" />
+                            </Tabs>
+
+                            {/* Basic Information Tab */}
+                            <TabPanel value={overviewTabValue} index={0}>
+                                <Grid container spacing={2}>
                                     <Grid size={{ xs: 12, sm: 6 }}>
                                         <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Updated At
+                                            Product ID
                                         </Typography>
                                         <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                            {format(new Date(product.updated_at || product.updatedAt || ''), 'MMM dd, yyyy HH:mm')}
+                                            #{product.id}
                                         </Typography>
                                     </Grid>
-                                )}
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Category
-                                    </Typography>
-                                    <Button
-                                        variant="text"
-                                        onClick={() => navigate(`/category/detail/${product.category?.id}`)}
-                                        sx={{ textTransform: 'none', p: 0, justifyContent: 'flex-start' }}
-                                    >
-                                        {product.category?.title || 'N/A'}
-                                    </Button>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                        Sub Category
-                                    </Typography>
-                                    <Button
-                                        variant="text"
-                                        onClick={() => navigate(`/sub-category/detail/${product.subCategory?.id}`)}
-                                        sx={{ textTransform: 'none', p: 0, justifyContent: 'flex-start' }}
-                                    >
-                                        {product.subCategory?.title || 'N/A'}
-                                    </Button>
-                                </Grid>
-                                {product.brand && (
                                     <Grid size={{ xs: 12, sm: 6 }}>
                                         <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Brand
+                                            Status
                                         </Typography>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            {product.brand.logo && (
-                                                <Avatar
-                                                    src={product.brand.logo}
-                                                    alt={product.brand.name}
-                                                    sx={{ width: 24, height: 24 }}
-                                                />
-                                            )}
-                                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                                {product.brand.name}
+                                        <Chip
+                                            label={product.status}
+                                            color={getStatusColor(product.status)}
+                                            size="small"
+                                        />
+                                    </Grid>
+                                    {product.category && (
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                                                Category
                                             </Typography>
-                                        </Box>
-                                    </Grid>
-                                )}
-                                {product.createdAt && (
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
-                                            Created At
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                            {format(new Date(product.createdAt), 'MMM dd, yyyy HH:mm')}
-                                        </Typography>
-                                    </Grid>
-                                )}
-                            </Grid>
+                                            <Button
+                                                variant="text"
+                                                onClick={() => navigate(`/category/detail/${product.category?.id}`)}
+                                                sx={{ textTransform: 'none', p: 0, justifyContent: 'flex-start' }}
+                                            >
+                                                {product.category?.title || 'N/A'}
+                                            </Button>
+                                        </Grid>
+                                    )}
+                                    {product.subCategory && (
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                                                Sub Category
+                                            </Typography>
+                                            <Button
+                                                variant="text"
+                                                onClick={() => navigate(`/sub-category/detail/${product.subCategory?.id}`)}
+                                                sx={{ textTransform: 'none', p: 0, justifyContent: 'flex-start' }}
+                                            >
+                                                {product.subCategory?.title || 'N/A'}
+                                            </Button>
+                                        </Grid>
+                                    )}
+                                    {product.brand && (
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                                                Brand
+                                            </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                {product.brand.logo && (
+                                                    <Avatar
+                                                        src={product.brand.logo}
+                                                        alt={product.brand.name}
+                                                        sx={{ width: 24, height: 24 }}
+                                                    />
+                                                )}
+                                                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                                    {product.brand.name}
+                                                </Typography>
+                                            </Box>
+                                        </Grid>
+                                    )}
+                                    {product.productType && (
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                                                Product Type
+                                            </Typography>
+                                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                                {product.productType.title}
+                                            </Typography>
+                                        </Grid>
+                                    )}
+                                </Grid>
+                            </TabPanel>
 
+                            {/* Details Tab */}
+                            <TabPanel value={overviewTabValue} index={1}>
+                                <Box>
+                                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2, color: '#333' }}>
+                                        Product Summary
+                                    </Typography>
+                                    <Typography variant="body1" sx={{ color: 'text.secondary', mb: 2 }}>
+                                        {product.variants && product.variants.length > 0
+                                            ? `This product has ${product.variants.length} variant${product.variants.length !== 1 ? 's' : ''}. View the Variants tab for pricing, stock, and expiry details.`
+                                            : 'No variants configured. Use Edit to add variants.'}
+                                    </Typography>
+                                    {product.variants && product.variants.length > 0 && (
+                                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                            Total quantity across variants: {product.variants.reduce((acc, v) => acc + (v.quantity || 0), 0).toLocaleString()}
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </TabPanel>
+
+                            {/* Metadata Tab */}
+                            <TabPanel value={overviewTabValue} index={2}>
+                                <Grid container spacing={2}>
+                                    {(product.created_at || product.createdAt) && (
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                                                Created At
+                                            </Typography>
+                                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                                {format(new Date(product.created_at || product.createdAt || ''), 'MMM dd, yyyy HH:mm')}
+                                            </Typography>
+                                        </Grid>
+                                    )}
+                                    {(product.updated_at || product.updatedAt) && (
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
+                                                Updated At
+                                            </Typography>
+                                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                                {format(new Date(product.updated_at || product.updatedAt || ''), 'MMM dd, yyyy HH:mm')}
+                                            </Typography>
+                                        </Grid>
+                                    )}
+                                </Grid>
+                            </TabPanel>
                         </TabPanel>
 
                         {/* Media Tab */}
@@ -442,7 +487,7 @@ export default function ProductDetail() {
                                                     )}
                                                     <Box sx={{ mt: 1 }}>
                                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                            Display Order: {image.display_order || 'N/A'}
+                                                            Display Order: {image.display_order ?? 'N/A'}
                                                         </Typography>
                                                         {image.variant_id && (
                                                             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
@@ -535,7 +580,7 @@ export default function ProductDetail() {
                                         {
                                             id: 'expiry_date',
                                             label: 'Expiry Date',
-                                            render: (row: ProductVariant) => (
+                                            render: (row: ProductVariant) =>
                                                 row.expiry_date ? (
                                                     <Typography
                                                         variant="body2"
@@ -547,16 +592,14 @@ export default function ProductDetail() {
                                                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                                                         No expiry
                                                     </Typography>
-                                                )
-                                            ),
+                                                ),
                                         },
                                     ];
 
-                                    // Create table state for variants (client-side pagination since data is already loaded)
                                     const variantTableState: TableState<ProductVariant> = {
                                         data: product.variants,
                                         total: product.variants.length,
-                                        page: 1,
+                                        page: 0,
                                         rowsPerPage: 10,
                                         order: 'asc',
                                         orderBy: 'variant_name',
@@ -564,17 +607,10 @@ export default function ProductDetail() {
                                         search: '',
                                     };
 
-                                    // Create handlers for variants table
                                     const variantHandlers = {
-                                        handleRequestSort: () => {
-                                            // Sorting can be added if needed
-                                        },
-                                        handleChangePage: () => {
-                                            // Pagination handled by DataTable
-                                        },
-                                        handleChangeRowsPerPage: () => {
-                                            // Rows per page handled by DataTable
-                                        },
+                                        handleRequestSort: () => {},
+                                        handleChangePage: () => {},
+                                        handleChangeRowsPerPage: () => {},
                                     };
 
                                     return (
@@ -597,7 +633,6 @@ export default function ProductDetail() {
                             <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
                                 Inventory Movements
                             </Typography>
-                            
                             {(() => {
                                 const columns: Column<InventoryMovement>[] = [
                                     {
@@ -705,9 +740,7 @@ export default function ProductDetail() {
                                     Combo Discounts
                                 </Typography>
                             </Box>
-                            
                             {(() => {
-                                // Flatten combo discounts from all variants
                                 interface ComboDiscountRow {
                                     id: string | number;
                                     variantName: string;
@@ -723,13 +756,11 @@ export default function ProductDetail() {
                                 const comboDiscountRows: ComboDiscountRow[] = [];
 
                                 product.variants?.forEach((variant) => {
-                                    // Handle both snake_case (from API) and camelCase (from mapping)
                                     const variantRecord = variant as unknown as Record<string, unknown>;
                                     const comboDiscounts = variant.combo_discounts || variantRecord.comboDiscounts || [];
-                                    
+
                                     if (Array.isArray(comboDiscounts) && comboDiscounts.length > 0) {
                                         comboDiscounts.forEach((discount: Record<string, unknown>, discountIndex: number) => {
-                                            // Handle both snake_case and camelCase field names
                                             const comboQuantity = (discount.combo_quantity ?? discount.comboQuantity) as number;
                                             const discountType = (discount.discount_type ?? discount.discountType) as string;
                                             const discountValue = (discount.discount_value ?? discount.discountValue) as number;
@@ -798,8 +829,8 @@ export default function ProductDetail() {
                                         align: 'right',
                                         render: (row) => (
                                             <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                {row.discountType === 'PERCENT' 
-                                                    ? `${row.discountValue}%` 
+                                                {row.discountType === 'PERCENT'
+                                                    ? `${row.discountValue}%`
                                                     : `Offer #${row.discountValue}`}
                                             </Typography>
                                         ),
@@ -833,7 +864,7 @@ export default function ProductDetail() {
                                 const comboDiscountTableState: TableState<ComboDiscountRow> = {
                                     data: comboDiscountRows,
                                     total: comboDiscountRows.length,
-                                    page: 1,
+                                    page: 0,
                                     rowsPerPage: 10,
                                     order: 'asc',
                                     orderBy: 'variantName',

@@ -90,6 +90,11 @@ export interface Product {
     title: string;
     image: string;
   };
+  productType?: {
+    id: number;
+    title: string;
+  };
+  productTypeId?: number;
   brand?: {
     id: number;
     name: string;
@@ -124,6 +129,7 @@ export interface CreateProductRequest {
   title: string;
   categoryId: string | number;
   subCategoryId: string | number;
+  productTypeId?: string | number | null;
   branchId: string | number;
   vendorId: string | number;
   status: ProductStatus;
@@ -156,6 +162,7 @@ export interface UpdateProductRequest {
   title?: string;
   categoryId?: string | number;
   subCategoryId?: string | number;
+  productTypeId?: string | number | null;
   status?: ProductStatus;
   updatedBy: string | number;
   concurrencyStamp: string;

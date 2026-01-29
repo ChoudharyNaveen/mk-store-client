@@ -31,7 +31,10 @@ import productService, { fetchProducts } from '../../services/product.service';
 import { fetchCategories } from '../../services/category.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
 import { fetchBrands } from '../../services/brand.service';
+import { getProductTypes } from '../../services/product-type.service';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import NewProductTypeDialog from '../../components/NewProductTypeDialog';
+import type { ProductType } from '../../types/product-type';
 import { useAppSelector } from '../../store/hooks';
 import { FormTextField, FormFileUpload, FormSelect, FormAutocomplete, FormNumberField, FormDatePicker, FormProvider } from '../../components/forms';
 import { mergeWithDefaultFilters } from '../../utils/filterBuilder';
@@ -40,6 +43,7 @@ import type { Category } from '../../types/category';
 import type { SubCategory } from '../../types/sub-category';
 import type { Brand } from '../../types/brand';
 import { getItemUnitOptions } from '../../constants/itemUnits';
+import { startOfDay } from 'date-fns';
 
 // Valid item unit values
 const validItemUnits = ['LTR', 'ML', 'GAL', 'FL_OZ', 'KG', 'G', 'MG', 'OZ', 'LB', 'TON', 'PCS', 'UNIT', 'DOZEN', 'SET', 'PAIR', 'BUNDLE', 'PKG', 'BOX', 'BOTTLE', 'CAN', 'CARTON', 'TUBE', 'JAR', 'BAG', 'POUCH', 'M', 'CM', 'MM', 'FT', 'IN', 'SQFT', 'SQM'] as const;
@@ -143,6 +147,7 @@ const createProductFormSchema = (isEditMode: boolean) => {
         ...baseProductFormSchema,
         images: imagesValidation,
         brandId: yup.number().optional().nullable(),
+        productTypeId: yup.number().optional().nullable(),
         variants: yup.array().of(variantSchema).min(1, 'At least one variant is required'),
     });
 };
@@ -189,6 +194,7 @@ interface ProductFormData {
     subCategoryId: number;
     status: 'ACTIVE' | 'INACTIVE';
     brandId?: number | null;
+    productTypeId?: number | null;
     images: ImageFormData[];
     variants: VariantFormData[];
 }
@@ -213,10 +219,13 @@ export default function ProductForm() {
     const [productData, setProductData] = React.useState<Product | null>(null);
     const [categories, setCategories] = React.useState<Category[]>([]);
     const [subCategories, setSubCategories] = React.useState<SubCategory[]>([]);
+    const [productTypes, setProductTypes] = React.useState<ProductType[]>([]);
     const [brands, setBrands] = React.useState<Brand[]>([]);
     const [loadingCategories, setLoadingCategories] = React.useState(false);
     const [loadingSubCategories, setLoadingSubCategories] = React.useState(false);
+    const [loadingProductTypes, setLoadingProductTypes] = React.useState(false);
     const [loadingBrands, setLoadingBrands] = React.useState(false);
+    const [productTypeDialogOpen, setProductTypeDialogOpen] = React.useState(false);
     const [categorySearchTerm, setCategorySearchTerm] = React.useState('');
     const [subCategorySearchTerm, setSubCategorySearchTerm] = React.useState('');
     const [brandSearchTerm, setBrandSearchTerm] = React.useState('');
@@ -239,6 +248,7 @@ export default function ProductForm() {
             subCategoryId: 0,
             status: 'ACTIVE' as ProductStatus,
             brandId: null,
+            productTypeId: null,
             images: [{ file: null, preview: null }],
             variants: [
                 {
@@ -263,6 +273,7 @@ export default function ProductForm() {
 
     const { handleSubmit, watch, reset, formState: { isValid }, control, setValue } = methods;
     const selectedCategoryId = watch('categoryId');
+    const selectedSubCategoryId = watch('subCategoryId');
     const selectedBrandId = watch('brandId');
 
     // Update ref when selectedBrandId changes
@@ -528,6 +539,39 @@ export default function ProductForm() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCategoryId, subCategorySearchTerm]);
 
+    // Fetch product types when subCategoryId changes
+    React.useEffect(() => {
+        if (!selectedSubCategoryId || selectedSubCategoryId === 0) {
+            setProductTypes([]);
+            setValue('productTypeId', null);
+            setLoadingProductTypes(false);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            setLoadingProductTypes(true);
+            try {
+                const response = await getProductTypes({
+                    filters: [{ key: 'subCategoryId', eq: String(selectedSubCategoryId) }],
+                    page: 0,
+                    pageSize: 500,
+                });
+                if (!cancelled) {
+                    setProductTypes(response.list || []);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Error fetching product types:', error);
+                    showErrorToast('Failed to load product types');
+                    setProductTypes([]);
+                }
+            } finally {
+                if (!cancelled) setLoadingProductTypes(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [selectedSubCategoryId, setValue]);
+
     // Fetch brands with debounced search (handles initial load and search, similar to categories)
     React.useEffect(() => {
         // Skip if search term is empty and we already have brands (initial load handled by this same effect)
@@ -700,6 +744,7 @@ export default function ProductForm() {
             subCategoryId: data.subCategory?.id || 0,
             status: data.status,
             brandId: brandId,
+            productTypeId: data.productType?.id ?? data.productTypeId ?? null,
             images: images.length > 0 ? images : [{ file: null, preview: null }],
             variants: variants.length > 0 ? variants : [
                 {
@@ -897,6 +942,7 @@ export default function ProductForm() {
                     title: data.title,
                     categoryId: data.categoryId,
                     subCategoryId: data.subCategoryId,
+                    productTypeId: data.productTypeId ?? undefined,
                     status: data.status,
                     brandId: brandIdValue,
                     updatedBy: userId,
@@ -919,6 +965,7 @@ export default function ProductForm() {
                     title: data.title,
                     categoryId: data.categoryId,
                     subCategoryId: data.subCategoryId,
+                    productTypeId: data.productTypeId ?? undefined,
                     branchId: selectedBranchId!,
                     vendorId: user?.vendorId || 1,
                     status: data.status as ProductStatus,
@@ -1133,9 +1180,65 @@ export default function ProductForm() {
                                         Select a sub-category within the chosen category
                                     </Typography>
                                 </Grid>
+
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <FormAutocomplete
+                                                name="productTypeId"
+                                                label="Product Type"
+                                                disabled={loading || !selectedSubCategoryId || selectedSubCategoryId === 0}
+                                                loading={loadingProductTypes}
+                                                options={[
+                                                    ...(isEditMode && productData?.productType && !productTypes.some(pt => pt.id === productData.productType!.id)
+                                                        ? [{ value: productData.productType.id, label: productData.productType.title }]
+                                                        : []),
+                                                    ...productTypes.map(pt => ({
+                                                        value: pt.id,
+                                                        label: pt.title,
+                                                    })),
+                                                ]}
+                                                size="small"
+                                            />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
+                                                Optional product type within the sub-category
+                                            </Typography>
+                                        </Box>
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            startIcon={<AddIcon />}
+                                            onClick={() => setProductTypeDialogOpen(true)}
+                                            disabled={loading || !selectedSubCategoryId || selectedSubCategoryId === 0}
+                                            sx={{ textTransform: 'none', mt: 0.5, flexShrink: 0 }}
+                                        >
+                                            Add
+                                        </Button>
+                                    </Box>
+                                </Grid>
                             </Grid>
                         </Paper>
                     </Grid>
+
+                    <NewProductTypeDialog
+                        open={productTypeDialogOpen}
+                        onClose={() => setProductTypeDialogOpen(false)}
+                        subCategoryId={selectedSubCategoryId ?? 0}
+                        onSuccess={(created) => {
+                            if (selectedSubCategoryId && selectedSubCategoryId > 0) {
+                                getProductTypes({
+                                    filters: [{ key: 'subCategoryId', eq: String(selectedSubCategoryId) }],
+                                    page: 0,
+                                    pageSize: 500,
+                                }).then((res) => {
+                                    setProductTypes(res.list || []);
+                                    if (created?.id) {
+                                        setValue('productTypeId', created.id);
+                                    }
+                                }).catch(() => setProductTypes([]));
+                            }
+                        }}
+                    />
 
                     {/* Product Variants Section */}
                     <Grid size={{ xs: 12 }}>
@@ -1240,6 +1343,7 @@ export default function ProductForm() {
                                                 <DatePicker
                                                     label="Expiry Date (All Variants)"
                                                     disabled={loading}
+                                                    minDate={startOfDay(new Date())}
                                                     value={sharedExpiryDate ? (sharedExpiryDate instanceof Date ? sharedExpiryDate : new Date(sharedExpiryDate)) : null}
                                                     onChange={(newValue) => {
                                                         handleSharedExpiryDateChange(newValue);
@@ -1454,6 +1558,7 @@ export default function ProductForm() {
                                                 label="Expiry Date"
                                                 required
                                                 disabled={loading || useSameExpiryDate}
+                                                minDate={startOfDay(new Date())}
                                                 slotProps={{
                                                     textField: {
                                                         required: true,
