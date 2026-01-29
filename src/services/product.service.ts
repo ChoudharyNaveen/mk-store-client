@@ -135,6 +135,9 @@ export const fetchProducts = async (
         // Handle brand - API may return as object or null
         brand: p.brand || null,
         brandId: (p.brand as { id?: number })?.id || p.brandId || undefined,
+        // Handle productType - API may return as object or null
+        productType: p.productType || p.product_type || undefined,
+        productTypeId: (p.productType as { id?: number })?.id ?? (p.product_type as { id?: number })?.id ?? undefined,
       } as unknown as Product;
     });
 

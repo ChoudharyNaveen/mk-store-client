@@ -10,6 +10,8 @@ import type {
   ProductTypeListResponse,
   CreateProductTypeRequest,
   CreateProductTypeResponse,
+  UpdateProductTypeRequest,
+  UpdateProductTypeResponse,
 } from '../types/product-type';
 import type { ServerFilter, ServerSorting } from '../types/filter';
 import { convertSimpleFiltersToServerFilters } from '../utils/filterBuilder';
@@ -110,6 +112,20 @@ export const createProductType = async (
 ): Promise<CreateProductTypeResponse> => {
   const response = await http.post<CreateProductTypeResponse>(
     API_URLS.PRODUCT_TYPES.CREATE,
+    body
+  );
+  return response;
+};
+
+/**
+ * Update a product type (PATCH)
+ */
+export const updateProductType = async (
+  id: number,
+  body: UpdateProductTypeRequest
+): Promise<UpdateProductTypeResponse> => {
+  const response = await http.patch<UpdateProductTypeResponse>(
+    API_URLS.PRODUCT_TYPES.UPDATE(id),
     body
   );
   return response;

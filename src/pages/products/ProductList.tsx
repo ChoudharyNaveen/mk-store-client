@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Chip, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -17,7 +17,15 @@ import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchProducts } from '../../services/product.service';
+import { fetchCategories } from '../../services/category.service';
+import { fetchSubCategories } from '../../services/sub-category.service';
+import { getProductTypes } from '../../services/product-type.service';
+import { fetchBrands } from '../../services/brand.service';
 import type { Product, ProductVariant } from '../../types/product';
+import type { Category } from '../../types/category';
+import type { SubCategory } from '../../types/sub-category';
+import type { ProductType } from '../../types/product-type';
+import type { Brand } from '../../types/brand';
 import type { ServerFilter } from '../../types/filter';
 import type { Column, TableState } from '../../types/table';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
@@ -310,6 +318,12 @@ export default function ProductList() {
             render: (row: Product) => row.brand?.name || 'N/A'
         },
         { 
+            id: 'productType' as keyof Product, 
+            label: 'Product Type', 
+            minWidth: 120,
+            render: (row: Product) => row.productType?.title ?? 'N/A'
+        },
+        { 
             id: 'quantity' as keyof Product, 
             label: 'Quantity', 
             minWidth: 80,
@@ -444,22 +458,105 @@ export default function ProductList() {
     });
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
-    const [advancedFilters, setAdvancedFilters] = React.useState({
+
+    type AdvancedFiltersState = {
+        productName: string;
+        categoryIds: number[];
+        subCategoryIds: number[];
+        productTypeIds: number[];
+        brandIds: number[];
+        status: string;
+        product_status: string;
+    };
+    const emptyAdvancedFilters: AdvancedFiltersState = {
         productName: '',
-        category: '',
+        categoryIds: [],
+        subCategoryIds: [],
+        productTypeIds: [],
+        brandIds: [],
         status: '',
         product_status: '',
-    });
+    };
 
-    // Helper function to build filters array with date range and default filters
+    const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
+    const [appliedAdvancedFilters, setAppliedAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
+
+    // Options for advanced search autocompletes (fetched via API)
+    const [categories, setCategories] = React.useState<Category[]>([]);
+    const [subCategories, setSubCategories] = React.useState<SubCategory[]>([]);
+    const [productTypes, setProductTypes] = React.useState<ProductType[]>([]);
+    const [brands, setBrands] = React.useState<Brand[]>([]);
+    const [loadingCategories, setLoadingCategories] = React.useState(false);
+    const [loadingSubCategories, setLoadingSubCategories] = React.useState(false);
+    const [loadingProductTypes, setLoadingProductTypes] = React.useState(false);
+    const [loadingBrands, setLoadingBrands] = React.useState(false);
+
+    // Cache: only fetch filter options on first dialog open, not every time
+    const filterOptionsLoadedRef = React.useRef(false);
+
+    // Fetch category, sub-category, product type, and brand options (once on first open, then cached)
+    React.useEffect(() => {
+        if (!filterAnchorEl || filterOptionsLoadedRef.current) return;
+        let cancelled = false;
+        const loadOptions = async () => {
+            setLoadingCategories(true);
+            setLoadingSubCategories(true);
+            setLoadingProductTypes(true);
+            setLoadingBrands(true);
+            try {
+                const [catRes, subRes, ptRes, brandRes] = await Promise.all([
+                    fetchCategories({ page: 0, pageSize: 500, filters: mergeWithDefaultFilters([], vendorId, selectedBranchId) }),
+                    fetchSubCategories({ page: 0, pageSize: 500, filters: mergeWithDefaultFilters([], vendorId, selectedBranchId) }),
+                    getProductTypes({ page: 0, pageSize: 500, filters: [] }),
+                    fetchBrands({ page: 0, pageSize: 500, filters: mergeWithDefaultFilters([], vendorId, selectedBranchId) }),
+                ]);
+                if (!cancelled) {
+                    setCategories(catRes.list || []);
+                    setSubCategories(subRes.list || []);
+                    setProductTypes(ptRes.list || []);
+                    setBrands(brandRes.list || []);
+                    filterOptionsLoadedRef.current = true; // cache after successful load
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Error loading filter options:', err);
+                    // ref stays false so next open will retry
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoadingCategories(false);
+                    setLoadingSubCategories(false);
+                    setLoadingProductTypes(false);
+                    setLoadingBrands(false);
+                }
+            }
+        };
+        loadOptions();
+        return () => { cancelled = true; };
+    }, [filterAnchorEl, vendorId, selectedBranchId]);
+
+    // Helper function to build filters array (uses applied filters; API is called on Apply)
     const buildFilters = React.useCallback((): ServerFilter[] => {
+        const applied = appliedAdvancedFilters;
+        const advancedFiltersForBuild: Record<string, string | number | number[] | undefined> = {
+            productName: applied.productName || undefined,
+            status: applied.status || undefined,
+            product_status: applied.product_status || undefined,
+            categoryIds: applied.categoryIds?.length ? applied.categoryIds : undefined,
+            subCategoryIds: applied.subCategoryIds?.length ? applied.subCategoryIds : undefined,
+            productTypeIds: applied.productTypeIds?.length ? applied.productTypeIds : undefined,
+            brandIds: applied.brandIds?.length ? applied.brandIds : undefined,
+        };
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
             dateRange,
             dateField: 'createdAt',
-            advancedFilters,
+            advancedFilters: advancedFiltersForBuild,
             filterMappings: {
                 productName: { field: 'title', operator: 'iLike' },
-                category: { field: 'category.title', operator: 'iLike' },
+                categoryIds: { field: 'categoryId', operator: 'in' },
+                subCategoryIds: { field: 'subCategoryId', operator: 'in' },
+                productTypeIds: { field: 'productTypeId', operator: 'in' },
+                brandIds: { field: 'brandId', operator: 'in' },
                 status: { field: 'status', operator: 'eq' },
                 product_status: { field: 'product_status', operator: 'eq' },
             },
@@ -467,13 +564,14 @@ export default function ProductList() {
         
         // Merge with default filters (vendorId and branchId)
         return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-    }, [dateRange, advancedFilters, vendorId, selectedBranchId]);
+    }, [dateRange, appliedAdvancedFilters, vendorId, selectedBranchId]);
 
     // Use server pagination hook - now includes tableState and tableHandlers
     const {
         paginationModel,
         setPaginationModel,
         setFilters,
+        fetchData,
         tableState,
         tableHandlers,
     } = useServerPagination<Product>({
@@ -502,21 +600,87 @@ export default function ProductList() {
         }
     }, [storeStartDate, storeEndDate]);
 
-    // Update filters when advanced filters or date range changes
+    // Update filters when applied filters or date range change (not on every form change; Apply triggers applied)
     React.useEffect(() => {
         setFilters(buildFilters());
-        // Reset to first page when filters change
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+    }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+
+    // When opening the filter popover, sync form state to currently applied filters
+    React.useEffect(() => {
+        if (filterAnchorEl) {
+            setAdvancedFilters(appliedAdvancedFilters);
+        }
+    }, [filterAnchorEl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleApplyFilters = () => {
+        const pending = advancedFilters;
+        setAppliedAdvancedFilters(pending);
+        const advancedFiltersForBuild: Record<string, string | number | number[] | undefined> = {
+            productName: pending.productName || undefined,
+            status: pending.status || undefined,
+            product_status: pending.product_status || undefined,
+            categoryIds: pending.categoryIds?.length ? pending.categoryIds : undefined,
+            subCategoryIds: pending.subCategoryIds?.length ? pending.subCategoryIds : undefined,
+            productTypeIds: pending.productTypeIds?.length ? pending.productTypeIds : undefined,
+            brandIds: pending.brandIds?.length ? pending.brandIds : undefined,
+        };
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+            dateRange,
+            dateField: 'createdAt',
+            advancedFilters: advancedFiltersForBuild,
+            filterMappings: {
+                productName: { field: 'title', operator: 'iLike' },
+                categoryIds: { field: 'categoryId', operator: 'in' },
+                subCategoryIds: { field: 'subCategoryId', operator: 'in' },
+                productTypeIds: { field: 'productTypeId', operator: 'in' },
+                brandIds: { field: 'brandId', operator: 'in' },
+                status: { field: 'status', operator: 'eq' },
+                product_status: { field: 'product_status', operator: 'eq' },
+            },
+        });
+        const filtersToApply = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+        setFilters(filtersToApply);
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
         setFilterAnchorEl(null);
-        tableHandlers.refresh();
+        // Do not call refresh() here: setFilters triggers the hook's useEffect [filters],
+        // which will fetch with the new filters after state updates. Calling refresh() now
+        // would use stale filters and cause a wrong API call before the correct one.
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ productName: '', category: '', status: '', product_status: '' });
-        tableHandlers.refresh();
+        setAdvancedFilters(emptyAdvancedFilters);
+        setAppliedAdvancedFilters(emptyAdvancedFilters);
+        const emptyForBuild: Record<string, string | number[] | undefined> = {
+            productName: undefined,
+            status: undefined,
+            product_status: undefined,
+            categoryIds: undefined,
+            subCategoryIds: undefined,
+            productTypeIds: undefined,
+            brandIds: undefined,
+        };
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+            dateRange,
+            dateField: 'createdAt',
+            advancedFilters: emptyForBuild,
+            filterMappings: {
+                productName: { field: 'title', operator: 'iLike' },
+                categoryIds: { field: 'categoryId', operator: 'in' },
+                subCategoryIds: { field: 'subCategoryId', operator: 'in' },
+                productTypeIds: { field: 'productTypeId', operator: 'in' },
+                brandIds: { field: 'brandId', operator: 'in' },
+                status: { field: 'status', operator: 'eq' },
+                product_status: { field: 'product_status', operator: 'eq' },
+            },
+        });
+        const filtersToApply = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+        setFilters(filtersToApply);
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+        setFilterAnchorEl(null);
+        // Cleared filters match initial filters, so the hook's filters-effect skips the fetch.
+        // Call fetchData with override filters so one API call runs immediately with cleared filters.
+        fetchData({ force: true, initialFetch: true, filters: filtersToApply });
     };
 
     const handleDateSelect = (ranges: RangeKeyDict) => {
@@ -670,7 +834,7 @@ export default function ProductList() {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
-                <Box sx={{ p: 3, width: 300 }}>
+                <Box sx={{ p: 3, width: 340 }}>
                     <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Products</Typography>
                     <TextField
                         fullWidth
@@ -680,12 +844,108 @@ export default function ProductList() {
                         onChange={(e) => setAdvancedFilters({ ...advancedFilters, productName: e.target.value })}
                         sx={{ mb: 2 }}
                     />
-                    <TextField
-                        fullWidth
+                    <Autocomplete
+                        multiple
                         size="small"
-                        label="Category"
-                        value={advancedFilters.category}
-                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, category: e.target.value })}
+                        options={categories}
+                        getOptionLabel={(option) => (typeof option === 'object' && option?.title) ? option.title : ''}
+                        value={categories.filter((c) => advancedFilters.categoryIds.includes(c.id))}
+                        onChange={(_, newValue) => setAdvancedFilters({ ...advancedFilters, categoryIds: newValue.map((c) => c.id) })}
+                        loading={loadingCategories}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Category"
+                                placeholder={advancedFilters.categoryIds.length ? '' : 'Select categories'}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {loadingCategories ? <CircularProgress size={20} color="inherit" /> : null}
+                                            {params.InputProps.endAdornment}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
+                        sx={{ mb: 2 }}
+                    />
+                    <Autocomplete
+                        multiple
+                        size="small"
+                        options={subCategories}
+                        getOptionLabel={(option) => (typeof option === 'object' && option?.title) ? option.title : ''}
+                        value={subCategories.filter((s) => advancedFilters.subCategoryIds.includes(s.id))}
+                        onChange={(_, newValue) => setAdvancedFilters({ ...advancedFilters, subCategoryIds: newValue.map((s) => s.id) })}
+                        loading={loadingSubCategories}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Sub Category"
+                                placeholder={advancedFilters.subCategoryIds.length ? '' : 'Select sub categories'}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {loadingSubCategories ? <CircularProgress size={20} color="inherit" /> : null}
+                                            {params.InputProps.endAdornment}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
+                        sx={{ mb: 2 }}
+                    />
+                    <Autocomplete
+                        multiple
+                        size="small"
+                        options={productTypes}
+                        getOptionLabel={(option) => (typeof option === 'object' && option?.title) ? option.title : ''}
+                        value={productTypes.filter((pt) => advancedFilters.productTypeIds.includes(pt.id))}
+                        onChange={(_, newValue) => setAdvancedFilters({ ...advancedFilters, productTypeIds: newValue.map((pt) => pt.id) })}
+                        loading={loadingProductTypes}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Product Type"
+                                placeholder={advancedFilters.productTypeIds.length ? '' : 'Select product types'}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {loadingProductTypes ? <CircularProgress size={20} color="inherit" /> : null}
+                                            {params.InputProps.endAdornment}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
+                        sx={{ mb: 2 }}
+                    />
+                    <Autocomplete
+                        multiple
+                        size="small"
+                        options={brands}
+                        getOptionLabel={(option) => (typeof option === 'object' && option?.name) ? option.name : ''}
+                        value={brands.filter((b) => advancedFilters.brandIds.includes(b.id))}
+                        onChange={(_, newValue) => setAdvancedFilters({ ...advancedFilters, brandIds: newValue.map((b) => b.id) })}
+                        loading={loadingBrands}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Brand"
+                                placeholder={advancedFilters.brandIds.length ? '' : 'Select brands'}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {loadingBrands ? <CircularProgress size={20} color="inherit" /> : null}
+                                            {params.InputProps.endAdornment}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
                         sx={{ mb: 2 }}
                     />
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>

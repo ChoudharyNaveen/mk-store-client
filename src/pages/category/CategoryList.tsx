@@ -139,17 +139,22 @@ export default function CategoryPage() {
     });
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
-    const [advancedFilters, setAdvancedFilters] = React.useState({
-        categoryName: '',
-        status: ''
-    });
 
-    // Helper function to build filters array with date range and default filters
+    type AdvancedFiltersState = { categoryName: string; status: string };
+    const emptyAdvancedFilters: AdvancedFiltersState = { categoryName: '', status: '' };
+
+    const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
+    const [appliedAdvancedFilters, setAppliedAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
+
+    // Helper function to build filters array with date range and applied advanced filters only
     const buildFilters = React.useCallback((): ServerFilter[] => {
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
             dateRange,
             dateField: 'createdAt',
-            advancedFilters,
+            advancedFilters: {
+                categoryName: appliedAdvancedFilters.categoryName || undefined,
+                status: appliedAdvancedFilters.status || undefined,
+            },
             filterMappings: {
                 categoryName: { field: 'title', operator: 'iLike' },
                 status: { field: 'status', operator: 'eq' },
@@ -158,13 +163,14 @@ export default function CategoryPage() {
 
         // Merge with default filters (vendorId and branchId)
         return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-    }, [dateRange, advancedFilters, vendorId, selectedBranchId]);
+    }, [dateRange, appliedAdvancedFilters, vendorId, selectedBranchId]);
 
     // Use server pagination hook - now includes tableState and tableHandlers
     const {
         paginationModel,
         setPaginationModel,
         setFilters,
+        fetchData,
         tableState,
         tableHandlers,
     } = useServerPagination<Category>({
@@ -193,21 +199,61 @@ export default function CategoryPage() {
         }
     }, [storeStartDate, storeEndDate]);
 
-    // Update filters when advanced filters or date range changes
+    // Update filters when applied filters or date range change (Apply updates applied; don't refetch on every form change)
     React.useEffect(() => {
         setFilters(buildFilters());
-        // Reset to first page when filters change
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+    }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+
+    React.useEffect(() => {
+        if (filterAnchorEl) {
+            setAdvancedFilters(appliedAdvancedFilters);
+        }
+    }, [filterAnchorEl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleApplyFilters = () => {
+        const pending = advancedFilters;
+        setAppliedAdvancedFilters(pending);
+        const advancedFiltersForBuild: Record<string, string | undefined> = {
+            categoryName: pending.categoryName || undefined,
+            status: pending.status || undefined,
+        };
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+            dateRange,
+            dateField: 'createdAt',
+            advancedFilters: advancedFiltersForBuild,
+            filterMappings: {
+                categoryName: { field: 'title', operator: 'iLike' },
+                status: { field: 'status', operator: 'eq' },
+            },
+        });
+        const filtersToApply = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+        setFilters(filtersToApply);
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
         setFilterAnchorEl(null);
-        tableHandlers.refresh();
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ categoryName: '', status: '' });
-        tableHandlers.refresh();
+        setAdvancedFilters(emptyAdvancedFilters);
+        setAppliedAdvancedFilters(emptyAdvancedFilters);
+        const emptyForBuild: Record<string, string | undefined> = {
+            categoryName: undefined,
+            status: undefined,
+        };
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+            dateRange,
+            dateField: 'createdAt',
+            advancedFilters: emptyForBuild,
+            filterMappings: {
+                categoryName: { field: 'title', operator: 'iLike' },
+                status: { field: 'status', operator: 'eq' },
+            },
+        });
+        const filtersToApply = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+        setFilters(filtersToApply);
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+        setFilterAnchorEl(null);
+        fetchData({ force: true, initialFetch: true, filters: filtersToApply });
     };
 
     const handleDateSelect = (ranges: RangeKeyDict) => {

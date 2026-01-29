@@ -28,9 +28,9 @@ export interface BuildFiltersConfig {
    */
   dateField?: string;
   /**
-   * Advanced filters object (e.g., { categoryName: 'value' })
+   * Advanced filters object (e.g., { categoryName: 'value' }). Use arrays with operator 'in' for multi-select.
    */
-  advancedFilters?: Record<string, string | number | boolean | null | undefined>;
+  advancedFilters?: Record<string, string | number | boolean | null | undefined | (string | number)[]>;
   /**
    * Mapping of advanced filter keys to API field names and operators
    * Example: { categoryName: { field: 'title', operator: 'iLike' } }
@@ -97,6 +97,9 @@ export const buildFiltersFromDateRangeAndAdvanced = (
     Object.entries(advancedFilters).forEach(([filterKey, filterValue]) => {
       // Skip empty values
       if (filterValue === undefined || filterValue === null || filterValue === '') {
+        return;
+      }
+      if (Array.isArray(filterValue) && filterValue.length === 0) {
         return;
       }
 

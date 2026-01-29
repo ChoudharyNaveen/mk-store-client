@@ -488,7 +488,8 @@ interface ProductTypesTableProps {
 }
 
 function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
-    const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+    const [productTypeDialogOpen, setProductTypeDialogOpen] = React.useState(false);
+    const [editingProductType, setEditingProductType] = React.useState<ProductType | null>(null);
 
     const fetchProductTypesBySubCategory = React.useCallback(
         async (params: {
@@ -553,10 +554,40 @@ function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
                 return created ? format(new Date(created), 'MMM dd, yyyy') : 'N/A';
             },
         },
+        {
+            id: 'action' as keyof ProductType,
+            label: 'Action',
+            minWidth: 80,
+            align: 'center' as const,
+            render: (row: ProductType) => (
+                <IconButton
+                    size="small"
+                    onClick={() => {
+                        setEditingProductType(row);
+                        setProductTypeDialogOpen(true);
+                    }}
+                    sx={{
+                        border: '1px solid #e0e0e0',
+                        borderRadius: 2,
+                        color: 'text.secondary',
+                        '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' },
+                    }}
+                    aria-label="Edit product type"
+                >
+                    <EditIcon fontSize="small" />
+                </IconButton>
+            ),
+        },
     ];
 
-    const handleCreateSuccess = () => {
+    const handleProductTypeSuccess = () => {
+        setEditingProductType(null);
         tableHandlers.refresh();
+    };
+
+    const handleProductTypeDialogClose = () => {
+        setProductTypeDialogOpen(false);
+        setEditingProductType(null);
     };
 
     return (
@@ -565,7 +596,10 @@ function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
                 <Button
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={() => setCreateDialogOpen(true)}
+                    onClick={() => {
+                        setEditingProductType(null);
+                        setProductTypeDialogOpen(true);
+                    }}
                     sx={{ textTransform: 'none' }}
                 >
                     Add Product Type
@@ -578,10 +612,11 @@ function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
                 handlers={tableHandlers}
             />
             <NewProductTypeDialog
-                open={createDialogOpen}
-                onClose={() => setCreateDialogOpen(false)}
+                open={productTypeDialogOpen}
+                onClose={handleProductTypeDialogClose}
                 subCategoryId={subCategoryId}
-                onSuccess={handleCreateSuccess}
+                productType={editingProductType}
+                onSuccess={handleProductTypeSuccess}
             />
         </>
     );

@@ -21,9 +21,11 @@ import * as yup from 'yup';
 import FormProvider from './forms/FormProvider';
 import FormTextField from './forms/FormTextField';
 import FormSelect from './forms/FormSelect';
-import { createProductType } from '../services/product-type.service';
+import { createProductType, updateProductType } from '../services/product-type.service';
 import { showSuccessToast, showErrorToast } from '../utils/toast';
 import type { ProductTypeStatus, ProductType } from '../types/product-type';
+import EditIcon from '@mui/icons-material/Edit';
+import { useAppSelector } from '../store/hooks';
 
 const statusOptions: { value: ProductTypeStatus; label: string }[] = [
   { value: 'ACTIVE', label: 'Active' },
@@ -41,16 +43,21 @@ export interface NewProductTypeDialogProps {
   open: boolean;
   onClose: () => void;
   subCategoryId: number;
-  onSuccess?: (created?: ProductType) => void;
+  /** When set, dialog is in edit mode and will PATCH update-product-type/:id */
+  productType?: ProductType | null;
+  onSuccess?: (created?: ProductType, updated?: ProductType) => void;
 }
 
 export default function NewProductTypeDialog({
   open,
   onClose,
   subCategoryId,
+  productType = null,
   onSuccess,
 }: NewProductTypeDialogProps) {
   const [submitting, setSubmitting] = React.useState(false);
+  const isEdit = Boolean(productType?.id);
+  const currentUserId = useAppSelector((state) => state.auth.user?.id);
 
   const methods = useForm<FormData>({
     defaultValues: {
@@ -59,6 +66,19 @@ export default function NewProductTypeDialog({
     },
     resolver: yupResolver(schema) as any,
   });
+
+  React.useEffect(() => {
+    if (open) {
+      if (productType) {
+        methods.reset({
+          title: productType.title ?? '',
+          status: (productType.status as ProductTypeStatus) ?? 'ACTIVE',
+        });
+      } else {
+        methods.reset({ title: '', status: 'ACTIVE' });
+      }
+    }
+  }, [open, productType, methods]);
 
   const resetForm = React.useCallback(() => {
     methods.reset({ title: '', status: 'ACTIVE' });
@@ -74,17 +94,38 @@ export default function NewProductTypeDialog({
   const onSubmit = async (data: FormData) => {
     try {
       setSubmitting(true);
-      const response = await createProductType({
-        subCategoryId,
-        title: data.title.trim(),
-        status: data.status as ProductTypeStatus,
-      });
-      showSuccessToast('Product type created successfully');
-      onSuccess?.(response?.doc);
+      if (isEdit && productType?.id) {
+        const concurrencyStamp = productType.concurrency_stamp ?? productType.concurrencyStamp;
+        if (currentUserId == null || !concurrencyStamp) {
+          showErrorToast(
+            !concurrencyStamp
+              ? 'Product type data is outdated. Please refresh and try again.'
+              : 'You must be logged in to update.'
+          );
+          setSubmitting(false);
+          return;
+        }
+        const response = await updateProductType(productType.id, {
+          title: data.title.trim(),
+          status: data.status as ProductTypeStatus,
+          updatedBy: currentUserId,
+          concurrencyStamp,
+        });
+        showSuccessToast('Product type updated successfully');
+        onSuccess?.(undefined, response?.doc);
+      } else {
+        const response = await createProductType({
+          subCategoryId,
+          title: data.title.trim(),
+          status: data.status as ProductTypeStatus,
+        });
+        showSuccessToast('Product type created successfully');
+        onSuccess?.(response?.doc);
+      }
       handleClose();
     } catch (err) {
-      console.error('Create product type error:', err);
-      showErrorToast('Failed to create product type');
+      console.error(isEdit ? 'Update' : 'Create', 'product type error:', err);
+      showErrorToast(isEdit ? 'Failed to update product type' : 'Failed to create product type');
     } finally {
       setSubmitting(false);
     }
@@ -100,8 +141,17 @@ export default function NewProductTypeDialog({
     >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <AddIcon color="primary" />
-          Add Product Type
+          {isEdit ? (
+            <>
+              <EditIcon color="primary" />
+              Edit Product Type
+            </>
+          ) : (
+            <>
+              <AddIcon color="primary" />
+              Add Product Type
+            </>
+          )}
         </Box>
       </DialogTitle>
       <FormProvider methods={methods} onSubmit={methods.handleSubmit(onSubmit)} noValidate>
@@ -135,7 +185,7 @@ export default function NewProductTypeDialog({
             disabled={submitting}
             sx={{ textTransform: 'none' }}
           >
-            {submitting ? <CircularProgress size={24} /> : 'Create'}
+            {submitting ? <CircularProgress size={24} /> : isEdit ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
       </FormProvider>

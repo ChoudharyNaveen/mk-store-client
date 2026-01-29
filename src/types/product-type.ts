@@ -9,6 +9,8 @@ export interface ProductType {
   subCategoryId: number;
   title: string;
   status: ProductTypeStatus;
+  concurrencyStamp?: string;
+  concurrency_stamp?: string;
   createdAt?: string;
   created_at?: string;
   updatedAt?: string;
@@ -39,6 +41,19 @@ export interface CreateProductTypeRequest {
 }
 
 export interface CreateProductTypeResponse {
+  success?: boolean;
+  message?: string;
+  doc?: ProductType;
+}
+
+export interface UpdateProductTypeRequest {
+  title: string;
+  status: ProductTypeStatus;
+  updatedBy: number;
+  concurrencyStamp: string;
+}
+
+export interface UpdateProductTypeResponse {
   success?: boolean;
   message?: string;
   doc?: ProductType;

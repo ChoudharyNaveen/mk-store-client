@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -16,7 +16,9 @@ import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchSubCategories } from '../../services/sub-category.service';
+import { fetchCategories } from '../../services/category.service';
 import type { SubCategory } from '../../types/sub-category';
+import type { Category } from '../../types/category';
 import type { ServerFilter } from '../../types/filter';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
@@ -144,34 +146,79 @@ export default function SubCategoryList() {
     });
     const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
-    const [advancedFilters, setAdvancedFilters] = React.useState({
-        categoryName: '',
-        subCategoryName: '',
-        status: ''
-    });
 
-    // Helper function to build filters array with date range and default filters
+    type AdvancedFiltersState = {
+        categoryIds: number[];
+        subCategoryName: string;
+        status: string;
+    };
+    const emptyAdvancedFilters: AdvancedFiltersState = {
+        categoryIds: [],
+        subCategoryName: '',
+        status: '',
+    };
+
+    const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
+    const [appliedAdvancedFilters, setAppliedAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
+
+    const [categories, setCategories] = React.useState<Category[]>([]);
+    const [loadingCategories, setLoadingCategories] = React.useState(false);
+    const filterOptionsLoadedRef = React.useRef(false);
+
+    React.useEffect(() => {
+        if (!filterAnchorEl || filterOptionsLoadedRef.current) return;
+        let cancelled = false;
+        const loadOptions = async () => {
+            setLoadingCategories(true);
+            try {
+                const res = await fetchCategories({
+                    page: 0,
+                    pageSize: 500,
+                    filters: mergeWithDefaultFilters([], vendorId, selectedBranchId),
+                });
+                if (!cancelled) {
+                    setCategories(res.list || []);
+                    filterOptionsLoadedRef.current = true;
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Error loading categories:', err);
+                    filterOptionsLoadedRef.current = false;
+                }
+            } finally {
+                if (!cancelled) setLoadingCategories(false);
+            }
+        };
+        loadOptions();
+        return () => { cancelled = true; };
+    }, [filterAnchorEl, vendorId, selectedBranchId]);
+
     const buildFilters = React.useCallback((): ServerFilter[] => {
+        const applied = appliedAdvancedFilters;
+        const advancedFiltersForBuild: Record<string, string | number[] | undefined> = {
+            subCategoryName: applied.subCategoryName || undefined,
+            status: applied.status || undefined,
+            categoryIds: applied.categoryIds?.length ? applied.categoryIds : undefined,
+        };
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
             dateRange,
             dateField: 'createdAt',
-            advancedFilters,
+            advancedFilters: advancedFiltersForBuild,
             filterMappings: {
-                categoryName: { field: 'category.title', operator: 'iLike' },
+                categoryIds: { field: 'categoryId', operator: 'in' },
                 subCategoryName: { field: 'title', operator: 'iLike' },
                 status: { field: 'status', operator: 'eq' },
             },
         });
-        
-        // Merge with default filters (vendorId and branchId)
         return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-    }, [dateRange, advancedFilters, vendorId, selectedBranchId]);
+    }, [dateRange, appliedAdvancedFilters, vendorId, selectedBranchId]);
 
     // Use server pagination hook - now includes tableState and tableHandlers
     const {
         paginationModel,
         setPaginationModel,
         setFilters,
+        fetchData,
         tableState,
         tableHandlers,
     } = useServerPagination<SubCategory>({
@@ -200,21 +247,65 @@ export default function SubCategoryList() {
         }
     }, [storeStartDate, storeEndDate]);
 
-    // Update filters when advanced filters or date range changes
+    // Update filters when applied filters or date range change (Apply updates applied; don't refetch on every form change)
     React.useEffect(() => {
         setFilters(buildFilters());
-        // Reset to first page when filters change
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+    }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+
+    React.useEffect(() => {
+        if (filterAnchorEl) {
+            setAdvancedFilters(appliedAdvancedFilters);
+        }
+    }, [filterAnchorEl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleApplyFilters = () => {
+        const pending = advancedFilters;
+        setAppliedAdvancedFilters(pending);
+        const advancedFiltersForBuild: Record<string, string | number[] | undefined> = {
+            subCategoryName: pending.subCategoryName || undefined,
+            status: pending.status || undefined,
+            categoryIds: pending.categoryIds?.length ? pending.categoryIds : undefined,
+        };
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+            dateRange,
+            dateField: 'createdAt',
+            advancedFilters: advancedFiltersForBuild,
+            filterMappings: {
+                categoryIds: { field: 'categoryId', operator: 'in' },
+                subCategoryName: { field: 'title', operator: 'iLike' },
+                status: { field: 'status', operator: 'eq' },
+            },
+        });
+        const filtersToApply = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+        setFilters(filtersToApply);
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
         setFilterAnchorEl(null);
-        tableHandlers.refresh();
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ categoryName: '', subCategoryName: '', status: '' });
-        tableHandlers.refresh();
+        setAdvancedFilters(emptyAdvancedFilters);
+        setAppliedAdvancedFilters(emptyAdvancedFilters);
+        const emptyForBuild: Record<string, string | number[] | undefined> = {
+            subCategoryName: undefined,
+            status: undefined,
+            categoryIds: undefined,
+        };
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+            dateRange,
+            dateField: 'createdAt',
+            advancedFilters: emptyForBuild,
+            filterMappings: {
+                categoryIds: { field: 'categoryId', operator: 'in' },
+                subCategoryName: { field: 'title', operator: 'iLike' },
+                status: { field: 'status', operator: 'eq' },
+            },
+        });
+        const filtersToApply = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+        setFilters(filtersToApply);
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+        setFilterAnchorEl(null);
+        fetchData({ force: true, initialFetch: true, filters: filtersToApply });
     };
 
     const handleDateSelect = (ranges: RangeKeyDict) => {
@@ -368,40 +459,58 @@ export default function SubCategoryList() {
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
-                <Box sx={{ p: 3, width: 300 }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter SubCategories</Typography>
+                <Box sx={{ p: 3, width: 340 }}>
+                    <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Sub Categories</Typography>
+                    <Autocomplete
+                        multiple
+                        size="small"
+                        options={categories}
+                        getOptionLabel={(option) => (typeof option === 'object' && option?.title) ? option.title : ''}
+                        value={categories.filter((c) => advancedFilters.categoryIds.includes(c.id))}
+                        onChange={(_, newValue) => setAdvancedFilters({ ...advancedFilters, categoryIds: newValue.map((c) => c.id) })}
+                        loading={loadingCategories}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                label="Categories"
+                                placeholder={advancedFilters.categoryIds.length ? '' : 'Select categories'}
+                                InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {loadingCategories ? <CircularProgress size={20} color="inherit" /> : null}
+                                            {params.InputProps.endAdornment}
+                                        </>
+                                    ),
+                                }}
+                            />
+                        )}
+                        sx={{ mb: 2 }}
+                    />
                     <TextField
                         fullWidth
                         size="small"
-                        label="Category Name"
-                        value={advancedFilters.categoryName}
-                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, categoryName: e.target.value })}
+                        label="Sub Category Name"
+                        value={advancedFilters.subCategoryName}
+                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, subCategoryName: e.target.value })}
                         sx={{ mb: 2 }}
                     />
-                        <TextField
-                            fullWidth
-                            size="small"
-                            label="Sub Category Name"
-                            value={advancedFilters.subCategoryName}
-                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, subCategoryName: e.target.value })}
-                            sx={{ mb: 2 }}
-                        />
-                        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                            <InputLabel>Status</InputLabel>
-                            <Select
-                                value={advancedFilters.status}
-                                label="Status"
-                                onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
-                            >
-                                <MenuItem value="">All</MenuItem>
-                                {SUBCATEGORY_STATUS_OPTIONS.map((option) => (
-                                    <MenuItem key={option.value} value={option.value}>
-                                        {option.label}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                        <InputLabel>Status</InputLabel>
+                        <Select
+                            value={advancedFilters.status}
+                            label="Status"
+                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
+                        >
+                            <MenuItem value="">All</MenuItem>
+                            {SUBCATEGORY_STATUS_OPTIONS.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                         <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
                         <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
                     </Box>
