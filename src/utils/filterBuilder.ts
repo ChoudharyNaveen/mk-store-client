@@ -3,7 +3,7 @@
  * Converts filter objects to query string format: filters[0][key]=id&filters[0][eq]=2
  */
 
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import type { ServerFilter } from '../types/filter';
 
 /**
@@ -85,9 +85,11 @@ export const buildFiltersFromDateRangeAndAdvanced = (
       });
     }
     if (range.endDate) {
+      // API receives end date + 1 day so the selected end day is inclusive (e.g. Jan 5 selected → lte Jan 6)
+      const endDateForApi = addDays(range.endDate, 1);
       filters.push({
         key: dateField,
-        lte: format(range.endDate, 'yyyy-MM-dd'),
+        lte: format(endDateForApi, 'yyyy-MM-dd'),
       });
     }
   }
