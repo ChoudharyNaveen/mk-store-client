@@ -1,10 +1,12 @@
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Paper, Chip, Select, MenuItem, FormControl, InputLabel, Avatar, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material';
+import { Box, Typography, Button, TextField, Popover, IconButton, Paper, Chip, Select,
+   MenuItem, FormControl, InputLabel, Avatar, Dialog, DialogTitle, DialogContent, DialogContentText,
+    DialogActions, Tooltip, Autocomplete, CircularProgress } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
-import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -15,30 +17,29 @@ import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchBanners, deleteBanner } from '../../services/banner.service';
+import { fetchSubCategories } from '../../services/sub-category.service';
 import type { Banner } from '../../types/banner';
+import type { SubCategory } from '../../types/sub-category';
 import type { ServerFilter } from '../../types/filter';
-import type { Column, TableState } from '../../types/table';
+import type { Column } from '../../types/table';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
-interface AdvancedFilters {
+type AdvancedFiltersState = {
   status: string;
-  vendorId: string;
-  branchId: string;
-  subCategoryId: string;
-}
+  subCategoryIds: number[];
+};
+const emptyAdvancedFilters: AdvancedFiltersState = {
+  status: '',
+  subCategoryIds: [],
+};
 
 export default function BannerList() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  
-  // Get vendorId and branchId from store
-  const { user } = useAppSelector((state) => state.auth);
-  const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
-  const vendorId = user?.vendorId;
   
   // Get date range from store, or use default
   const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
@@ -49,18 +50,17 @@ export default function BannerList() {
   const [bannerToDelete, setBannerToDelete] = React.useState<Banner | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
+  // View banner image dialog state
+  const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
+  const [bannerToView, setBannerToView] = React.useState<Banner | null>(null);
+
   const columns: Column<Banner>[] = [
-    {
-      id: 'id' as keyof Banner,
-      label: 'ID',
-      minWidth: 60,
-    },
     {
       id: 'image_url' as keyof Banner,
       label: 'Image',
       minWidth: 100,
       render: (row: Banner) => {
-        const imageUrl = row.image_url || row.imageUrl;
+        const imageUrl = row.image_url;
         return (
           <Avatar
             src={imageUrl}
@@ -73,18 +73,6 @@ export default function BannerList() {
       }
     },
     {
-      id: 'vendor' as keyof Banner,
-      label: 'Vendor',
-      minWidth: 120,
-      render: (row: Banner) => row.vendor?.name || 'N/A'
-    },
-    {
-      id: 'branch' as keyof Banner,
-      label: 'Branch',
-      minWidth: 120,
-      render: (row: Banner) => row.branch?.name || 'N/A'
-    },
-    {
       id: 'subCategory' as keyof Banner,
       label: 'Subcategory',
       minWidth: 120,
@@ -95,7 +83,7 @@ export default function BannerList() {
       label: 'Display Order',
       minWidth: 100,
       align: 'right' as const,
-      render: (row: Banner) => row.display_order ?? row.displayOrder ?? 0
+      render: (row: Banner) => row.display_order ?? 0
     },
     {
       id: 'status' as keyof Banner,
@@ -130,18 +118,23 @@ export default function BannerList() {
       align: 'center' as const,
       render: (row: Banner) => (
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-          <IconButton
-            size="small"
-            onClick={() => navigate(`/banners/detail/${row.id}`)}
-            sx={{
-              border: '1px solid #e0e0e0',
-              borderRadius: 2,
-              color: 'text.secondary',
-              '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
-            }}
-          >
-            <VisibilityIcon fontSize="small" />
-          </IconButton>
+          <Tooltip title="View banner">
+            <IconButton
+              size="small"
+              onClick={() => {
+                setBannerToView(row);
+                setViewDialogOpen(true);
+              }}
+              sx={{
+                border: '1px solid #e0e0e0',
+                borderRadius: 2,
+                color: 'text.secondary',
+                '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
+              }}
+            >
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <IconButton
             size="small"
             onClick={() => navigate(`/banners/edit/${row.id}`)}
@@ -187,36 +180,64 @@ export default function BannerList() {
   });
   const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
   const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFilters>({
-    status: '',
-    vendorId: '',
-    branchId: '',
-    subCategoryId: '',
-  });
+  const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
+  const [appliedAdvancedFilters, setAppliedAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
 
-  // Helper function to build filters array with date range and default filters
+  const [subCategories, setSubCategories] = React.useState<SubCategory[]>([]);
+  const [loadingSubCategories, setLoadingSubCategories] = React.useState(false);
+  const filterOptionsLoadedRef = React.useRef(false);
+  const hasSyncedFiltersOnceRef = React.useRef(false);
+
+  const { user } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
+  const vendorId = user?.vendorId;
+
+  React.useEffect(() => {
+    if (!filterAnchorEl || filterOptionsLoadedRef.current) return;
+    let cancelled = false;
+    const loadOptions = async () => {
+      setLoadingSubCategories(true);
+      try {
+        const res = await fetchSubCategories({ page: 0, pageSize: 500, filters: [] });
+        if (!cancelled) {
+          setSubCategories(res.list || []);
+          filterOptionsLoadedRef.current = true;
+        }
+      } catch (err) {
+        if (!cancelled) console.error('Error loading subcategories:', err);
+      } finally {
+        if (!cancelled) setLoadingSubCategories(false);
+      }
+    };
+    loadOptions();
+    return () => { cancelled = true; };
+  }, [filterAnchorEl]);
+
+  // Helper function to build filters array (uses applied filters; no default vendor/branch filters)
   const buildFilters = React.useCallback((): ServerFilter[] => {
+    const applied = appliedAdvancedFilters;
+    const advancedFiltersForBuild: Record<string, string | number[] | undefined> = {
+      status: applied.status || undefined,
+      subCategoryIds: applied.subCategoryIds?.length ? applied.subCategoryIds : undefined,
+    };
     const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
       dateRange,
       dateField: 'created_at',
-      advancedFilters: advancedFilters as unknown as Record<string, string | number | boolean | null | undefined>,
+      advancedFilters: advancedFiltersForBuild,
       filterMappings: {
         status: { field: 'status', operator: 'eq' },
-        vendorId: { field: 'vendor_id', operator: 'eq' },
-        branchId: { field: 'branch_id', operator: 'eq' },
-        subCategoryId: { field: 'sub_category_id', operator: 'eq' },
+        subCategoryIds: { field: 'sub_category_id', operator: 'in' },
       },
     });
-    
-    // Merge with default filters (vendorId and branchId)
     return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-  }, [dateRange, advancedFilters, vendorId, selectedBranchId]);
+  }, [dateRange, appliedAdvancedFilters, vendorId, selectedBranchId]);
 
   // Use server pagination hook
   const {
     paginationModel,
     setPaginationModel,
     setFilters,
+    fetchData,
     tableState,
     tableHandlers,
   } = useServerPagination<Banner>({
@@ -249,21 +270,66 @@ export default function BannerList() {
     }
   }, [storeStartDate, storeEndDate]);
 
-  // Update filters when advanced filters or date range changes
+  // Update filters when applied filters or date range change (Apply updates applied; don't refetch on every form change).
+  // Skip first run to avoid triggering a second fetch on mount (hook already has initial filters from config).
   React.useEffect(() => {
+    if (!hasSyncedFiltersOnceRef.current) {
+      hasSyncedFiltersOnceRef.current = true;
+      return;
+    }
     setFilters(buildFilters());
-    // Reset to first page when filters change
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+  }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+
+  React.useEffect(() => {
+    if (filterAnchorEl) {
+      setAdvancedFilters(appliedAdvancedFilters);
+    }
+  }, [filterAnchorEl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleApplyFilters = () => {
+    const pending = advancedFilters;
+    setAppliedAdvancedFilters(pending);
+    const advancedFiltersForBuild: Record<string, string | number[] | undefined> = {
+      status: pending.status || undefined,
+      subCategoryIds: pending.subCategoryIds?.length ? pending.subCategoryIds : undefined,
+    };
+    const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+      dateRange,
+      dateField: 'created_at',
+      advancedFilters: advancedFiltersForBuild,
+      filterMappings: {
+        status: { field: 'status', operator: 'eq' },
+        subCategoryIds: { field: 'sub_category_id', operator: 'in' },
+      },
+    });
+    const filtersToApply = mergeWithDefaultFilters(additionalFilters, undefined, undefined);
+    setFilters(filtersToApply);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
     setFilterAnchorEl(null);
-    tableHandlers.refresh();
   };
 
   const handleClearFilters = () => {
-    setAdvancedFilters({ status: '', vendorId: '', branchId: '', subCategoryId: '' });
-    tableHandlers.refresh();
+    setAdvancedFilters(emptyAdvancedFilters);
+    setAppliedAdvancedFilters(emptyAdvancedFilters);
+    const emptyForBuild: Record<string, string | number[] | undefined> = {
+      status: undefined,
+      subCategoryIds: undefined,
+    };
+    const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+      dateRange,
+      dateField: 'created_at',
+      advancedFilters: emptyForBuild,
+      filterMappings: {
+        status: { field: 'status', operator: 'eq' },
+        subCategoryIds: { field: 'sub_category_id', operator: 'in' },
+      },
+    });
+    const filtersToApply = mergeWithDefaultFilters(additionalFilters, undefined, undefined);
+    setFilters(filtersToApply);
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+    setFilterAnchorEl(null);
+    fetchData({ force: true, initialFetch: true, filters: filtersToApply });
   };
 
   const handleDateSelect = (ranges: RangeKeyDict) => {
@@ -351,10 +417,10 @@ export default function BannerList() {
         borderColor: 'divider',
         overflow: 'hidden'
       }}>
-        {/* Search and Filter Section */}
+        {/* Filter Section */}
         <Box sx={{ 
           display: 'flex', 
-          justifyContent: 'space-between', 
+          justifyContent: 'flex-end', 
           alignItems: 'center', 
           flexWrap: 'wrap',
           gap: 2,
@@ -363,30 +429,6 @@ export default function BannerList() {
           borderColor: 'divider',
           bgcolor: 'background.paper'
         }}>
-          <TextField
-            id="banners-search"
-            placeholder="Search banners..."
-            variant="outlined"
-            size="small"
-            value={tableState.search}
-            onChange={tableHandlers.handleSearch}
-            sx={{
-              flex: 1,
-              minWidth: 280,
-              maxWidth: 400,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2,
-                bgcolor: 'background.default',
-              }
-            }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: 'text.secondary' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
             <Button
               variant="outlined"
@@ -405,6 +447,21 @@ export default function BannerList() {
             >
               {format(dateRange[0].startDate || new Date(), 'MMM dd')} - {format(dateRange[0].endDate || new Date(), 'MMM dd')}
             </Button>
+            <Tooltip title="Refresh table">
+              <IconButton
+                onClick={() => tableHandlers.refresh()}
+                size="small"
+                sx={{
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover', color: 'primary.main' },
+                }}
+              >
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
             <Button
               variant="outlined"
               startIcon={<FilterListIcon />}
@@ -448,8 +505,34 @@ export default function BannerList() {
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         >
-          <Box sx={{ p: 3, width: 300 }}>
+          <Box sx={{ p: 3, width: 320 }}>
             <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Banners</Typography>
+            <Autocomplete
+              multiple
+              size="small"
+              options={subCategories}
+              getOptionLabel={(option) => (typeof option === 'object' && option?.title) ? option.title : ''}
+              value={subCategories.filter((s) => advancedFilters.subCategoryIds.includes(s.id))}
+              onChange={(_, newValue) => setAdvancedFilters({ ...advancedFilters, subCategoryIds: newValue.map((s) => s.id) })}
+              loading={loadingSubCategories}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Subcategories"
+                  placeholder={advancedFilters.subCategoryIds.length ? '' : 'Select subcategories'}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {loadingSubCategories ? <CircularProgress size={20} color="inherit" /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              sx={{ mb: 2 }}
+            />
             <FormControl fullWidth size="small" sx={{ mb: 2 }}>
               <InputLabel>Status</InputLabel>
               <Select
@@ -462,30 +545,6 @@ export default function BannerList() {
                 <MenuItem value="INACTIVE">Inactive</MenuItem>
               </Select>
             </FormControl>
-            <TextField
-              fullWidth
-              size="small"
-              label="Vendor ID"
-              value={advancedFilters.vendorId}
-              onChange={(e) => setAdvancedFilters({ ...advancedFilters, vendorId: e.target.value })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              size="small"
-              label="Branch ID"
-              value={advancedFilters.branchId}
-              onChange={(e) => setAdvancedFilters({ ...advancedFilters, branchId: e.target.value })}
-              sx={{ mb: 2 }}
-            />
-            <TextField
-              fullWidth
-              size="small"
-              label="Subcategory ID"
-              value={advancedFilters.subCategoryId}
-              onChange={(e) => setAdvancedFilters({ ...advancedFilters, subCategoryId: e.target.value })}
-              sx={{ mb: 2 }}
-            />
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
               <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
               <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
@@ -503,6 +562,40 @@ export default function BannerList() {
           />
         </Box>
       </Box>
+
+      {/* View Banner Image Dialog - full XL */}
+      <Dialog
+        open={viewDialogOpen}
+        onClose={() => setViewDialogOpen(false)}
+        maxWidth="xl"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 2, maxHeight: '90vh' },
+        }}
+      >
+        <DialogTitle sx={{ pb: 0 }}>Banner Preview</DialogTitle>
+        <DialogContent sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 2, minHeight: 320 }}>
+          {bannerToView && (
+            <Box
+              component="img"
+              src={bannerToView.image_url || (bannerToView as Banner & { imageUrl?: string }).imageUrl}
+              alt="Banner"
+              sx={{
+                maxWidth: '100%',
+                maxHeight: '75vh',
+                objectFit: 'contain',
+                borderRadius: 1,
+                boxShadow: 2,
+              }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setViewDialogOpen(false)} variant="contained" sx={{ textTransform: 'none' }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog

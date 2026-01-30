@@ -1,11 +1,12 @@
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress, Tooltip } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -16,7 +17,7 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { fetchProducts } from '../../services/product.service';
+import { fetchProducts, type FetchParams } from '../../services/product.service';
 import { fetchCategories } from '../../services/category.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
 import { getProductTypes } from '../../services/product-type.service';
@@ -480,6 +481,11 @@ export default function ProductList() {
 
     const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
     const [appliedAdvancedFilters, setAppliedAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
+    const [hasComboActive, setHasComboActive] = React.useState(false);
+    const hasComboActiveRef = React.useRef(hasComboActive);
+    React.useEffect(() => {
+        hasComboActiveRef.current = hasComboActive;
+    }, [hasComboActive]);
 
     // Options for advanced search autocompletes (fetched via API)
     const [categories, setCategories] = React.useState<Category[]>([]);
@@ -566,6 +572,15 @@ export default function ProductList() {
         return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
     }, [dateRange, appliedAdvancedFilters, vendorId, selectedBranchId]);
 
+    // Wrap fetchProducts to pass hasActiveComboDiscounts when "Has Combo" chip is active (not part of filters).
+    // Use ref so Clear button's refetch sees updated value immediately (avoids stale closure).
+    const fetchProductsWithCombo = React.useCallback((params: FetchParams) => {
+        return fetchProducts({
+            ...params,
+            hasActiveComboDiscounts: hasComboActiveRef.current ? true : undefined,
+        });
+    }, []);
+
     // Use server pagination hook - now includes tableState and tableHandlers
     const {
         paginationModel,
@@ -575,7 +590,7 @@ export default function ProductList() {
         tableState,
         tableHandlers,
     } = useServerPagination<Product>({
-        fetchFunction: fetchProducts,
+        fetchFunction: fetchProductsWithCombo,
         initialPageSize: 20,
         enabled: true,
         autoFetch: true,
@@ -588,6 +603,16 @@ export default function ProductList() {
         ],
         searchDebounceMs: 500,
     });
+
+    // Refetch when "Has Combo" chip is toggled (request body changes)
+    const hasComboTouchedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!hasComboTouchedRef.current) {
+            hasComboTouchedRef.current = true;
+            return;
+        }
+        tableHandlers.refresh();
+    }, [hasComboActive]);
 
     // Sync local date range with store when store dates change
     React.useEffect(() => {
@@ -643,12 +668,11 @@ export default function ProductList() {
         setFilters(filtersToApply);
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
         setFilterAnchorEl(null);
-        // Do not call refresh() here: setFilters triggers the hook's useEffect [filters],
-        // which will fetch with the new filters after state updates. Calling refresh() now
-        // would use stale filters and cause a wrong API call before the correct one.
     };
 
     const handleClearFilters = () => {
+        hasComboActiveRef.current = false;
+        setHasComboActive(false);
         setAdvancedFilters(emptyAdvancedFilters);
         setAppliedAdvancedFilters(emptyAdvancedFilters);
         const emptyForBuild: Record<string, string | number[] | undefined> = {
@@ -791,6 +815,21 @@ export default function ProductList() {
                         >
                             {format(dateRange[0].startDate || new Date(), 'MMM dd')} - {format(dateRange[0].endDate || new Date(), 'MMM dd')}
                         </Button>
+                        <Tooltip title="Refresh table">
+                            <IconButton
+                                onClick={() => tableHandlers.refresh()}
+                                size="small"
+                                sx={{
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    color: 'text.secondary',
+                                    '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover', color: 'primary.main' },
+                                }}
+                            >
+                                <RefreshIcon />
+                            </IconButton>
+                        </Tooltip>
                         <Button
                             variant="outlined"
                             startIcon={<FilterListIcon />}
@@ -836,6 +875,22 @@ export default function ProductList() {
             >
                 <Box sx={{ p: 3, width: 340 }}>
                     <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Products</Typography>
+                    <Box sx={{ mb: 2 }}>
+                        <Chip
+                            label="Has Combo"
+                            onClick={() => setHasComboActive((prev) => !prev)}
+                            color={hasComboActive ? 'primary' : 'default'}
+                            variant={hasComboActive ? 'filled' : 'outlined'}
+                            size="small"
+                            sx={{
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                '&:hover': {
+                                    bgcolor: hasComboActive ? 'primary.dark' : 'action.hover',
+                                },
+                            }}
+                        />
+                    </Box>
                     <TextField
                         fullWidth
                         size="small"

@@ -25,6 +25,7 @@ import LoginForm from '../pages/login/LoginForm';
 import BannerList from '../pages/banners/BannerList';
 import BannerForm from '../pages/banners/BannerForm';
 import BannerDetail from '../pages/banners/BannerDetail';
+import ShippingCharges from '../pages/settings/ShippingCharges';
 
 /**
  * Public routes (accessible without authentication)
@@ -180,6 +181,11 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/banners/detail/:id',
     element: <BannerDetail />,
+  },
+  // Settings routes
+  {
+    path: '/settings/shipping-charges',
+    element: <ShippingCharges />,
   },
 ];
 

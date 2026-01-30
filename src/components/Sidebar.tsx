@@ -27,24 +27,33 @@ import CategoryIcon from '@mui/icons-material/Category';
 import LayersIcon from '@mui/icons-material/Layers';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import BrandingWatermarkIcon from '@mui/icons-material/BrandingWatermark';
-import LocalOfferIcon from '@mui/icons-material/LocalOffer';
-import DiscountIcon from '@mui/icons-material/Discount';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import ConfirmationNumberIcon from '@mui/icons-material/ConfirmationNumber';
+import DiscountIcon from '@mui/icons-material/Discount';
 import ImageIcon from '@mui/icons-material/Image';
+import SettingsIcon from '@mui/icons-material/Settings';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 
 const drawerWidth = 260;
 const closedDrawerWidth = 70;
+
+interface MenuChild {
+    text: string;
+    path: string;
+    icon?: React.ReactElement;
+}
 
 interface MenuItem {
     text: string;
     icon: React.ReactElement;
     path: string;
-    children?: Array<{ text: string; path: string }>;
+    children?: MenuChild[];
 }
 
 const menuItems: MenuItem[] = [
@@ -94,33 +103,27 @@ const menuItems: MenuItem[] = [
         // ],
     },
     {
-        text: 'Promocode',
-        icon: <LocalOfferIcon />,
-        path: '/promo-code',
-        // children: [
-        //     { text: 'Promocode List', path: '/promo-code' },
-        // ],
-    },
-    {
-        text: 'Offers',
-        icon: <DiscountIcon />,
-        path: '/offers',
-        // children: [
-        //     { text: 'Offers List', path: '/offers' },
-        // ],
-    },
-    {
-        text: 'Banners',
-        icon: <ImageIcon />,
-        path: '/banners',
-        // children: [
-        //     { text: 'Banner List', path: '/banners' },
-        // ],
-    },
-    {
         text: 'Orders List',
         icon: <ShoppingCartIcon />,
         path: '/orders',
+    },
+    {
+        text: 'Promotions',
+        icon: <LocalOfferIcon />,
+        path: '/promotions',
+        children: [
+            { text: 'Promocode', path: '/promo-code', icon: <ConfirmationNumberIcon /> },
+            { text: 'Offers', path: '/offers', icon: <DiscountIcon /> },
+            { text: 'Banners', path: '/banners', icon: <ImageIcon /> },
+        ],
+    },
+    {
+        text: 'Settings',
+        icon: <SettingsIcon />,
+        path: '/settings',
+        children: [
+            { text: 'Shipping Charges', path: '/settings/shipping-charges', icon: <LocalShippingIcon /> },
+        ],
     },
 ];
 
@@ -130,10 +133,21 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ open, onToggle }: SidebarProps) {
-    const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(null);
     const location = useLocation();
     const pathname = location.pathname;
     const dispatch = useAppDispatch();
+
+    // Auto-open submenu when current path is a child of an item with children
+    const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(() => {
+        const item = menuItems.find((i) => i.children?.some((c) => pathname === c.path || pathname.startsWith(c.path + '/')));
+        return item?.text ?? null;
+    });
+
+    React.useEffect(() => {
+        const item = menuItems.find((i) => i.children?.some((c) => pathname === c.path || pathname.startsWith(c.path + '/')));
+        const next = item?.text ?? null;
+        setOpenSubmenu((prev) => (next ? next : prev));
+    }, [pathname]);
     
     // Get data from store
     const { user, token } = useAppSelector((state) => state.auth);
@@ -449,7 +463,12 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
                 <List component="nav">
                     {menuItems.map((item) => {
                         const isDashboard = item.path === '/';
-                        const isItemActive = isDashboard ? pathname === '/' : pathname === item.path || pathname.startsWith(item.path + '/');
+                        const hasChildren = Boolean(item.children?.length);
+                        const isItemActive = isDashboard
+                            ? pathname === '/'
+                            : hasChildren
+                                ? item.children!.some((c) => pathname === c.path || pathname.startsWith(c.path + '/'))
+                                : pathname === item.path || pathname.startsWith(item.path + '/');
 
                         return (
                             <React.Fragment key={item.text}>
@@ -536,7 +555,7 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
                                                             minWidth: 0,
                                                             mr: open ? 2 : 'auto',
                                                             justifyContent: 'center',
-                                                            color: isItemActive ? 'primary.main' : 'inherit'
+                                                            color: isItemActive ? 'white' : 'inherit',
                                                         }}
                                                     >
                                                         {item.icon}
@@ -563,6 +582,16 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
                                                     sx={{ pl: 9 }}
                                                     selected={pathname === child.path}
                                                 >
+                                                    {child.icon && (
+                                                        <ListItemIcon
+                                                            sx={{
+                                                                minWidth: 36,
+                                                                color: pathname === child.path ? 'primary.main' : 'inherit',
+                                                            }}
+                                                        >
+                                                            {child.icon}
+                                                        </ListItemIcon>
+                                                    )}
                                                     <ListItemText
                                                         primary={child.text}
                                                         primaryTypographyProps={{
@@ -614,6 +643,9 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
                                 to={child.path}
                                 sx={{ pl: 0 }}
                             >
+                                {child.icon && (
+                                    <ListItemIcon sx={{ minWidth: 36 }}>{child.icon}</ListItemIcon>
+                                )}
                                 <ListItemText primary={child.text} />
                             </ListItemButton>
                         ))}

@@ -61,21 +61,12 @@ export const fetchBanners = async (
       pageNumber,
     };
 
-    // Convert filters to ServerFilter array if needed
+    // Convert filters to ServerFilter array if needed (pass through full filter objects so gte/lte/date range etc. are preserved)
     if (params.filters) {
       if (Array.isArray(params.filters)) {
-        requestBody.filters = params.filters.map((f) => ({
-          key: f.key,
-          eq: f.eq as string | number | undefined,
-          iLike: f.iLike,
-        }));
+        requestBody.filters = params.filters;
       } else {
-        // Convert simple object format to ServerFilter array
-        requestBody.filters = convertSimpleFiltersToServerFilters(params.filters).map((f) => ({
-          key: f.key,
-          eq: f.eq as string | number | undefined,
-          iLike: f.iLike,
-        }));
+        requestBody.filters = convertSimpleFiltersToServerFilters(params.filters);
       }
     }
 

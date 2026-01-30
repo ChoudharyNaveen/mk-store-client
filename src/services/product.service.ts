@@ -32,6 +32,8 @@ export interface FetchParams {
   filters?: Record<string, string | number | boolean | null | undefined> | ServerFilter[];
   sorting?: ServerSorting[];
   signal?: AbortSignal;
+  /** When true, send hasActiveComboDiscounts: true in request body (not part of filters) */
+  hasActiveComboDiscounts?: boolean;
 }
 
 /**
@@ -65,10 +67,15 @@ export const fetchProducts = async (
       pageNumber: number;
       filters?: ServerFilter[];
       sorting?: ServerSorting[];
+      hasActiveComboDiscounts?: boolean;
     } = {
       pageSize,
       pageNumber,
     };
+
+    if (params.hasActiveComboDiscounts === true) {
+      requestBody.hasActiveComboDiscounts = true;
+    }
 
     // Convert filters to ServerFilter array if needed
     if (params.filters) {

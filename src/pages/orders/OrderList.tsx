@@ -1,9 +1,10 @@
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Chip, Paper, List, ListItem, ListItemText, Divider, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Chip, Paper, List, ListItem, ListItemText, Divider, Select, MenuItem, FormControl, InputLabel, Tooltip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
@@ -479,6 +480,21 @@ export default function OrderList() {
                         >
                             {format(dateRange[0].startDate || new Date(), 'MMM dd')} - {format(dateRange[0].endDate || new Date(), 'MMM dd')}
                         </Button>
+                        <Tooltip title="Refresh table">
+                            <IconButton
+                                onClick={() => tableHandlers.refresh()}
+                                size="small"
+                                sx={{
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    color: 'text.secondary',
+                                    '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover', color: 'primary.main' },
+                                }}
+                            >
+                                <RefreshIcon />
+                            </IconButton>
+                        </Tooltip>
                         <Button
                             variant="outlined"
                             startIcon={<FilterListIcon />}

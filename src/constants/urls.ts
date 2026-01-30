@@ -133,6 +133,12 @@ export const API_URLS = {
     UPDATE: (id: string | number) => `${API_PREFIX}/update-banner/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/delete-banner/${id}`,
   },
+
+  // Settings - Shipping config (per branch)
+  SETTINGS: {
+    GET_BRANCH_SHIPPING_CONFIG: (branchId: number) => `${API_PREFIX}/get-branch-shipping-config/${branchId}`,
+    SAVE_BRANCH_SHIPPING_CONFIG: `${API_PREFIX}/save-branch-shipping-config`,
+  },
 } as const;
 
 export default API_URLS;

@@ -9,6 +9,7 @@ import {
     Divider,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -280,6 +281,39 @@ export default function BannerForm() {
                                     noOptionsText="No subcategories found"
                                     disabled={loading}
                                 />
+                                <Box
+                                    sx={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: 1,
+                                        mt: 1.5,
+                                        px: 1.5,
+                                        py: 1.25,
+                                        borderRadius: 1,
+                                        bgcolor: 'action.hover',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                    }}
+                                >
+                                    <InfoOutlinedIcon
+                                        sx={{
+                                            fontSize: 18,
+                                            color: 'info.main',
+                                            mt: 0.25,
+                                            flexShrink: 0,
+                                        }}
+                                    />
+                                    <Typography
+                                        variant="body2"
+                                        sx={{
+                                            color: 'text.secondary',
+                                            lineHeight: 1.5,
+                                            flex: 1,
+                                        }}
+                                    >
+                                        If no subcategory is selected, this banner will be shown as a main (home) banner.
+                                    </Typography>
+                                </Box>
                             </Box>
 
                             {/* Display Order and Status Row */}
@@ -290,6 +324,7 @@ export default function BannerForm() {
                                         control={control}
                                         label="Display Order"
                                         disabled={loading}
+                                        size="small"
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 6 }}>

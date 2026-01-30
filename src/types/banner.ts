@@ -2,6 +2,8 @@
  * Banner related types
  */
 
+import type { ServerFilter, ServerSorting } from './filter';
+
 export type BannerStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface Banner {
@@ -38,15 +40,8 @@ export interface Banner {
 export interface BannerListRequest {
   pageSize?: number;
   pageNumber?: number;
-  filters?: Array<{
-    key: string;
-    eq?: string | number;
-    iLike?: string;
-  }>;
-  sorting?: Array<{
-    key: string;
-    direction: 'ASC' | 'DESC';
-  }>;
+  filters?: ServerFilter[];
+  sorting?: ServerSorting[];
 }
 
 export interface BannerListResponse {
