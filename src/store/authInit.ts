@@ -7,6 +7,7 @@ import { store } from './store';
 import { setAuth, setInitializing } from './authSlice';
 import { setBranches } from './branchSlice';
 import branchService from '../services/branch.service';
+import { createEqFilter } from '../utils/filterBuilder';
 import type { User } from '../types/auth';
 
 // Flag to prevent duplicate initialization
@@ -41,7 +42,10 @@ export const initializeAuthFromStorage = async () => {
       if (branchState.branches.length === 0) {
         // Fetch branches if user is authenticated and branches not already loaded
         try {
-          const branchResponse = await branchService.getBranches({ pageSize: 100 });
+          const branchResponse = await branchService.getBranches({
+            pageSize: 100,
+            filters: user.vendorId != null ? [createEqFilter('vendorId', user.vendorId)] : [],
+          });
           if (branchResponse.success && branchResponse.doc && branchResponse.doc.length > 0) {
             // Store branches in Redux (this will restore saved branch or set first as default)
             store.dispatch(setBranches(branchResponse.doc));

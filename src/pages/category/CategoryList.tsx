@@ -4,16 +4,13 @@ import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton
 import { Link, useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { DateRangePicker, RangeKeyDict } from 'react-date-range';
-import { format } from 'date-fns';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
+import DateRangePopover from '../../components/DateRangePopover';
+import type { DateRangeSelection } from '../../components/DateRangePopover';
 import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchCategories, updateCategory } from '../../services/category.service';
@@ -154,7 +151,7 @@ export default function CategoryPage() {
         },
     ];
 
-    const [dateRange, setDateRange] = React.useState(() => {
+    const [dateRange, setDateRange] = React.useState<DateRangeSelection>(() => {
         if (storeStartDate && storeEndDate) {
             return [{
                 startDate: new Date(storeStartDate),
@@ -164,7 +161,6 @@ export default function CategoryPage() {
         }
         return getLastNDaysRangeForDatePicker(30);
     });
-    const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
 
     type AdvancedFiltersState = { categoryName: string; status: string };
@@ -204,7 +200,7 @@ export default function CategoryPage() {
         fetchFunction: fetchCategories,
         initialPageSize: 20,
         enabled: true,
-        autoFetch: true,
+        autoFetch: false,
         filters: buildFilters(),
         initialSorting: [
             {
@@ -217,6 +213,9 @@ export default function CategoryPage() {
 
     refreshTableRef.current = tableHandlers.refresh;
 
+    const fetchDataRef = React.useRef(fetchData);
+    fetchDataRef.current = fetchData;
+
     // Sync local date range with store when store dates change
     React.useEffect(() => {
         if (storeStartDate && storeEndDate) {
@@ -228,11 +227,21 @@ export default function CategoryPage() {
         }
     }, [storeStartDate, storeEndDate]);
 
-    // Update filters when applied filters or date range change (Apply updates applied; don't refetch on every form change)
+    // Fetch only when applied advanced filters change (date range fetch happens on DateRangePopover Apply)
     React.useEffect(() => {
-        setFilters(buildFilters());
+        const range = dateRange?.[0];
+        const hasValidDateRange =
+            range?.startDate && range?.endDate &&
+            !isNaN(new Date(range.startDate).getTime()) &&
+            !isNaN(new Date(range.endDate).getTime());
+        if (!hasValidDateRange) return;
+
+        const newFilters = buildFilters();
+        setFilters(newFilters);
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+        fetchDataRef.current({ initialFetch: true, filters: newFilters });
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when applied filters change; date range applied on picker close
+    }, [appliedAdvancedFilters]);
 
     React.useEffect(() => {
         if (filterAnchorEl) {
@@ -285,21 +294,31 @@ export default function CategoryPage() {
         fetchData({ force: true, initialFetch: true, filters: filtersToApply });
     };
 
-    const handleDateSelect = (ranges: RangeKeyDict) => {
-        if (ranges.selection && ranges.selection.startDate && ranges.selection.endDate) {
-            const newDateRange = [{
-                startDate: ranges.selection.startDate,
-                endDate: ranges.selection.endDate,
-                key: ranges.selection.key || 'selection'
-            }];
-            setDateRange(newDateRange);
-
-            // Save to store
+    const handleDateRangeApply = (newRange: DateRangeSelection) => {
+        setDateRange(newRange);
+        const range = newRange?.[0];
+        if (range) {
             dispatch(setDateRangeAction({
-                startDate: ranges.selection.startDate,
-                endDate: ranges.selection.endDate,
+                startDate: range.startDate,
+                endDate: range.endDate,
             }));
         }
+        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
+            dateRange: newRange,
+            dateField: 'createdAt',
+            advancedFilters: {
+                categoryName: appliedAdvancedFilters.categoryName || undefined,
+                status: appliedAdvancedFilters.status || undefined,
+            },
+            filterMappings: {
+                categoryName: { field: 'title', operator: 'iLike' },
+                status: { field: 'status', operator: 'eq' },
+            },
+        });
+        const newFilters = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+        setFilters(newFilters);
+        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+        fetchDataRef.current({ force: true, initialFetch: true, filters: newFilters });
     };
 
     return (
@@ -375,23 +394,11 @@ export default function CategoryPage() {
                         }}
                     />
                     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Button
-                            variant="outlined"
-                            startIcon={<CalendarTodayIcon />}
-                            onClick={(e) => setDateAnchorEl(e.currentTarget)}
-                            sx={{
-                                borderRadius: 2,
-                                textTransform: 'none',
-                                borderColor: 'divider',
-                                color: 'text.secondary',
-                                '&:hover': {
-                                    borderColor: 'primary.main',
-                                    bgcolor: 'action.hover'
-                                }
-                            }}
-                        >
-                            {format(dateRange[0].startDate || new Date(), 'MMM dd')} - {format(dateRange[0].endDate || new Date(), 'MMM dd')}
-                        </Button>
+                        <DateRangePopover
+                            value={dateRange}
+                            onChange={handleDateRangeApply}
+                            moveRangeOnFirstSelection={false}
+                        />
                         <Tooltip title="Refresh table">
                             <IconButton
                                 onClick={() => tableHandlers.refresh()}
@@ -426,22 +433,6 @@ export default function CategoryPage() {
                         </Button>
                     </Box>
                 </Box>
-
-                <Popover
-                    open={Boolean(dateAnchorEl)}
-                    anchorEl={dateAnchorEl}
-                    onClose={() => setDateAnchorEl(null)}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-                    transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-                >
-                    <Box sx={{ p: 1 }}>
-                        <DateRangePicker
-                            ranges={dateRange}
-                            onChange={handleDateSelect}
-                            moveRangeOnFirstSelection={false}
-                        />
-                    </Box>
-                </Popover>
 
                 <Popover
                     open={Boolean(filterAnchorEl)}

@@ -56,6 +56,15 @@ export interface MarkReadResponse {
   };
 }
 
+export interface MarkUnreadResponse {
+  success: boolean;
+  doc: {
+    id: number;
+    is_read: boolean;
+    read_at: string | null;
+  };
+}
+
 export interface MarkAllReadResponse {
   success: boolean;
   message: string;

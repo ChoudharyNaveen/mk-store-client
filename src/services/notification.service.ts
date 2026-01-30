@@ -9,6 +9,7 @@ import type {
   NotificationListResponse,
   UnreadCountResponse,
   MarkReadResponse,
+  MarkUnreadResponse,
   MarkAllReadResponse,
   DeleteNotificationResponse,
 } from '../types/notification';
@@ -22,12 +23,10 @@ export interface GetNotificationsParams {
   recipientId?: number;
   recipientType?: string;
   vendorId?: number | null;
-  branchId?: number | null;
 }
 
 export interface GetUnreadCountParams {
   vendorId?: number | null;
-  branchId?: number | null;
 }
 
 /**
@@ -47,7 +46,6 @@ export const getNotifications = async (
         recipientId: params.recipientId,
         recipientType: params.recipientType,
         vendorId: params.vendorId,
-        branchId: params.branchId,
       }
     );
     return response;
@@ -66,7 +64,6 @@ export const getUnreadCount = async (
   try {
     const queryParams = new URLSearchParams();
     if (params.vendorId) queryParams.append('vendorId', params.vendorId.toString());
-    if (params.branchId) queryParams.append('branchId', params.branchId.toString());
 
     const url = `${API_URLS.NOTIFICATIONS.GET_UNREAD_COUNT}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await http.get<UnreadCountResponse>(url);
@@ -90,6 +87,23 @@ export const markNotificationRead = async (
     return response;
   } catch (error) {
     console.error('Error marking notification as read:', error);
+    throw error;
+  }
+};
+
+/**
+ * Mark notification as unread
+ */
+export const markNotificationUnread = async (
+  notificationId: number
+): Promise<MarkUnreadResponse> => {
+  try {
+    const response = await http.patch<MarkUnreadResponse>(
+      API_URLS.NOTIFICATIONS.MARK_UNREAD(notificationId)
+    );
+    return response;
+  } catch (error) {
+    console.error('Error marking notification as unread:', error);
     throw error;
   }
 };

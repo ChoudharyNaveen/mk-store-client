@@ -31,6 +31,7 @@ interface DataTableProps<T> {
     hidePagination?: boolean; // Option to hide pagination and show all data
     compact?: boolean; // Option to make table rows more compact
     onRowClick?: (row: T) => void; // Optional callback when a row is clicked
+    getRowSx?: (row: T) => object; // Optional row-level sx (e.g. highlight unread)
 }
 
 export default function DataTable<T extends { id: string | number }>({
@@ -40,6 +41,7 @@ export default function DataTable<T extends { id: string | number }>({
     hidePagination = false,
     compact = false,
     onRowClick,
+    getRowSx,
 }: DataTableProps<T>) {
     const { data, total, page, rowsPerPage, order, orderBy, loading } = state;
 
@@ -104,12 +106,15 @@ export default function DataTable<T extends { id: string | number }>({
                                         tabIndex={-1}
                                         key={row.id || index}
                                         onClick={onRowClick ? () => onRowClick(row) : undefined}
-                                        sx={{
-                                            cursor: onRowClick ? 'pointer' : 'default',
-                                            '&:hover': onRowClick ? {
-                                                bgcolor: 'action.hover',
-                                            } : {},
-                                        }}
+                                        sx={[
+                                            {
+                                                cursor: onRowClick ? 'pointer' : 'default',
+                                                '&:hover': onRowClick ? {
+                                                    bgcolor: 'action.hover',
+                                                } : {},
+                                            },
+                                            ...(getRowSx ? [getRowSx(row)] : []),
+                                        ]}
                                     >
                                         {columns.map((column) => {
                                             const value = row[column.id] as any;

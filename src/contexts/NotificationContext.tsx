@@ -9,11 +9,13 @@ import {
   getNotifications,
   getUnreadCount,
   markNotificationRead,
+  markNotificationUnread,
   markAllNotificationsRead,
   deleteNotification,
   type GetNotificationsParams,
 } from '../services/notification.service';
 import type { Notification } from '../types/notification';
+import { mergeWithDefaultFilters } from '../utils/filterBuilder';
 import { useAppSelector } from '../store/hooks';
 import type { User } from '../types/auth';
 import { playNotificationSound } from '../utils/sound';
@@ -32,6 +34,7 @@ interface NotificationContextValue {
   fetchNotifications: (params?: Partial<GetNotificationsParams>) => Promise<void>;
   fetchUnreadCount: () => Promise<void>;
   markAsRead: (notificationId: number) => Promise<void>;
+  markAsUnread: (notificationId: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   deleteNotification: (notificationId: number) => Promise<void>;
   newOrderNotification: Notification | null;
@@ -202,21 +205,22 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, token]); // Removed branchId from dependencies - we don't want to re-register listener when branchId changes
 
-  // Fetch notifications
+  // Fetch notifications (vendor/branch scoped via filters, same pattern as NotificationList)
   const fetchNotifications = useCallback(
     async (params: Partial<GetNotificationsParams> = {}) => {
       if (!user) return;
 
       setLoading(true);
       try {
+        // Omit vendorId from params; it is applied via filters (branchId not used for get notifications)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- destructuring to omit from request
+        const { filters: paramFilters, vendorId: _v, ...restParams } = params;
+        const filters = mergeWithDefaultFilters(paramFilters ?? [], user.vendorId, undefined);
         const response = await getNotifications({
+          ...restParams,
           pageSize: pagination.pageSize,
           pageNumber: params.pageNumber || pagination.pageNumber,
-          recipientId: user.id,
-          recipientType: user.roleName || 'USER',
-          vendorId: user.vendorId,
-          branchId: branchId,
-          ...params,
+          filters,
         });
 
         if (params.pageNumber === 1 || !params.pageNumber) {
@@ -238,7 +242,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         setLoading(false);
       }
     },
-    [user, branchId, pagination.pageSize, pagination.pageNumber]
+    [user, pagination.pageSize, pagination.pageNumber]
   );
 
   // Fetch unread count
@@ -248,13 +252,12 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     try {
       const response = await getUnreadCount({
         vendorId: user.vendorId,
-        branchId: branchId,
       });
       setUnreadCount(response.count);
     } catch (error) {
       console.error('Error fetching unread count:', error);
     }
-  }, [user, branchId]);
+  }, [user]);
 
   // Mark as read
   const markAsRead = useCallback(async (notificationId: number) => {
@@ -270,6 +273,23 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch (error) {
       console.error('Error marking notification as read:', error);
+    }
+  }, []);
+
+  // Mark as unread
+  const markAsUnread = useCallback(async (notificationId: number) => {
+    try {
+      await markNotificationUnread(notificationId);
+      setNotifications((prev) =>
+        prev.map((notif) =>
+          notif.id === notificationId
+            ? { ...notif, is_read: false, read_at: null }
+            : notif
+        )
+      );
+      setUnreadCount((prev) => prev + 1);
+    } catch (error) {
+      console.error('Error marking notification as unread:', error);
     }
   }, []);
 
@@ -331,6 +351,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       fetchNotifications,
       fetchUnreadCount,
       markAsRead,
+      markAsUnread,
       markAllAsRead,
       deleteNotification: handleDeleteNotification,
       newOrderNotification,
@@ -344,6 +365,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
       fetchNotifications,
       fetchUnreadCount,
       markAsRead,
+      markAsUnread,
       markAllAsRead,
       handleDeleteNotification,
       newOrderNotification,

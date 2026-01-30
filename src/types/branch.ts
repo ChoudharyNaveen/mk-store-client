@@ -2,6 +2,8 @@
  * Branch related types
  */
 
+import type { ServerFilter } from './filter';
+
 export type BranchStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface Branch {
@@ -30,6 +32,7 @@ export interface Branch {
 export interface BranchListRequest {
   pageSize: number;
   pageNumber?: number;
+  filters?: ServerFilter[];
 }
 
 export interface BranchListResponse {

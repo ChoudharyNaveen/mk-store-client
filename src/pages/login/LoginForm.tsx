@@ -16,6 +16,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import authService from '../../services/auth.service';
 import branchService from '../../services/branch.service';
+import { createEqFilter } from '../../utils/filterBuilder';
 import { showSuccessToast } from '../../utils/toast';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { setAuth } from '../../store/authSlice';
@@ -44,7 +45,12 @@ export default function LoginForm() {
                 // Fetch branches after successful login
                 let selectedBranchId: number | null = null;
                 try {
-                    const branchResponse = await branchService.getBranches({ pageSize: 100 });
+                    const branchResponse = await branchService.getBranches({
+                        pageSize: 100,
+                        filters: response.doc.user.vendorId != null
+                            ? [createEqFilter('vendorId', response.doc.user.vendorId)]
+                            : [],
+                    });
                     if (branchResponse.success && branchResponse.doc && branchResponse.doc.length > 0) {
                         // Store branches in Redux
                         dispatch(setBranches(branchResponse.doc));

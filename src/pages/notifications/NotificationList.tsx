@@ -8,18 +8,21 @@ import {
   IconButton,
   Chip,
   Paper,
+  Tooltip,
   Popover,
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import DoneIcon from '@mui/icons-material/Done';
+import MarkEmailUnreadIcon from '@mui/icons-material/MarkEmailUnread';
 import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
-import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
+import DateRangePopover from '../../components/DateRangePopover';
+import type { DateRangeSelection } from '../../components/DateRangePopover';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { getNotifications } from '../../services/notification.service';
 import type { Notification } from '../../types/notification';
@@ -27,35 +30,35 @@ import type { ServerFilter } from '../../types/filter';
 import type { ServerPaginationResponse } from '../../hooks/useServerPagination';
 import type { FetchParams } from '../../hooks/useServerPagination';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
-import { buildFiltersFromDateRangeAndAdvanced } from '../../utils/filterBuilder';
+import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import { useNotifications } from '../../contexts/NotificationContext';
 
 export default function NotificationList() {
   const navigate = useNavigate();
-  const { markAllAsRead: contextMarkAllAsRead, markAsRead: contextMarkAsRead } = useNotifications();
+  const { markAllAsRead: contextMarkAllAsRead, markAsRead: contextMarkAsRead, markAsUnread: contextMarkAsUnread, deleteNotification: contextDeleteNotification } = useNotifications();
 
   const { user } = useAppSelector((state) => state.auth);
-  const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
   const vendorId = user?.vendorId;
 
-  const [dateRange, setDateRange] = React.useState(getLastNDaysRangeForDatePicker(30));
-  const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
+  const [dateRange, setDateRange] = React.useState<DateRangeSelection>(getLastNDaysRangeForDatePicker(30));
   const [readFilter, setReadFilter] = React.useState<'all' | 'read' | 'unread'>('all');
   const [markingAllRead, setMarkingAllRead] = React.useState(false);
+  const [infoAnchorEl, setInfoAnchorEl] = React.useState<HTMLElement | null>(null);
+  const infoOpen = Boolean(infoAnchorEl);
 
   const buildFilters = useCallback((): ServerFilter[] => {
-    const filters = buildFiltersFromDateRangeAndAdvanced({
+    const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
       dateRange,
       dateField: 'created_at',
     });
     if (readFilter === 'read') {
-      filters.push({ key: 'is_read', eq: '1' });
+      additionalFilters.push({ key: 'is_read', eq: '1' });
     } else if (readFilter === 'unread') {
-      filters.push({ key: 'is_read', eq: '0' });
+      additionalFilters.push({ key: 'is_read', eq: '0' });
     }
-    return filters;
-  }, [dateRange, readFilter]);
+    return mergeWithDefaultFilters(additionalFilters, vendorId, undefined);
+  }, [dateRange, readFilter, vendorId]);
 
   const fetchNotificationsForTable = useCallback(
     async (params: FetchParams): Promise<ServerPaginationResponse<Notification>> => {
@@ -65,8 +68,6 @@ export default function NotificationList() {
         pageSize: params.pageSize ?? 10,
         filters,
         sorting: params.sorting ?? [{ key: 'created_at', direction: 'DESC' }],
-        vendorId: vendorId ?? undefined,
-        branchId: selectedBranchId ?? undefined,
       });
       return {
         list: res.doc,
@@ -78,11 +79,10 @@ export default function NotificationList() {
         },
       };
     },
-    [vendorId, selectedBranchId]
+    []
   );
 
   const {
-    paginationModel,
     setPaginationModel,
     setFilters,
     tableState,
@@ -110,16 +110,8 @@ export default function NotificationList() {
     }
   }, [readFilter, dateRange, setFilters, buildFilters, setPaginationModel]);
 
-  const handleDateSelect = (ranges: RangeKeyDict) => {
-    if (ranges.selection?.startDate && ranges.selection?.endDate) {
-      setDateRange([
-        {
-          startDate: ranges.selection.startDate,
-          endDate: ranges.selection.endDate,
-          key: ranges.selection.key || 'selection',
-        },
-      ]);
-    }
+  const handleDateRangeApply = (newRange: DateRangeSelection) => {
+    setDateRange(newRange);
   };
 
   const handleMarkAllRead = async () => {
@@ -142,11 +134,34 @@ export default function NotificationList() {
     }
   };
 
+  const handleReadToggle = async (row: Notification) => {
+    try {
+      if (row.is_read) {
+        await contextMarkAsUnread(row.id);
+      } else {
+        await contextMarkAsRead(row.id);
+      }
+      refreshTableRef.current();
+    } catch {
+      // Error already logged in context
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, row: Notification) => {
+    e.stopPropagation();
+    try {
+      await contextDeleteNotification(row.id);
+      refreshTableRef.current();
+    } catch {
+      // Error already logged in context
+    }
+  };
+
   const columns = [
     {
       id: 'is_read' as keyof Notification,
       label: 'Read',
-      minWidth: 80,
+      minWidth: 100,
       align: 'center' as const,
       render: (row: Notification) => (
         <Chip
@@ -154,6 +169,7 @@ export default function NotificationList() {
           size="small"
           color={row.is_read ? 'default' : 'primary'}
           variant={row.is_read ? 'outlined' : 'filled'}
+          sx={{ fontWeight: 500 }}
         />
       ),
     },
@@ -196,15 +212,103 @@ export default function NotificationList() {
         }
       },
     },
+    {
+      id: 'action' as keyof Notification,
+      label: 'Action',
+      minWidth: 120,
+      align: 'center' as const,
+      render: (row: Notification) => (
+        <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+          {row.is_read ? (
+            <Tooltip title="Mark as unread">
+              <IconButton
+                size="small"
+                color="default"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleReadToggle(row);
+                }}
+                sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'action.hover' } }}
+              >
+                <MarkEmailUnreadIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Tooltip title="Mark as read">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleReadToggle(row);
+                }}
+                sx={{ '&:hover': { bgcolor: 'primary.light', color: 'primary.contrastText' } }}
+              >
+                <DoneIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(e) => handleDelete(e, row)}
+              sx={{ '&:hover': { bgcolor: 'error.light', color: 'error.contrastText' } }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
+    },
   ];
 
   return (
     <Paper sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, borderRadius: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
-          Notifications
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
+            Notifications
+          </Typography>
+          <Tooltip title="What you see here">
+            <IconButton
+              size="small"
+              onClick={(e) => setInfoAnchorEl(e.currentTarget)}
+              sx={{
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main', bgcolor: 'action.hover' },
+              }}
+              aria-label="Notification list info"
+            >
+              <InfoOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
+      <Popover
+        open={infoOpen}
+        anchorEl={infoAnchorEl}
+        onClose={() => setInfoAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        PaperProps={{
+          sx: {
+            mt: 1.25,
+            maxWidth: 320,
+            borderRadius: 2,
+            boxShadow: 2,
+          },
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.primary', mb: 0.75 }}>
+            All your notifications in one place
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.5 }}>
+            Notifications from every branch are shown here. You don&apos;t need to switch branches to see alerts—order updates, promotions, and other alerts appear in this list regardless of branch.
+          </Typography>
+        </Box>
+      </Popover>
 
       <Box
         sx={{
@@ -245,17 +349,17 @@ export default function NotificationList() {
             sx={{ minWidth: 220 }}
           />
 
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<CalendarTodayIcon />}
-            onClick={(e) => setDateAnchorEl(e.currentTarget)}
-            sx={{ textTransform: 'none' }}
-          >
-            {dateRange[0]?.startDate && dateRange[0]?.endDate
-              ? `${format(dateRange[0].startDate, 'MMM d, yyyy')} – ${format(dateRange[0].endDate, 'MMM d, yyyy')}`
-              : 'Date range'}
-          </Button>
+          <DateRangePopover
+            value={dateRange}
+            onChange={handleDateRangeApply}
+            moveRangeOnFirstSelection={false}
+            months={2}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            formatLabel={(start, end) => `${format(start, 'MMM d, yyyy')} – ${format(end, 'MMM d, yyyy')}`}
+            buttonSize="small"
+            buttonSx={{ textTransform: 'none' }}
+          />
           <Box
             component="span"
             sx={{
@@ -307,34 +411,20 @@ export default function NotificationList() {
           </IconButton>
         </Box>
 
-        <Popover
-          open={Boolean(dateAnchorEl)}
-          anchorEl={dateAnchorEl}
-          onClose={() => setDateAnchorEl(null)}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-        >
-          <Box sx={{ p: 1 }}>
-            <DateRangePicker
-              ranges={dateRange}
-              onChange={handleDateSelect}
-              moveRangeOnFirstSelection={false}
-              months={2}
-              direction="horizontal"
-            />
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-              <Button size="small" onClick={() => setDateAnchorEl(null)}>
-                Close
-              </Button>
-            </Box>
-          </Box>
-        </Popover>
-
         <DataTable
           columns={columns}
           state={tableState}
           handlers={tableHandlers}
           onRowClick={handleRowClick}
+          getRowSx={(row) =>
+            !row.is_read
+              ? {
+                  bgcolor: 'rgba(211, 47, 47, 0.06)',
+                  borderLeft: '3px solid',
+                  borderLeftColor: 'error.main',
+                }
+              : {}
+          }
         />
       </Box>
     </Paper>

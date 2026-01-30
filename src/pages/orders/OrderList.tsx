@@ -2,16 +2,14 @@ import React from 'react';
 import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Chip, Paper, List, ListItem, ListItemText, Divider, Select, MenuItem, FormControl, InputLabel, Tooltip } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import SearchIcon from '@mui/icons-material/Search';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
+import DateRangePopover from '../../components/DateRangePopover';
+import type { DateRangeSelection } from '../../components/DateRangePopover';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchOrders } from '../../services/order.service';
 import type { Order } from '../../types/order';
@@ -300,7 +298,7 @@ export default function OrderList() {
         },
     ];
     
-    const [dateRange, setDateRange] = React.useState(() => {
+    const [dateRange, setDateRange] = React.useState<DateRangeSelection>(() => {
         if (storeStartDate && storeEndDate) {
             return [{
                 startDate: new Date(storeStartDate),
@@ -310,7 +308,6 @@ export default function OrderList() {
         }
         return getLastNDaysRangeForDatePicker(30);
     });
-    const [dateAnchorEl, setDateAnchorEl] = React.useState<null | HTMLElement>(null);
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
     const [itemsPopoverAnchor, setItemsPopoverAnchor] = React.useState<{ el: HTMLElement; orderId: number } | null>(null);
     const [advancedFilters, setAdvancedFilters] = React.useState({
@@ -388,19 +385,13 @@ export default function OrderList() {
         tableHandlers.refresh();
     };
 
-    const handleDateSelect = (ranges: RangeKeyDict) => {
-        if (ranges.selection && ranges.selection.startDate && ranges.selection.endDate) {
-            const newDateRange = [{
-                startDate: ranges.selection.startDate,
-                endDate: ranges.selection.endDate,
-                key: ranges.selection.key || 'selection'
-            }];
-            setDateRange(newDateRange);
-            
-            // Save to store
+    const handleDateRangeApply = (newRange: DateRangeSelection) => {
+        setDateRange(newRange);
+        const range = newRange?.[0];
+        if (range) {
             dispatch(setDateRangeAction({
-                startDate: ranges.selection.startDate,
-                endDate: ranges.selection.endDate,
+                startDate: range.startDate,
+                endDate: range.endDate,
             }));
         }
     };
@@ -463,23 +454,11 @@ export default function OrderList() {
                         }}
                     />
                     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Button
-                            variant="outlined"
-                            startIcon={<CalendarTodayIcon />}
-                            onClick={(e) => setDateAnchorEl(e.currentTarget)}
-                            sx={{ 
-                                borderRadius: 2, 
-                                textTransform: 'none', 
-                                borderColor: 'divider', 
-                                color: 'text.secondary',
-                                '&:hover': {
-                                    borderColor: 'primary.main',
-                                    bgcolor: 'action.hover'
-                                }
-                            }}
-                        >
-                            {format(dateRange[0].startDate || new Date(), 'MMM dd')} - {format(dateRange[0].endDate || new Date(), 'MMM dd')}
-                        </Button>
+                        <DateRangePopover
+                            value={dateRange}
+                            onChange={handleDateRangeApply}
+                            moveRangeOnFirstSelection={false}
+                        />
                         <Tooltip title="Refresh table">
                             <IconButton
                                 onClick={() => tableHandlers.refresh()}
@@ -514,22 +493,6 @@ export default function OrderList() {
                         </Button>
                     </Box>
                 </Box>
-
-            <Popover
-                open={Boolean(dateAnchorEl)}
-                anchorEl={dateAnchorEl}
-                onClose={() => setDateAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-            >
-                <Box sx={{ p: 1 }}>
-                    <DateRangePicker
-                        ranges={dateRange}
-                        onChange={handleDateSelect}
-                        moveRangeOnFirstSelection={false}
-                    />
-                </Box>
-            </Popover>
 
             <Popover
                 open={Boolean(filterAnchorEl)}

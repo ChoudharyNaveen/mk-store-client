@@ -104,6 +104,7 @@ export const API_URLS = {
     LIST: `${API_PREFIX}/get-notifications`,
     GET_UNREAD_COUNT: `${API_PREFIX}/get-unread-notification-count`,
     MARK_READ: (id: string | number) => `${API_PREFIX}/mark-notification-read/${id}`,
+    MARK_UNREAD: (id: string | number) => `${API_PREFIX}/mark-notification-unread/${id}`,
     MARK_ALL_READ: `${API_PREFIX}/mark-all-notifications-read`,
     DELETE: (id: string | number) => `${API_PREFIX}/delete-notification/${id}`,
   },
