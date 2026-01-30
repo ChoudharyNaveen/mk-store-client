@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Button, TextField, Popover, IconButton, Paper, Chip, Select,
-   MenuItem, FormControl, InputLabel, Avatar, Dialog, DialogTitle, DialogContent, DialogContentText,
+   MenuItem, FormControl, InputLabel, Avatar, Dialog, DialogTitle, DialogContent,
     DialogActions, Tooltip, Autocomplete, CircularProgress } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
@@ -8,15 +8,15 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
-import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
+import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { fetchBanners, deleteBanner } from '../../services/banner.service';
+import { fetchBanners, updateBanner } from '../../services/banner.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
 import type { Banner } from '../../types/banner';
 import type { SubCategory } from '../../types/sub-category';
@@ -45,11 +45,6 @@ export default function BannerList() {
   const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
   const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
   
-  // Delete confirmation dialog state
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [bannerToDelete, setBannerToDelete] = React.useState<Banner | null>(null);
-  const [deleting, setDeleting] = React.useState(false);
-
   // View banner image dialog state
   const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
   const [bannerToView, setBannerToView] = React.useState<Banner | null>(null);
@@ -147,22 +142,11 @@ export default function BannerList() {
           >
             <EditIcon fontSize="small" />
           </IconButton>
-          <IconButton
-            size="small"
-            onClick={() => {
-              setBannerToDelete(row);
-              setDeleteDialogOpen(true);
-            }}
-            sx={{
-              border: '1px solid #e0e0e0',
-              borderRadius: 2,
-              color: 'error.main',
-              bgcolor: '#ffebee',
-              '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-            }}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
+          <StatusToggleButton
+            status={row.status}
+            onClick={() => handleToggleStatus(row)}
+            disabled={updatingBannerId === row.id}
+          />
         </Box>
       )
     },
@@ -191,6 +175,37 @@ export default function BannerList() {
   const { user } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
   const vendorId = user?.vendorId;
+
+  const [updatingBannerId, setUpdatingBannerId] = React.useState<number | null>(null);
+  const refreshTableRef = React.useRef<() => void>(() => {});
+
+  const handleToggleStatus = React.useCallback(async (row: Banner) => {
+    const newStatus = (row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE') as Banner['status'];
+    const concurrencyStamp = row.concurrencyStamp ?? row.concurrency_stamp ?? '';
+    if (!concurrencyStamp) {
+      showErrorToast('Cannot toggle: missing concurrency stamp.');
+      return;
+    }
+    const userId = user?.id;
+    if (userId == null) {
+      showErrorToast('User not found.');
+      return;
+    }
+    setUpdatingBannerId(row.id);
+    try {
+      await updateBanner(row.id, {
+        updatedBy: userId,
+        concurrencyStamp,
+        status: newStatus,
+      });
+      showSuccessToast(`Banner set to ${newStatus}.`);
+      refreshTableRef.current();
+    } catch {
+      showErrorToast('Failed to update banner status.');
+    } finally {
+      setUpdatingBannerId(null);
+    }
+  }, [user?.id]);
 
   React.useEffect(() => {
     if (!filterAnchorEl || filterOptionsLoadedRef.current) return;
@@ -258,6 +273,8 @@ export default function BannerList() {
     ],
     searchDebounceMs: 500,
   });
+
+  refreshTableRef.current = tableHandlers.refresh;
 
   // Sync local date range with store when store dates change
   React.useEffect(() => {
@@ -346,37 +363,6 @@ export default function BannerList() {
         startDate: ranges.selection.startDate,
         endDate: ranges.selection.endDate,
       }));
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!bannerToDelete) return;
-
-    try {
-      setDeleting(true);
-      const concurrencyStamp = bannerToDelete.concurrency_stamp || bannerToDelete.concurrencyStamp;
-      if (!concurrencyStamp) {
-        showErrorToast('Concurrency stamp not found. Please refresh and try again.');
-        return;
-      }
-
-      await deleteBanner(bannerToDelete.id, concurrencyStamp);
-      showSuccessToast('Banner deleted successfully');
-      setDeleteDialogOpen(false);
-      setBannerToDelete(null);
-      tableHandlers.refresh();
-    } catch (error: unknown) {
-      const errorMessage = error && typeof error === 'object' && 'message' in error
-        ? (error.message as string)
-        : 'Failed to delete banner';
-      
-      if (error && typeof error === 'object' && 'status' in error && error.status === 409) {
-        showErrorToast('Concurrency error: Banner was modified by another user. Please refresh and try again.');
-      } else {
-        showErrorToast(errorMessage);
-      }
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -593,27 +579,6 @@ export default function BannerList() {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setViewDialogOpen(false)} variant="contained" sx={{ textTransform: 'none' }}>
             Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => !deleting && setDeleteDialogOpen(false)}
-      >
-        <DialogTitle>Delete Banner</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete this banner? This action cannot be undone.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
-            Cancel
-          </Button>
-          <Button onClick={handleDeleteConfirm} color="error" disabled={deleting}>
-            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

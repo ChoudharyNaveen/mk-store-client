@@ -52,6 +52,7 @@ export interface UpdateSubCategoryRequest {
   updatedBy: string | number;
   concurrencyStamp: string;
   file?: File; // Optional for updates
+  status?: SubCategoryStatus; // Optional for status-only toggle
 }
 
 export interface UpdateSubCategoryResponse {

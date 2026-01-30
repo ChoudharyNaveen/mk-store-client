@@ -26,6 +26,7 @@ import BannerList from '../pages/banners/BannerList';
 import BannerForm from '../pages/banners/BannerForm';
 import BannerDetail from '../pages/banners/BannerDetail';
 import ShippingCharges from '../pages/settings/ShippingCharges';
+import NotificationList from '../pages/notifications/NotificationList';
 
 /**
  * Public routes (accessible without authentication)
@@ -164,6 +165,11 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/orders/edit/:id',
     element: <OrderList />, // TODO: Create OrderEdit component
+  },
+  // Notifications
+  {
+    path: '/notifications',
+    element: <NotificationList />,
   },
   // Banner routes
   {

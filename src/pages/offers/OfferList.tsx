@@ -8,14 +8,14 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
-import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
+import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { fetchOffers } from '../../services/offer.service';
+import { fetchOffers, updateOffer } from '../../services/offer.service';
 import type { Offer } from '../../types/offer';
 import type { ServerFilter } from '../../types/filter';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
@@ -23,6 +23,7 @@ import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '.
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 import { OFFER_STATUS_OPTIONS } from '../../constants/statusOptions';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 export default function OfferList() {
     const navigate = useNavigate();
@@ -37,7 +38,38 @@ export default function OfferList() {
     // Get date range from store, or use default
     const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
     const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
-    
+
+    const [updatingOfferId, setUpdatingOfferId] = React.useState<number | null>(null);
+    const refreshTableRef = React.useRef<() => void>(() => {});
+
+    const handleToggleStatus = React.useCallback(async (row: Offer) => {
+        const newStatus = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        const concurrencyStamp = row.concurrency_stamp ?? (row as Offer & { concurrencyStamp?: string }).concurrencyStamp ?? '';
+        if (!concurrencyStamp) {
+            showErrorToast('Cannot toggle: missing concurrency stamp.');
+            return;
+        }
+        const userId = user?.id;
+        if (userId == null) {
+            showErrorToast('User not found.');
+            return;
+        }
+        setUpdatingOfferId(row.id);
+        try {
+            await updateOffer(row.id, {
+                concurrency_stamp: concurrencyStamp,
+                status: newStatus,
+                updated_by: userId,
+            });
+            showSuccessToast(`Offer set to ${newStatus}.`);
+            refreshTableRef.current();
+        } catch {
+            showErrorToast('Failed to update offer status.');
+        } finally {
+            setUpdatingOfferId(null);
+        }
+    }, [user?.id]);
+
     const columns = [
         {
             id: 'image' as keyof Offer,
@@ -93,23 +125,16 @@ export default function OfferList() {
                     >
                         <EditIcon fontSize="small" />
                     </IconButton>
-                    <IconButton
-                        size="small"
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'error.main',
-                            bgcolor: '#ffebee',
-                            '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                        }}
-                    >
-                        <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    <StatusToggleButton
+                        status={row.status}
+                        onClick={() => handleToggleStatus(row)}
+                        disabled={updatingOfferId === row.id}
+                    />
                 </Box>
             )
         },
     ];
-    
+
     const [dateRange, setDateRange] = React.useState(() => {
         if (storeStartDate && storeEndDate) {
             return [{
@@ -164,6 +189,8 @@ export default function OfferList() {
         ],
         searchDebounceMs: 500,
     });
+
+    refreshTableRef.current = tableHandlers.refresh;
 
     // Sync local date range with store when store dates change
     React.useEffect(() => {

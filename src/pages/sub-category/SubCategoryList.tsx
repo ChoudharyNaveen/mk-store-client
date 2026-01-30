@@ -8,15 +8,15 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
-import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
+import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { fetchSubCategories } from '../../services/sub-category.service';
+import { fetchSubCategories, updateSubCategory } from '../../services/sub-category.service';
 import { fetchCategories } from '../../services/category.service';
 import type { SubCategory } from '../../types/sub-category';
 import type { Category } from '../../types/category';
@@ -26,6 +26,7 @@ import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '.
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 import { SUBCATEGORY_STATUS_OPTIONS } from '../../constants/statusOptions';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 export default function SubCategoryList() {
     const navigate = useNavigate();
@@ -40,7 +41,40 @@ export default function SubCategoryList() {
     // Get date range from store, or use default
     const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
     const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
-    
+
+    const [updatingSubCategoryId, setUpdatingSubCategoryId] = React.useState<number | null>(null);
+    const refreshTableRef = React.useRef<() => void>(() => {});
+
+    const handleToggleStatus = React.useCallback(async (row: SubCategory) => {
+        const newStatus = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        const concurrencyStamp = row.concurrencyStamp ?? (row as SubCategory & { concurrency_stamp?: string }).concurrency_stamp ?? '';
+        if (!concurrencyStamp) {
+            showErrorToast('Cannot toggle: missing concurrency stamp.');
+            return;
+        }
+        const userId = user?.id;
+        if (userId == null) {
+            showErrorToast('User not found.');
+            return;
+        }
+        setUpdatingSubCategoryId(row.id);
+        try {
+            await updateSubCategory(row.id, {
+                title: row.title,
+                description: row.description ?? '',
+                updatedBy: userId,
+                concurrencyStamp,
+                status: newStatus,
+            });
+            showSuccessToast(`Sub category set to ${newStatus}.`);
+            refreshTableRef.current();
+        } catch {
+            showErrorToast('Failed to update sub category status.');
+        } finally {
+            setUpdatingSubCategoryId(null);
+        }
+    }, [user?.id]);
+
     const columns = [
         {
             id: 'image' as keyof SubCategory,
@@ -118,23 +152,16 @@ export default function SubCategoryList() {
                     >
                         <EditIcon fontSize="small" />
                     </IconButton>
-                    <IconButton
-                        size="small"
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'error.main',
-                            bgcolor: '#ffebee',
-                            '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                        }}
-                    >
-                        <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    <StatusToggleButton
+                        status={row.status}
+                        onClick={() => handleToggleStatus(row)}
+                        disabled={updatingSubCategoryId === row.id}
+                    />
                 </Box>
             )
         },
     ];
-    
+
     const [dateRange, setDateRange] = React.useState(() => {
         if (storeStartDate && storeEndDate) {
             return [{
@@ -236,6 +263,8 @@ export default function SubCategoryList() {
         ],
         searchDebounceMs: 500,
     });
+
+    refreshTableRef.current = tableHandlers.refresh;
 
     // Sync local date range with store when store dates change
     React.useEffect(() => {

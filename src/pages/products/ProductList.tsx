@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 import React from 'react';
 import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress, Tooltip } from '@mui/material';
@@ -8,7 +9,6 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
-import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import InfoIcon from '@mui/icons-material/Info';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
@@ -16,8 +16,9 @@ import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
+import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { fetchProducts, type FetchParams } from '../../services/product.service';
+import { fetchProducts, updateProduct, type FetchParams } from '../../services/product.service';
 import { fetchCategories } from '../../services/category.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
 import { getProductTypes } from '../../services/product-type.service';
@@ -34,6 +35,7 @@ import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '.
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 import { PRODUCT_STATUS_OPTIONS, PRODUCT_STOCK_STATUS_OPTIONS } from '../../constants/statusOptions';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 // Helper function to get default image from images array
 const getDefaultImage = (product: Product): string | undefined => {
@@ -259,6 +261,37 @@ export default function ProductList() {
     // Variants popover state
     const [variantsAnchorEl, setVariantsAnchorEl] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
 
+    const [updatingProductId, setUpdatingProductId] = React.useState<number | null>(null);
+    const refreshTableRef = React.useRef<() => void>(() => {});
+
+    const handleToggleStatus = React.useCallback(async (row: Product) => {
+        const newStatus = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        const concurrencyStamp = row.concurrencyStamp ?? row.concurrency_stamp ?? '';
+        if (!concurrencyStamp) {
+            showErrorToast('Cannot toggle: missing concurrency stamp.');
+            return;
+        }
+        const userId = user?.id;
+        if (userId == null) {
+            showErrorToast('User not found.');
+            return;
+        }
+        setUpdatingProductId(row.id);
+        try {
+            await updateProduct(row.id, {
+                updatedBy: userId,
+                concurrencyStamp,
+                status: newStatus,
+            });
+            showSuccessToast(`Product set to ${newStatus}.`);
+            refreshTableRef.current();
+        } catch {
+            showErrorToast('Failed to update product status.');
+        } finally {
+            setUpdatingProductId(null);
+        }
+    }, [user?.id]);
+
     const columns = [
         {
             id: 'image' as keyof Product,
@@ -333,28 +366,21 @@ export default function ProductList() {
             }
         },
         { 
-            id: 'itemDetails' as keyof Product, 
-            label: 'Item Details', 
-            minWidth: 120,
-            render: (row: Product) => (
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {formatItemDetails(row)}
-                </Typography>
-            )
-        },
-        { 
             id: 'product_status' as keyof Product, 
             label: 'Status', 
-            minWidth: 100,
+            minWidth: 140,
             render: (row: Product) => {
                 const firstVariant = getFirstVariant(row);
-                const status = firstVariant?.product_status ?? row.product_status;
-                if (!status) return 'N/A';
+                const activeStatus = row.status ?? 'N/A';
+                const stockStatus = firstVariant?.product_status ?? row.product_status ?? 'N/A';
+                const label = [activeStatus, stockStatus].filter(Boolean).join(' - ');
+                if (!label || label === 'N/A') return 'N/A';
+                const stockColor = stockStatus === 'INSTOCK' ? 'success' : stockStatus === 'OUTOFSTOCK' ? 'error' : 'default';
                 return (
                     <Chip
-                        label={status}
+                        label={label}
                         size="small"
-                        color={status === 'INSTOCK' ? 'success' : 'error'}
+                        color={stockColor}
                         sx={{ fontWeight: 500 }}
                     />
                 );
@@ -430,23 +456,16 @@ export default function ProductList() {
                     >
                         <EditIcon fontSize="small" />
                     </IconButton>
-                    <IconButton
-                        size="small"
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'error.main',
-                            bgcolor: '#ffebee',
-                            '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                        }}
-                    >
-                        <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    <StatusToggleButton
+                        status={row.status}
+                        onClick={() => handleToggleStatus(row)}
+                        disabled={updatingProductId === row.id}
+                    />
                 </Box>
             )
         },
     ];
-    
+
     const [dateRange, setDateRange] = React.useState(() => {
         if (storeStartDate && storeEndDate) {
             return [{
@@ -603,6 +622,8 @@ export default function ProductList() {
         ],
         searchDebounceMs: 500,
     });
+
+    refreshTableRef.current = tableHandlers.refresh;
 
     // Refetch when "Has Combo" chip is toggled (request body changes)
     const hasComboTouchedRef = React.useRef(false);

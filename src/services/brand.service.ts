@@ -176,7 +176,11 @@ export const updateBrand = async (
     formData.append('description', data.description);
     formData.append('updatedBy', String(data.updatedBy));
     formData.append('concurrencyStamp', data.concurrencyStamp);
-    
+
+    if (data.status !== undefined) {
+      formData.append('status', data.status);
+    }
+
     // Only append file if provided
     if (data.file) {
       formData.append('file', data.file);

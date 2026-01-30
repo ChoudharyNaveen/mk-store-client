@@ -7,14 +7,14 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
-import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
+import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { fetchPromocodes } from '../../services/promo-code.service';
+import promocodeService, { fetchPromocodes } from '../../services/promo-code.service';
 import type { Promocode } from '../../types/promo-code';
 import type { ServerFilter } from '../../types/filter';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
@@ -22,6 +22,7 @@ import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '.
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 import { PROMOCODE_STATUS_OPTIONS } from '../../constants/statusOptions';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 export default function PromocodeList() {
     const navigate = useNavigate();
@@ -36,7 +37,38 @@ export default function PromocodeList() {
     // Get date range from store, or use default
     const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
     const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
-    
+
+    const [updatingPromocodeId, setUpdatingPromocodeId] = React.useState<number | null>(null);
+    const refreshTableRef = React.useRef<() => void>(() => {});
+
+    const handleToggleStatus = React.useCallback(async (row: Promocode) => {
+        const newStatus = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        const concurrencyStamp = row.concurrency_stamp ?? (row as Promocode & { concurrencyStamp?: string }).concurrencyStamp ?? '';
+        if (!concurrencyStamp) {
+            showErrorToast('Cannot toggle: missing concurrency stamp.');
+            return;
+        }
+        const userId = user?.id;
+        if (userId == null) {
+            showErrorToast('User not found.');
+            return;
+        }
+        setUpdatingPromocodeId(row.id);
+        try {
+            await promocodeService.updatePromocode(row.id, {
+                concurrency_stamp: concurrencyStamp,
+                status: newStatus,
+                updated_by: userId,
+            });
+            showSuccessToast(`Promocode set to ${newStatus}.`);
+            refreshTableRef.current();
+        } catch {
+            showErrorToast('Failed to update promocode status.');
+        } finally {
+            setUpdatingPromocodeId(null);
+        }
+    }, [user?.id]);
+
     const columns = [
         { id: 'type' as keyof Promocode, label: 'Type', minWidth: 100 },
         { id: 'code' as keyof Promocode, label: 'Code', minWidth: 120 },
@@ -79,23 +111,16 @@ export default function PromocodeList() {
                     >
                         <EditIcon fontSize="small" />
                     </IconButton>
-                    <IconButton
-                        size="small"
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'error.main',
-                            bgcolor: '#ffebee',
-                            '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                        }}
-                    >
-                        <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    <StatusToggleButton
+                        status={row.status}
+                        onClick={() => handleToggleStatus(row)}
+                        disabled={updatingPromocodeId === row.id}
+                    />
                 </Box>
             )
         },
     ];
-    
+
     const [dateRange, setDateRange] = React.useState(() => {
         if (storeStartDate && storeEndDate) {
             return [{
@@ -152,6 +177,8 @@ export default function PromocodeList() {
         ],
         searchDebounceMs: 500,
     });
+
+    refreshTableRef.current = tableHandlers.refresh;
 
     // Sync local date range with store when store dates change
     React.useEffect(() => {

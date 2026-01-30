@@ -48,6 +48,7 @@ export interface UpdateBrandRequest {
   updatedBy: string | number;
   concurrencyStamp: string;
   file?: File; // Optional for updates
+  status?: BrandStatus; // Optional for status-only toggle
 }
 
 export interface UpdateBrandResponse {

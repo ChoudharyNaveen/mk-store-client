@@ -8,15 +8,15 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
-import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
 import { format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../../components/DataTable';
+import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { fetchCategories } from '../../services/category.service';
+import { fetchCategories, updateCategory } from '../../services/category.service';
 import type { Category } from '../../types/category';
 import type { ServerFilter } from '../../types/filter';
 import { getLastNDaysRangeForDatePicker } from '../../utils/date';
@@ -24,6 +24,7 @@ import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '.
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 import { CATEGORY_STATUS_OPTIONS } from '../../constants/statusOptions';
+import { showSuccessToast, showErrorToast } from '../../utils/toast';
 
 export default function CategoryPage() {
     const navigate = useNavigate();
@@ -39,6 +40,38 @@ export default function CategoryPage() {
     const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
     const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
 
+    const [updatingCategoryId, setUpdatingCategoryId] = React.useState<number | null>(null);
+    const refreshTableRef = React.useRef<() => void>(() => {});
+
+    const handleToggleStatus = React.useCallback(async (row: Category) => {
+        const newStatus = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+        const concurrencyStamp = row.concurrencyStamp ?? (row as Category & { concurrency_stamp?: string }).concurrency_stamp ?? '';
+        if (!concurrencyStamp) {
+            showErrorToast('Cannot toggle: missing concurrency stamp.');
+            return;
+        }
+        const userId = user?.id;
+        if (userId == null) {
+            showErrorToast('User not found.');
+            return;
+        }
+        setUpdatingCategoryId(row.id);
+        try {
+            await updateCategory(row.id, {
+                title: row.title,
+                description: row.description ?? '',
+                updatedBy: userId,
+                concurrencyStamp,
+                status: newStatus,
+            });
+            showSuccessToast(`Category set to ${newStatus}.`);
+            refreshTableRef.current();
+        } catch {
+            showErrorToast('Failed to update category status.');
+        } finally {
+            setUpdatingCategoryId(null);
+        }
+    }, [user?.id]);
 
     const columns = [
         {
@@ -111,18 +144,11 @@ export default function CategoryPage() {
                     >
                         <EditIcon fontSize="small" />
                     </IconButton>
-                    <IconButton
-                        size="small"
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'error.main',
-                            bgcolor: '#ffebee',
-                            '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                        }}
-                    >
-                        <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    <StatusToggleButton
+                        status={row.status}
+                        onClick={() => handleToggleStatus(row)}
+                        disabled={updatingCategoryId === row.id}
+                    />
                 </Box>
             )
         },
@@ -188,6 +214,8 @@ export default function CategoryPage() {
         ],
         searchDebounceMs: 500,
     });
+
+    refreshTableRef.current = tableHandlers.refresh;
 
     // Sync local date range with store when store dates change
     React.useEffect(() => {
@@ -429,7 +457,7 @@ export default function CategoryPage() {
                             size="small"
                             label="Category Name"
                             value={advancedFilters.categoryName}
-                            onChange={(e) => setAdvancedFilters({ categoryName: e.target.value })}
+                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, categoryName: e.target.value })}
                             sx={{ mb: 2 }}
                         />
                         <FormControl fullWidth size="small" sx={{ mb: 2 }}>

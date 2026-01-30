@@ -39,6 +39,7 @@ import DiscountIcon from '@mui/icons-material/Discount';
 import ImageIcon from '@mui/icons-material/Image';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 
 const drawerWidth = 260;
 const closedDrawerWidth = 70;
@@ -106,6 +107,11 @@ const menuItems: MenuItem[] = [
         text: 'Orders List',
         icon: <ShoppingCartIcon />,
         path: '/orders',
+    },
+    {
+        text: 'Notifications',
+        icon: <NotificationsIcon />,
+        path: '/notifications',
     },
     {
         text: 'Promotions',

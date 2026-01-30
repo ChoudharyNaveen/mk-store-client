@@ -45,6 +45,7 @@ export interface UpdateCategoryRequest {
   updatedBy: string | number;
   concurrencyStamp: string;
   file?: File; // Optional for updates
+  status?: CategoryStatus; // Optional for status-only toggle
 }
 
 export interface UpdateCategoryResponse {
