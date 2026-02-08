@@ -13,7 +13,11 @@ import {
     Tabs,
     Tab,
     Stack,
+    IconButton,
+    Tooltip,
 } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import FileCopyIcon from '@mui/icons-material/FileCopy';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -24,10 +28,11 @@ import WarehouseIcon from '@mui/icons-material/Warehouse';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchProductDetails, fetchProductStats, fetchInventoryMovements } from '../../services/product.service';
-import { showErrorToast } from '../../utils/toast';
+import { showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { Product, ProductVariant } from '../../types/product';
 import type { ProductStats, InventoryMovement } from '../../types/product';
 import DataTable from '../../components/DataTable';
+import { useRecentlyViewed } from '../../contexts/RecentlyViewedContext';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import type { Column, TableState } from '../../types/table';
 import { formatExpiryDate, getExpiryDateColor } from '../../utils/productHelpers';
@@ -60,6 +65,7 @@ const getDefaultImage = (product: Product): string | undefined => {
 export default function ProductDetail() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
+    const { addProduct } = useRecentlyViewed();
     const [product, setProduct] = React.useState<Product | null>(null);
     const [productStats, setProductStats] = React.useState<ProductStats | null>(null);
     const [loading, setLoading] = React.useState(true);
@@ -106,6 +112,12 @@ export default function ProductDetail() {
 
         loadProduct();
     }, [id, navigate]);
+
+    React.useEffect(() => {
+        if (product?.id != null && product?.title) {
+            addProduct(product.id, product.title);
+        }
+    }, [product?.id, product?.title, addProduct]);
 
     if (loading) {
         return (
@@ -156,8 +168,32 @@ export default function ProductDetail() {
                     <Typography variant="h4" sx={{ fontWeight: 600, color: '#333' }}>
                         Product Details
                     </Typography>
+                    {id && (
+                        <Tooltip title="Copy product ID">
+                            <IconButton
+                                size="small"
+                                onClick={() => {
+                                    if (id) {
+                                        navigator.clipboard.writeText(id);
+                                        showSuccessToast('Product ID copied');
+                                    }
+                                }}
+                                sx={{ color: 'text.secondary' }}
+                            >
+                                <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+                    )}
                 </Box>
                 <Stack direction="row" spacing={1}>
+                    <Button
+                        variant="outlined"
+                        startIcon={<FileCopyIcon />}
+                        onClick={() => navigate('/products/new', { state: { cloneFromProductId: product.id } })}
+                        sx={{ textTransform: 'none' }}
+                    >
+                        Clone
+                    </Button>
                     <Button
                         variant="outlined"
                         startIcon={<EditIcon />}

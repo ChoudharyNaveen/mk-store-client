@@ -8,11 +8,14 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
-import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchSubCategories, updateSubCategory } from '../../services/sub-category.service';
 import { fetchCategories } from '../../services/category.service';
@@ -122,40 +125,19 @@ export default function SubCategoryList() {
         {
             id: 'action' as keyof SubCategory,
             label: 'Action',
-            minWidth: 100,
+            minWidth: 80,
             align: 'center' as const,
             render: (row: SubCategory) => (
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/sub-category/detail/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
-                        }}
-                    >
-                        <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/sub-category/edit/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                        }}
-                    >
-                        <EditIcon fontSize="small" />
-                    </IconButton>
-                    <StatusToggleButton
-                        status={row.status}
-                        onClick={() => handleToggleStatus(row)}
-                        disabled={updatingSubCategoryId === row.id}
-                    />
-                </Box>
+                <RowActionsMenu<SubCategory>
+                    row={row}
+                    ariaLabel="Sub-category actions"
+                    items={(r): RowActionItem<SubCategory>[] => [
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (s) => navigate(`/sub-category/detail/${s.id}`) },
+                        { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (s) => navigate(`/sub-category/edit/${s.id}`) },
+                        { type: 'divider' },
+                        { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (s) => handleToggleStatus(s), disabled: updatingSubCategoryId === r.id },
+                    ]}
+                />
             )
         },
     ];

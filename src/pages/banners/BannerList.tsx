@@ -8,11 +8,14 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
-import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchBanners, updateBanner } from '../../services/banner.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
@@ -107,45 +110,19 @@ export default function BannerList() {
     {
       id: 'action' as keyof Banner,
       label: 'Action',
-      minWidth: 120,
+      minWidth: 80,
       align: 'center' as const,
       render: (row: Banner) => (
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-          <Tooltip title="View banner">
-            <IconButton
-              size="small"
-              onClick={() => {
-                setBannerToView(row);
-                setViewDialogOpen(true);
-              }}
-              sx={{
-                border: '1px solid #e0e0e0',
-                borderRadius: 2,
-                color: 'text.secondary',
-                '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
-              }}
-            >
-              <VisibilityIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <IconButton
-            size="small"
-            onClick={() => navigate(`/banners/edit/${row.id}`)}
-            sx={{
-              border: '1px solid #e0e0e0',
-              borderRadius: 2,
-              color: 'text.secondary',
-              '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-            }}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-          <StatusToggleButton
-            status={row.status}
-            onClick={() => handleToggleStatus(row)}
-            disabled={updatingBannerId === row.id}
-          />
-        </Box>
+        <RowActionsMenu<Banner>
+          row={row}
+          ariaLabel="Banner actions"
+          items={(r): RowActionItem<Banner>[] => [
+            { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (b) => { setBannerToView(b); setViewDialogOpen(true); } },
+            { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (b) => navigate(`/banners/edit/${b.id}`) },
+            { type: 'divider' },
+            { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (b) => handleToggleStatus(b), disabled: updatingBannerId === r.id },
+          ]}
+        />
       )
     },
   ];

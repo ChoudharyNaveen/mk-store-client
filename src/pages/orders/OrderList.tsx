@@ -8,6 +8,8 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
 import { useServerPagination } from '../../hooks/useServerPagination';
@@ -265,35 +267,16 @@ export default function OrderList() {
         {
             id: 'action' as keyof Order,
             label: 'Action',
-            minWidth: 100,
+            minWidth: 80,
             align: 'center' as const,
             render: (row: Order) => (
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/orders/detail/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
-                        }}
-                    >
-                        <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                    {/* <IconButton
-                        size="small"
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'error.main',
-                            bgcolor: '#ffebee',
-                            '&:hover': { bgcolor: '#ffcdd2', borderColor: 'error.main' }
-                        }}
-                    >
-                        <DeleteIcon fontSize="small" />
-                    </IconButton> */}
-                </Box>
+                <RowActionsMenu<Order>
+                    row={row}
+                    ariaLabel="Order actions"
+                    items={(r): RowActionItem<Order>[] => [
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: () => navigate(`/orders/detail/${r.id}`) },
+                    ]}
+                />
             )
         },
     ];

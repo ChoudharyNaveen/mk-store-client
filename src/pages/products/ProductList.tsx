@@ -8,13 +8,18 @@ import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import InventoryIcon from '@mui/icons-material/Inventory';
 import InfoIcon from '@mui/icons-material/Info';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
-import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchProducts, updateProduct, type FetchParams } from '../../services/product.service';
 import { fetchCategories } from '../../services/category.service';
@@ -34,6 +39,7 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
 import { PRODUCT_STATUS_OPTIONS, PRODUCT_STOCK_STATUS_OPTIONS } from '../../constants/statusOptions';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import StockUpdateDialog from './StockUpdateDialog';
 
 // Helper function to get default image from images array
 const getDefaultImage = (product: Product): string | undefined => {
@@ -258,6 +264,8 @@ export default function ProductList() {
     
     // Variants popover state
     const [variantsAnchorEl, setVariantsAnchorEl] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
+    // Stock update dialog
+    const [stockUpdateProduct, setStockUpdateProduct] = React.useState<Product | null>(null);
 
     const [updatingProductId, setUpdatingProductId] = React.useState<number | null>(null);
     const refreshTableRef = React.useRef<() => void>(() => {});
@@ -426,40 +434,21 @@ export default function ProductList() {
         {
             id: 'action' as keyof Product,
             label: 'Action',
-            minWidth: 100,
+            minWidth: 80,
             align: 'center' as const,
             render: (row: Product) => (
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/products/detail/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
-                        }}
-                    >
-                        <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/products/edit/${row.id}`, { state: { product: row } })}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                        }}
-                    >
-                        <EditIcon fontSize="small" />
-                    </IconButton>
-                    <StatusToggleButton
-                        status={row.status}
-                        onClick={() => handleToggleStatus(row)}
-                        disabled={updatingProductId === row.id}
-                    />
-                </Box>
+                <RowActionsMenu<Product>
+                    row={row}
+                    ariaLabel="Product actions"
+                    items={(r): RowActionItem<Product>[] => [
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: () => navigate(`/products/detail/${r.id}`) },
+                        { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: () => navigate(`/products/edit/${r.id}`, { state: { product: r } }) },
+                        { type: 'item', label: 'Stock Update', icon: <InventoryIcon fontSize="small" />, onClick: () => setStockUpdateProduct(r) },
+                        { type: 'item', label: 'Clone', icon: <ContentCopyIcon fontSize="small" />, onClick: () => navigate('/products/new', { state: { cloneFromProductId: r.id } }) },
+                        { type: 'divider' },
+                        { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: () => handleToggleStatus(r), disabled: updatingProductId === r.id },
+                    ]}
+                />
             )
         },
     ];
@@ -1033,13 +1022,23 @@ export default function ProductList() {
                 {variantsAnchorEl && <VariantsPopover product={variantsAnchorEl.product} />}
             </Popover>
 
+            <StockUpdateDialog
+                open={Boolean(stockUpdateProduct)}
+                onClose={() => setStockUpdateProduct(null)}
+                onSuccess={() => refreshTableRef.current()}
+                product={stockUpdateProduct}
+            />
+
                 {/* Data Table Section */}
                 <Box sx={{ flex: 1, overflow: 'auto' }}>
                     <DataTable 
                         key={`product-table-${paginationModel.page}-${paginationModel.pageSize}`}
                         columns={columns} 
                         state={tableState} 
-                        handlers={tableHandlers} 
+                        handlers={tableHandlers}
+                        emptyStateMessage="No products yet"
+                        emptyStateActionLabel="Add Product"
+                        emptyStateActionOnClick={() => navigate('/products/new')}
                     />
                 </Box>
             </Box>

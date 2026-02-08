@@ -5,7 +5,7 @@
 
 import http from '../utils/http';
 import { API_URLS } from '../constants/urls';
-import type { Offer, OfferListResponse, CreateOfferRequest, CreateOfferResponse, UpdateOfferRequest, UpdateOfferResponse } from '../types/offer';
+import type { Offer, OfferListResponse, CreateOfferRequest, CreateOfferResponse, UpdateOfferRequest, UpdateOfferResponse, OfferSummary, OfferSummaryResponse } from '../types/offer';
 import type { ServerFilter, ServerSorting } from '../types/filter';
 import { convertSimpleFiltersToServerFilters } from '../utils/filterBuilder';
 
@@ -118,6 +118,28 @@ export const fetchOffers = async (
 };
 
 /**
+ * Fetch a single offer by ID
+ */
+export const fetchOfferById = async (id: string | number): Promise<Offer> => {
+  const response = await http.post<{ success?: boolean; doc?: Offer }>(
+    API_URLS.OFFERS.LIST,
+    {
+      filters: [
+        {
+          key: 'id',
+          eq: id,
+        },
+      ],
+    }
+  );
+  const raw = response as { doc?: Offer; success?: boolean };
+  if (!raw.doc) {
+    throw new Error('Offer not found');
+  }
+  return raw.doc?.[0];
+};
+
+/**
  * Create a new offer
  * Handles multipart/form-data for file upload
  */
@@ -209,10 +231,29 @@ export const updateOffer = async (
   }
 };
 
+/**
+ * Fetch offer summary (total redemptions and total discounts given)
+ * POST /get-offer-summary with body { id: offerId }
+ */
+export const fetchOfferSummary = async (
+  offerId: string | number
+): Promise<OfferSummary> => {
+  const response = await http.post<OfferSummaryResponse>(
+    API_URLS.OFFERS.GET_OFFER_SUMMARY,
+    { id: Number(offerId) }
+  );
+  if (!response.success || !response.doc) {
+    throw new Error('Offer summary not found');
+  }
+  return response.doc;
+};
+
 const offerService = {
   fetchOffers,
+  fetchOfferById,
   createOffer,
   updateOffer,
+  fetchOfferSummary,
 };
 
 export default offerService;

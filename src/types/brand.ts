@@ -57,3 +57,13 @@ export interface UpdateBrandResponse {
   doc?: Brand;
 }
 
+export interface BrandSummary {
+  totalProducts: number;
+  activeProducts: number;
+}
+
+export interface BrandSummaryResponse {
+  success: boolean;
+  doc?: BrandSummary;
+}
+

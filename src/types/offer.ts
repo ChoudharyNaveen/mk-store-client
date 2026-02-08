@@ -74,3 +74,13 @@ export interface UpdateOfferResponse {
   doc?: Offer;
 }
 
+export interface OfferSummary {
+  totalRedemptions: number;
+  totalDiscountsGiven: number;
+}
+
+export interface OfferSummaryResponse {
+  success: boolean;
+  doc?: OfferSummary;
+}
+

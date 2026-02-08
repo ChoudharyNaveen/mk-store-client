@@ -64,6 +64,7 @@ export const API_URLS = {
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/get-Promocode/${id}`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-Promocode/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/delete-Promocode/${id}`,
+    GET_PROMOCODE_SUMMARY: `${API_PREFIX}/get-Promocode-summary`,
   },
   
   // Offer endpoints
@@ -73,6 +74,7 @@ export const API_URLS = {
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/get-offer/${id}`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-offer/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/delete-offer/${id}`,
+    GET_OFFER_SUMMARY: `${API_PREFIX}/get-offer-summary`,
   },
   
   // Order endpoints
@@ -97,6 +99,7 @@ export const API_URLS = {
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/brands/${id}`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-brand/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/brands/${id}`,
+    GET_BRAND_SUMMARY: `${API_PREFIX}/get-brand-summary`,
   },
   
   // Notification endpoints

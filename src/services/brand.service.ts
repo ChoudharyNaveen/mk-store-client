@@ -11,7 +11,9 @@ import type {
   CreateBrandRequest,
   CreateBrandResponse,
   UpdateBrandRequest,
-  UpdateBrandResponse
+  UpdateBrandResponse,
+  BrandSummary,
+  BrandSummaryResponse,
 } from '../types/brand';
 import type { ServerFilter, ServerSorting } from '../types/filter';
 import { convertSimpleFiltersToServerFilters } from '../utils/filterBuilder';
@@ -132,6 +134,29 @@ export const fetchBrands = async (
 };
 
 /**
+ * Fetch a single brand by ID
+ */
+export const fetchBrandById = async (id: string | number): Promise<Brand> => {
+  const response = await http.post<{ success?: boolean; doc?: Brand }>(
+    API_URLS.BRANDS.LIST,
+    {
+      filters: [
+        {
+          key: 'id',
+          eq: id,
+        },
+      ],
+    }
+  );
+  const raw = response as { doc?: Brand; success?: boolean };
+  if (!raw.doc) {
+    throw new Error('Brand not found');
+  }
+  const brand = raw?.doc?.[0];
+  return brand;
+};
+
+/**
  * Create a new brand
  * Handles multipart/form-data for file upload
  */
@@ -204,10 +229,29 @@ export const updateBrand = async (
   }
 };
 
+/**
+ * Fetch brand summary (total products and active products for this brand)
+ * POST /get-brand-summary with body { id: brandId }
+ */
+export const fetchBrandSummary = async (
+  brandId: string | number
+): Promise<BrandSummary> => {
+  const response = await http.post<BrandSummaryResponse>(
+    API_URLS.BRANDS.GET_BRAND_SUMMARY,
+    { id: Number(brandId) }
+  );
+  if (!response.success || !response.doc) {
+    throw new Error('Brand summary not found');
+  }
+  return response.doc;
+};
+
 const brandService = {
   fetchBrands,
+  fetchBrandById,
   createBrand,
   updateBrand,
+  fetchBrandSummary,
 };
 
 export default brandService;

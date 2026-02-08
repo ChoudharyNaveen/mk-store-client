@@ -16,9 +16,11 @@ import {
     Select,
     MenuItem,
     FormControl,
+    Divider,
 } from '@mui/material';
 import { useLocation, Link } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { useRecentlyViewed } from '../contexts/RecentlyViewedContext';
 import { setSelectedBranch } from '../store/branchSlice';
 import { setAuth } from '../store/authSlice';
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -40,6 +42,8 @@ import ImageIcon from '@mui/icons-material/Image';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import HistoryIcon from '@mui/icons-material/History';
+import LabelIcon from '@mui/icons-material/Label';
 
 const drawerWidth = 260;
 const closedDrawerWidth = 70;
@@ -128,6 +132,7 @@ const menuItems: MenuItem[] = [
         icon: <SettingsIcon />,
         path: '/settings',
         children: [
+            { text: 'Product Types', path: '/product-types', icon: <LabelIcon /> },
             { text: 'Shipping Charges', path: '/settings/shipping-charges', icon: <LocalShippingIcon /> },
         ],
     },
@@ -142,6 +147,7 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
     const location = useLocation();
     const pathname = location.pathname;
     const dispatch = useAppDispatch();
+    const { orders: recentOrders, products: recentProducts } = useRecentlyViewed();
 
     // Auto-open submenu when current path is a child of an item with children
     const [openSubmenu, setOpenSubmenu] = React.useState<string | null>(() => {
@@ -613,6 +619,39 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
                             </React.Fragment>
                         );
                     })}
+                    {/* Recently viewed */}
+                    {(recentOrders.length > 0 || recentProducts.length > 0) && open && (
+                        <>
+                            <Divider sx={{ my: 1 }} />
+                            <ListItem component="div" disablePadding sx={{ display: 'block', px: 2.5, py: 0.5 }}>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 0.5 }}>
+                                    Recently viewed
+                                </Typography>
+                                {recentOrders.slice(0, 3).map((item) => (
+                                    <ListItemButton
+                                        key={`order-${item.id}`}
+                                        component={Link}
+                                        to={`/orders/detail/${item.id}`}
+                                        sx={{ pl: 1, py: 0.25, minHeight: 36 }}
+                                    >
+                                        <HistoryIcon sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
+                                        <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '0.8rem', noWrap: true }} />
+                                    </ListItemButton>
+                                ))}
+                                {recentProducts.slice(0, 3).map((item) => (
+                                    <ListItemButton
+                                        key={`product-${item.id}`}
+                                        component={Link}
+                                        to={`/products/detail/${item.id}`}
+                                        sx={{ pl: 1, py: 0.25, minHeight: 36 }}
+                                    >
+                                        <HistoryIcon sx={{ fontSize: 16, mr: 1, color: 'text.secondary' }} />
+                                        <ListItemText primary={item.label} primaryTypographyProps={{ fontSize: '0.8rem', noWrap: true }} />
+                                    </ListItemButton>
+                                ))}
+                            </ListItem>
+                        </>
+                    )}
                 </List>
             </Box>
 

@@ -16,6 +16,8 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/auth.service';
 import { showSuccessToast } from '../utils/toast';
@@ -23,6 +25,8 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { clearAuth } from '../store/authSlice';
 import { clearBranches } from '../store/branchSlice';
 import { useNotifications } from '../contexts/NotificationContext';
+import { useThemeMode } from '../contexts/ThemeContext';
+import { RECENTLY_VIEWED_STORAGE_KEY } from '../contexts/RecentlyViewedContext';
 import NotificationPopover from './NotificationPopover';
 import NewOrderDialog from './NewOrderDialog';
 
@@ -42,6 +46,7 @@ export default function Header({ open }: HeaderProps) {
     const id = user?.id;
     
     const { unreadCount, newOrderNotification, setNewOrderNotification } = useNotifications();
+    const { mode, toggleMode } = useThemeMode();
     const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
         setAnchorEl(event.currentTarget);
     };
@@ -69,14 +74,14 @@ export default function Header({ open }: HeaderProps) {
             await authService.logout();
             dispatch(clearAuth());
             dispatch(clearBranches());
+            localStorage.removeItem(RECENTLY_VIEWED_STORAGE_KEY);
             showSuccessToast('Logged out successfully');
-            // Navigate to login after clearing auth data
             navigate('/login', { replace: true });
         } catch (error) {
             console.error('Logout error:', error);
             dispatch(clearAuth());
             dispatch(clearBranches());
-            // Still navigate to login even if logout API fails
+            localStorage.removeItem(RECENTLY_VIEWED_STORAGE_KEY);
             navigate('/login', { replace: true });
         }
     };
@@ -101,8 +106,10 @@ export default function Header({ open }: HeaderProps) {
             <Toolbar sx={{ display: 'flex', justifyContent: 'flex-end' }}>
 
                 {/* Right Icons */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <IconButton onClick={toggleMode} title={mode === 'light' ? 'Dark mode' : 'Light mode'} sx={{ color: '#204564' }}>
+                        {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
+                    </IconButton>
                     <IconButton onClick={handleNotificationClick}>
                         <Badge badgeContent={unreadCount > 0 && typeof unreadCount === 'number' ? unreadCount : undefined} color="error">
                             <NotificationsIcon sx={{ color: '#204564' }} />

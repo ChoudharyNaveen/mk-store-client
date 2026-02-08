@@ -5,7 +5,7 @@
 
 import http from '../utils/http';
 import { API_URLS } from '../constants/urls';
-import type { Promocode, PromocodeListResponse, CreatePromocodeRequest, CreatePromocodeResponse, UpdatePromocodeRequest, UpdatePromocodeResponse } from '../types/promo-code';
+import type { Promocode, PromocodeListResponse, CreatePromocodeRequest, CreatePromocodeResponse, UpdatePromocodeRequest, UpdatePromocodeResponse, PromocodeSummary, PromocodeSummaryResponse } from '../types/promo-code';
 import type { ServerFilter, ServerSorting } from '../types/filter';
 import { convertSimpleFiltersToServerFilters } from '../utils/filterBuilder';
 
@@ -118,6 +118,28 @@ export const fetchPromocodes = async (
 };
 
 /**
+ * Fetch a single promo code by ID
+ */
+export const fetchPromocodeById = async (id: string | number): Promise<Promocode> => {
+  const response = await http.post<{ success?: boolean; doc?: Promocode }>(
+    API_URLS.PROMO_CODES.LIST,
+    {
+      filters: [
+        {
+          key: 'id',
+          eq: id,
+        },
+      ],
+    }
+  );
+  const raw = response as { doc?: Promocode; success?: boolean };
+  if (!raw.doc) {
+    throw new Error('Promo code not found');
+  }
+  return raw.doc?.[0];
+};
+
+/**
  * Create a new promo code
  * Uses JSON body (not multipart/form-data)
  */
@@ -154,8 +176,7 @@ export const createPromocode = async (
  * Update an existing promo code
  * Uses JSON body (not multipart/form-data)
  */
-export const 
-updatePromocode = async (
+export const updatePromocode = async (
   id: string | number,
   data: UpdatePromocodeRequest
 ): Promise<UpdatePromocodeResponse> => {
@@ -174,7 +195,6 @@ updatePromocode = async (
     if (data.updated_by) requestBody.updatedBy = data.updated_by;
     if (data.concurrency_stamp) requestBody.concurrencyStamp = data.concurrency_stamp;
 
-    debugger
     // Make PATCH API call with JSON body
     const response = await http.patch<UpdatePromocodeResponse>(
       API_URLS.PROMO_CODES.UPDATE(id),
@@ -193,10 +213,29 @@ updatePromocode = async (
   }
 };
 
+/**
+ * Fetch promo code summary (total redemptions and total discounts given)
+ * POST /get-Promocode-summary with body { id: promocodeId }
+ */
+export const fetchPromocodeSummary = async (
+  promocodeId: string | number
+): Promise<PromocodeSummary> => {
+  const response = await http.post<PromocodeSummaryResponse>(
+    API_URLS.PROMO_CODES.GET_PROMOCODE_SUMMARY,
+    { id: Number(promocodeId) }
+  );
+  if (!response.success || !response.doc) {
+    throw new Error('Promo code summary not found');
+  }
+  return response.doc;
+};
+
 const promocodeService = {
   fetchPromocodes,
+  fetchPromocodeById,
   createPromocode,
   updatePromocode,
+  fetchPromocodeSummary,
 };
 
 export default promocodeService;

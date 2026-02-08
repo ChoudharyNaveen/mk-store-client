@@ -8,10 +8,13 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
-import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchCategories, updateCategory } from '../../services/category.service';
 import type { Category } from '../../types/category';
@@ -113,40 +116,19 @@ export default function CategoryPage() {
         {
             id: 'action' as keyof Category,
             label: 'Action',
-            minWidth: 100,
+            minWidth: 80,
             align: 'center' as const,
             render: (row: Category) => (
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/category/detail/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: '#e3f2fd', color: '#1976d2', borderColor: '#1976d2' }
-                        }}
-                    >
-                        <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/category/edit/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                        }}
-                    >
-                        <EditIcon fontSize="small" />
-                    </IconButton>
-                    <StatusToggleButton
-                        status={row.status}
-                        onClick={() => handleToggleStatus(row)}
-                        disabled={updatingCategoryId === row.id}
-                    />
-                </Box>
+                <RowActionsMenu<Category>
+                    row={row}
+                    ariaLabel="Category actions"
+                    items={(r): RowActionItem<Category>[] => [
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (c) => navigate(`/category/detail/${c.id}`) },
+                        { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (c) => navigate(`/category/edit/${c.id}`) },
+                        { type: 'divider' },
+                        { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (c) => handleToggleStatus(c), disabled: updatingCategoryId === r.id },
+                    ]}
+                />
             )
         },
     ];

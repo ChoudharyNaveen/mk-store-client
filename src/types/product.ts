@@ -54,6 +54,9 @@ export interface ProductVariant {
   combo_discounts?: ComboDiscount[];
   concurrency_stamp?: string;
   concurrencyStamp?: string;
+  /** When stock (quantity) falls below this number, a low-stock notification is sent. */
+  threshold_stock?: number | null;
+  thresholdStock?: number | null;
 }
 
 export interface ProductImage {
@@ -149,6 +152,8 @@ export interface CreateProductRequest {
     description?: string | null;
     nutritional?: string | null;
     comboDiscounts?: ComboDiscount[];
+    /** When stock falls below this number, a low-stock notification is sent. */
+    thresholdStock?: number | null;
   }>;
 }
 
@@ -192,6 +197,7 @@ export interface UpdateProductRequest {
     nutritional?: string | null;
     comboDiscounts?: ComboDiscount[];
     concurrencyStamp?: string; // For existing variants
+    thresholdStock?: number | null;
   }>;
   variantIdsToDelete?: number[];
 }

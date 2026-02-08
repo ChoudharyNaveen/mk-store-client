@@ -105,6 +105,18 @@ export const getProductTypes = async (
 };
 
 /**
+ * Fetch a single product type by ID (via list with id filter)
+ */
+export const getProductTypeById = async (id: number): Promise<ProductType | null> => {
+  const result = await getProductTypes({
+    page: 0,
+    pageSize: 1,
+    filters: [{ key: 'id', eq: String(id) }],
+  });
+  return result.list[0] ?? null;
+};
+
+/**
  * Create a new product type (POST)
  */
 export const createProductType = async (

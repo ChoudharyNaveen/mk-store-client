@@ -9,8 +9,11 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BlockIcon from '@mui/icons-material/Block';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
 import CustomTabs from '../../components/CustomTabs';
@@ -260,56 +263,26 @@ export default function UserList() {
         },
         {
             id: 'action' as keyof User,
-        label: 'Action',
-            minWidth: 120,
+            label: 'Action',
+            minWidth: 80,
             align: 'right' as const,
-            render: (row: User) => {
-                const isActive = row.status === 'ACTIVE';
-                return (
-                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                        {activeTab === 'USER' && (
-                            <Tooltip title="Convert User to Rider" arrow>
-                                <IconButton
-                                    size="small"
-                                    onClick={() => handleConvertToRider(row.id)}
-                                    sx={{
-                                        border: '1px solid #e0e0e0',
-                                        borderRadius: 2,
-                                        color: 'text.secondary',
-                                        '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                                    }}
-                                >
-                                    <SwapHorizIcon fontSize="small" />
-                                </IconButton>
-                            </Tooltip>
-                        )}
-                        <Tooltip title={isActive ? 'Deactivate User' : 'Activate User'} arrow>
-                            <IconButton
-                                size="small"
-                                onClick={() => handleToggleStatus(row)}
-                                sx={{
-                                    border: `1px solid ${isActive ? '#c8e6c9' : '#ffcdd2'}`,
-                                    borderRadius: 2,
-                                    color: isActive ? 'error.main' : 'success.main',
-                                    bgcolor: isActive ? '#ffebee' : '#e8f5e9',
-                                    '&:hover': { 
-                                        bgcolor: isActive ? '#ffcdd2' : '#c8e6c9', 
-                                        borderColor: isActive ? '#ffcdd2' : '#c8e6c9' 
-                                    }
-                                }}
-                            >
-                                {isActive ? (
-                                   <BlockIcon fontSize="small" />
-                                ) : (
-                                    <CheckCircleIcon fontSize="small" />
-                                )}
-                            </IconButton>
-                        </Tooltip>
-                    </Box>
-                );
-            },
-    },
-];
+            render: (row: User) => (
+                <RowActionsMenu<User>
+                    row={row}
+                    ariaLabel="User actions"
+                    items={(r): RowActionItem<User>[] => {
+                        const isActive = r.status === 'ACTIVE';
+                        return [
+                            { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (u) => navigate(`/users/detail/${u.id}`) },
+                            ...(activeTab === 'USER' ? [{ type: 'item' as const, label: 'Convert to Rider', icon: <SwapHorizIcon fontSize="small" />, onClick: (u: User) => handleConvertToRider(u.id) }] : []),
+                            { type: 'divider' },
+                            { type: 'item', label: isActive ? 'Deactivate' : 'Activate', icon: isActive ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (u) => handleToggleStatus(u) },
+                        ];
+                    }}
+                />
+            ),
+        },
+    ];
 
     return (
         <Paper sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, borderRadius: 1 }}>

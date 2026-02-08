@@ -21,6 +21,9 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
 import { useServerPagination } from '../../hooks/useServerPagination';
@@ -33,6 +36,9 @@ import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import { useNotifications } from '../../contexts/NotificationContext';
+import CustomTabs from '../../components/CustomTabs';
+
+export type NotificationCategoryTab = 'all' | 'orders' | 'users' | 'low_stock';
 
 export default function NotificationList() {
   const navigate = useNavigate();
@@ -41,9 +47,12 @@ export default function NotificationList() {
   const { user } = useAppSelector((state) => state.auth);
   const vendorId = user?.vendorId;
 
+  const [categoryTab, setCategoryTab] = React.useState<NotificationCategoryTab>('all');
   const [dateRange, setDateRange] = React.useState<DateRangeSelection>(getLastNDaysRangeForDatePicker(30));
   const [readFilter, setReadFilter] = React.useState<'all' | 'read' | 'unread'>('all');
   const [markingAllRead, setMarkingAllRead] = React.useState(false);
+  const [deleteConfirm, setDeleteConfirm] = React.useState<Notification | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
   const [infoAnchorEl, setInfoAnchorEl] = React.useState<HTMLElement | null>(null);
   const infoOpen = Boolean(infoAnchorEl);
 
@@ -57,8 +66,15 @@ export default function NotificationList() {
     } else if (readFilter === 'unread') {
       additionalFilters.push({ key: 'is_read', eq: '0' });
     }
+    if (categoryTab === 'orders') {
+      additionalFilters.push({ key: 'entity_type', eq: 'ORDER' });
+    } else if (categoryTab === 'users') {
+      additionalFilters.push({ key: 'entity_type', eq: 'USER' });
+    } else if (categoryTab === 'low_stock') {
+      additionalFilters.push({ key: 'type', eq: 'LOW_STOCK' });
+    }
     return mergeWithDefaultFilters(additionalFilters, vendorId, undefined);
-  }, [dateRange, readFilter, vendorId]);
+  }, [dateRange, readFilter, categoryTab, vendorId]);
 
   const fetchNotificationsForTable = useCallback(
     async (params: FetchParams): Promise<ServerPaginationResponse<Notification>> => {
@@ -103,12 +119,9 @@ export default function NotificationList() {
   useEffect(() => {
     setFilters(buildFilters());
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    // When switching to "All", the hook may skip refetch (filters match initial). Force refresh.
-    if (readFilter === 'all') {
-      const t = setTimeout(() => refreshTableRef.current(), 0);
-      return () => clearTimeout(t);
-    }
-  }, [readFilter, dateRange, setFilters, buildFilters, setPaginationModel]);
+    const t = setTimeout(() => refreshTableRef.current(), 0);
+    return () => clearTimeout(t);
+  }, [categoryTab, readFilter, dateRange, setFilters, buildFilters, setPaginationModel]);
 
   const handleDateRangeApply = (newRange: DateRangeSelection) => {
     setDateRange(newRange);
@@ -147,13 +160,22 @@ export default function NotificationList() {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, row: Notification) => {
+  const handleDeleteClick = (e: React.MouseEvent, row: Notification) => {
     e.stopPropagation();
+    setDeleteConfirm(row);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
     try {
-      await contextDeleteNotification(row.id);
+      await contextDeleteNotification(deleteConfirm.id);
       refreshTableRef.current();
+      setDeleteConfirm(null);
     } catch {
       // Error already logged in context
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -215,50 +237,18 @@ export default function NotificationList() {
     {
       id: 'action' as keyof Notification,
       label: 'Action',
-      minWidth: 120,
+      minWidth: 80,
       align: 'center' as const,
       render: (row: Notification) => (
-        <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
-          {row.is_read ? (
-            <Tooltip title="Mark as unread">
-              <IconButton
-                size="small"
-                color="default"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleReadToggle(row);
-                }}
-                sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'action.hover' } }}
-              >
-                <MarkEmailUnreadIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          ) : (
-            <Tooltip title="Mark as read">
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleReadToggle(row);
-                }}
-                sx={{ '&:hover': { bgcolor: 'primary.light', color: 'primary.contrastText' } }}
-              >
-                <DoneIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Tooltip title="Delete">
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => handleDelete(e, row)}
-              sx={{ '&:hover': { bgcolor: 'error.light', color: 'error.contrastText' } }}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
+        <RowActionsMenu<Notification>
+          row={row}
+          ariaLabel="Notification actions"
+          items={(r): RowActionItem<Notification>[] => [
+            { type: 'item', label: r.is_read ? 'Mark as unread' : 'Mark as read', icon: r.is_read ? <MarkEmailUnreadIcon fontSize="small" /> : <DoneIcon fontSize="small" />, onClick: (n) => handleReadToggle(n) },
+            { type: 'divider' },
+            { type: 'item', label: 'Delete', icon: <DeleteIcon fontSize="small" />, onClick: (n) => setDeleteConfirm(n) },
+          ]}
+        />
       ),
     },
   ];
@@ -309,6 +299,17 @@ export default function NotificationList() {
           </Typography>
         </Box>
       </Popover>
+
+      <CustomTabs<NotificationCategoryTab>
+        tabs={[
+          { value: 'all', label: 'All' },
+          { value: 'orders', label: 'Orders' },
+          { value: 'users', label: 'Users' },
+          { value: 'low_stock', label: 'Low Stock' },
+        ]}
+        value={categoryTab}
+        onChange={setCategoryTab}
+      />
 
       <Box
         sx={{
@@ -425,6 +426,18 @@ export default function NotificationList() {
                 }
               : {}
           }
+        />
+
+        <ConfirmDialog
+          open={!!deleteConfirm}
+          title="Delete notification"
+          message={deleteConfirm ? `Are you sure you want to delete "${deleteConfirm.title || 'this notification'}"?` : ''}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          confirmColor="error"
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteConfirm(null)}
+          loading={deleting}
         />
       </Box>
     </Paper>

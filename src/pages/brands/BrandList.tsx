@@ -7,11 +7,15 @@ import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
-import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchBrands, updateBrand } from '../../services/brand.service';
 import type { Brand } from '../../types/brand';
@@ -101,7 +105,29 @@ export default function BrandList() {
                 );
             }
         },
-        { id: 'name' as keyof Brand, label: 'Brand Name', minWidth: 150 },
+        {
+            id: 'name' as keyof Brand,
+            label: 'Brand Name',
+            minWidth: 150,
+            render: (row: Brand) => (
+                <Typography
+                    component="button"
+                    onClick={() => navigate(`/brands/detail/${row.id}`)}
+                    sx={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'primary.main',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        p: 0,
+                        font: 'inherit',
+                        '&:hover': { textDecoration: 'underline' },
+                    }}
+                >
+                    {row.name}
+                </Typography>
+            ),
+        },
         { id: 'description' as keyof Brand, label: 'Description', minWidth: 200 },
         { id: 'status' as keyof Brand, label: 'Status', minWidth: 100 },
         {
@@ -113,28 +139,19 @@ export default function BrandList() {
         {
             id: 'action' as keyof Brand,
             label: 'Action',
-            minWidth: 100,
+            minWidth: 80,
             align: 'center' as const,
             render: (row: Brand) => (
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/brands/edit/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                        }}
-                    >
-                        <EditIcon fontSize="small" />
-                    </IconButton>
-                    <StatusToggleButton
-                        status={row.status}
-                        onClick={() => handleToggleStatus(row)}
-                        disabled={updatingBrandId === row.id}
-                    />
-                </Box>
+                <RowActionsMenu<Brand>
+                    row={row}
+                    ariaLabel="Brand actions"
+                    items={(r): RowActionItem<Brand>[] => [
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (b) => navigate(`/brands/detail/${b.id}`) },
+                        { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (b) => navigate(`/brands/edit/${b.id}`) },
+                        { type: 'divider' },
+                        { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (b) => handleToggleStatus(b), disabled: updatingBrandId === r.id },
+                    ]}
+                />
             )
         },
     ];

@@ -15,7 +15,7 @@ import {
     MenuItem,
     Pagination,
     CircularProgress,
-
+    Button,
     TableSortLabel
 } from '@mui/material';
 import { Column, TableState } from '../types/table';
@@ -32,6 +32,10 @@ interface DataTableProps<T> {
     compact?: boolean; // Option to make table rows more compact
     onRowClick?: (row: T) => void; // Optional callback when a row is clicked
     getRowSx?: (row: T) => object; // Optional row-level sx (e.g. highlight unread)
+    /** Custom empty state: message and optional action button */
+    emptyStateMessage?: string;
+    emptyStateActionLabel?: string;
+    emptyStateActionOnClick?: () => void;
 }
 
 export default function DataTable<T extends { id: string | number }>({
@@ -42,6 +46,9 @@ export default function DataTable<T extends { id: string | number }>({
     compact = false,
     onRowClick,
     getRowSx,
+    emptyStateMessage,
+    emptyStateActionLabel,
+    emptyStateActionOnClick,
 }: DataTableProps<T>) {
     const { data, total, page, rowsPerPage, order, orderBy, loading } = state;
 
@@ -94,8 +101,17 @@ export default function DataTable<T extends { id: string | number }>({
                                 </TableRow>
                             ) : data.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={columns.length} align="center" sx={{ py: 3 }}>
-                                        <Typography variant="body2" color="text.secondary">No data found</Typography>
+                                    <TableCell colSpan={columns.length} align="center" sx={{ py: 4 }}>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {emptyStateMessage ?? 'No data found'}
+                                            </Typography>
+                                            {emptyStateActionLabel && emptyStateActionOnClick && (
+                                                <Button variant="contained" size="small" onClick={emptyStateActionOnClick} sx={{ textTransform: 'none' }}>
+                                                    {emptyStateActionLabel}
+                                                </Button>
+                                            )}
+                                        </Box>
                                     </TableCell>
                                 </TableRow>
                             ) : (

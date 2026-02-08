@@ -7,11 +7,15 @@ import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
-import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { fetchOffers, updateOffer } from '../../services/offer.service';
 import type { Offer } from '../../types/offer';
@@ -82,7 +86,29 @@ export default function OfferList() {
                 />
             )
         },
-        { id: 'code' as keyof Offer, label: 'Code', minWidth: 100 },
+        {
+            id: 'code' as keyof Offer,
+            label: 'Code',
+            minWidth: 100,
+            render: (row: Offer) => (
+                <Typography
+                    component="button"
+                    onClick={() => navigate(`/offers/detail/${row.id}`)}
+                    sx={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'primary.main',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        p: 0,
+                        font: 'inherit',
+                        '&:hover': { textDecoration: 'underline' },
+                    }}
+                >
+                    {row.code}
+                </Typography>
+            ),
+        },
         { id: 'description' as keyof Offer, label: 'Description', minWidth: 200 },
         { id: 'percentage' as keyof Offer, label: 'Percentage', minWidth: 100 },
         {
@@ -107,28 +133,19 @@ export default function OfferList() {
         {
             id: 'action' as keyof Offer,
             label: 'Action',
-            minWidth: 100,
+            minWidth: 80,
             align: 'center' as const,
             render: (row: Offer) => (
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/offers/edit/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                        }}
-                    >
-                        <EditIcon fontSize="small" />
-                    </IconButton>
-                    <StatusToggleButton
-                        status={row.status}
-                        onClick={() => handleToggleStatus(row)}
-                        disabled={updatingOfferId === row.id}
-                    />
-                </Box>
+                <RowActionsMenu<Offer>
+                    row={row}
+                    ariaLabel="Offer actions"
+                    items={(r): RowActionItem<Offer>[] => [
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (o) => navigate(`/offers/detail/${o.id}`) },
+                        { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (o) => navigate(`/offers/edit/${o.id}`) },
+                        { type: 'divider' },
+                        { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (o) => handleToggleStatus(o), disabled: updatingOfferId === r.id },
+                    ]}
+                />
             )
         },
     ];

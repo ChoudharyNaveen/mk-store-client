@@ -18,7 +18,10 @@ import {
     TextField,
     Alert,
     CircularProgress,
+    IconButton,
+    Tooltip,
 } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
@@ -40,6 +43,7 @@ import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import { fetchOrderDetails, updateOrder } from '../../services/order.service';
 import { ORDER_STATUS_API } from '../../constants/orderStatuses';
 import { useAppSelector } from '../../store/hooks';
+import { useRecentlyViewed } from '../../contexts/RecentlyViewedContext';
 import DataTable from '../../components/DataTable';
 import type { Column, TableState } from '../../types/table';
 
@@ -226,6 +230,7 @@ export default function OrderDetail() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
     const { user } = useAppSelector((state) => state.auth);
+    const { addOrder } = useRecentlyViewed();
     const [order, setOrder] = React.useState<OrderDetailData | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [updating, setUpdating] = React.useState(false);
@@ -300,6 +305,12 @@ export default function OrderDetail() {
 
         loadOrderDetails();
     }, [id, navigate]);
+
+    React.useEffect(() => {
+        if (order?.id != null && order?.order_number) {
+            addOrder(order.id, order.order_number);
+        }
+    }, [order?.id, order?.order_number, addOrder]);
 
     const getStatusColor = (status: OrderStatus) => {
         switch (status) {
@@ -774,13 +785,27 @@ export default function OrderDetail() {
                     >
                         Back
                     </Button>
-                    <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
                             Order Details
                         </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', mr: 0.5 }}>
                             {order.order_number}
                         </Typography>
+                        <Tooltip title="Copy order number">
+                            <IconButton
+                                size="small"
+                                onClick={() => {
+                                    if (order.order_number) {
+                                        navigator.clipboard.writeText(order.order_number);
+                                        showSuccessToast('Order number copied');
+                                    }
+                                }}
+                                sx={{ color: 'text.secondary' }}
+                            >
+                                <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
                     </Box>
                 </Box>
                 <Stack direction="row" spacing={1} flexWrap="wrap">

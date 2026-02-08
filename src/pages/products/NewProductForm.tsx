@@ -27,7 +27,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import productService, { fetchProducts } from '../../services/product.service';
+import productService, { fetchProducts, fetchProductDetails } from '../../services/product.service';
 import { fetchCategories } from '../../services/category.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
 import { fetchBrands } from '../../services/brand.service';
@@ -38,7 +38,7 @@ import type { ProductType } from '../../types/product-type';
 import { useAppSelector } from '../../store/hooks';
 import { FormTextField, FormFileUpload, FormSelect, FormAutocomplete, FormNumberField, FormDatePicker, FormProvider } from '../../components/forms';
 import { mergeWithDefaultFilters } from '../../utils/filterBuilder';
-import type { ProductStatus, Product, ItemUnit, ComboDiscount } from '../../types/product';
+import type { ProductStatus, Product, ProductVariant, ItemUnit, ComboDiscount } from '../../types/product';
 import type { Category } from '../../types/category';
 import type { SubCategory } from '../../types/sub-category';
 import type { Brand } from '../../types/brand';
@@ -91,6 +91,7 @@ const variantSchema = yup.object().shape({
     description: yup.string().nullable().optional(),
     nutritional: yup.string().nullable().optional(),
     comboDiscounts: yup.array().of(comboDiscountSchema).optional(),
+    thresholdStock: yup.number().nullable().optional().integer('Must be a whole number').min(0, 'Must be 0 or more'),
 });
 
 // Base validation schema - shared fields (removed price, sellingPrice, quantity, expiryDate, description, nutritional - now in variants)
@@ -177,6 +178,8 @@ interface VariantFormData {
     description?: string | null;
     nutritional?: string | null;
     comboDiscounts?: ComboDiscountFormData[];
+    /** When stock falls below this number, a low-stock notification is sent. */
+    thresholdStock?: number | null;
 }
 
 interface ImageFormData {
@@ -203,7 +206,9 @@ export default function ProductForm() {
     const navigate = useNavigate();
     const location = useLocation();
     const { id } = useParams<{ id: string }>();
+    const cloneFromProductId = location.state?.cloneFromProductId as number | undefined;
     const isEditMode = Boolean(id);
+    const isCloneMode = !id && Boolean(cloneFromProductId);
     const { user } = useAppSelector((state) => state.auth);
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
@@ -215,7 +220,7 @@ export default function ProductForm() {
     const userId = user?.id || 1;
 
     const [loading, setLoading] = React.useState(false);
-    const [fetchingProduct, setFetchingProduct] = React.useState(isEditMode);
+    const [fetchingProduct, setFetchingProduct] = React.useState(isEditMode || isCloneMode);
     const [productData, setProductData] = React.useState<Product | null>(null);
     const [categories, setCategories] = React.useState<Category[]>([]);
     const [subCategories, setSubCategories] = React.useState<SubCategory[]>([]);
@@ -265,6 +270,7 @@ export default function ProductForm() {
                     description: null,
                     nutritional: null,
                     comboDiscounts: [],
+                    thresholdStock: null,
                 },
             ],
         },
@@ -319,6 +325,7 @@ export default function ProductForm() {
             description: null,
             nutritional: null,
             comboDiscounts: [],
+            thresholdStock: null,
         });
     };
 
@@ -717,6 +724,7 @@ export default function ProductForm() {
                     endDate: discount.endDate ? new Date(discount.endDate) : null,
                     status: discount.status || 'ACTIVE',
                 })) || [],
+                thresholdStock: (variant as ProductVariant & { threshold_stock?: number; thresholdStock?: number }).threshold_stock ?? (variant as ProductVariant & { threshold_stock?: number; thresholdStock?: number }).thresholdStock ?? null,
             };
         }) || []) as VariantFormData[];
 
@@ -761,10 +769,96 @@ export default function ProductForm() {
                     description: null,
                     nutritional: null,
                     comboDiscounts: [],
+                    thresholdStock: null,
                 },
             ],
         };
     }, []);
+
+    // Build form data for clone: same as product but title prefixed, no ids on variants, empty images
+    const buildCloneFormData = React.useCallback((data: Product): ProductFormData => {
+        const brandId = data.brand?.id || data.brandId || null;
+        const variants: VariantFormData[] = (data.variants?.map((variant) => {
+            let expiryDateValue: Date | string | null = null;
+            if (variant.expiry_date) {
+                expiryDateValue = typeof variant.expiry_date === 'string' ? new Date(variant.expiry_date) : variant.expiry_date;
+            }
+            return {
+                variantName: variant.variant_name ?? '',
+                price: variant.price ?? 0,
+                sellingPrice: variant.selling_price ?? 0,
+                quantity: variant.quantity ?? 0,
+                itemsPerUnit: variant.items_per_unit ?? null,
+                units: variant.units ?? null,
+                itemQuantity: variant.item_quantity ?? null,
+                itemUnit: (variant.item_unit as ItemUnit) ?? null,
+                expiryDate: expiryDateValue,
+                status: (variant.status as 'ACTIVE' | 'INACTIVE') ?? 'ACTIVE',
+                description: variant.description ?? null,
+                nutritional: variant.nutritional ?? null,
+                comboDiscounts: variant.combo_discounts?.map((d) => ({
+                    comboQuantity: d.comboQuantity,
+                    discountType: d.discountType,
+                    discountValue: d.discountValue,
+                    startDate: d.startDate ? new Date(d.startDate) : null,
+                    endDate: d.endDate ? new Date(d.endDate) : null,
+                    status: (d.status as 'ACTIVE' | 'INACTIVE') ?? 'ACTIVE',
+                })) ?? [],
+                thresholdStock: (variant as ProductVariant & { threshold_stock?: number; thresholdStock?: number }).threshold_stock ?? (variant as ProductVariant & { threshold_stock?: number; thresholdStock?: number }).thresholdStock ?? null,
+            };
+        }) ?? []) as VariantFormData[];
+
+        return {
+            title: `Copy of ${data.title}`,
+            categoryId: data.category?.id || 0,
+            subCategoryId: data.subCategory?.id || 0,
+            status: data.status,
+            brandId: brandId,
+            productTypeId: data.productType?.id ?? data.productTypeId ?? null,
+            images: [{ file: null, preview: null }],
+            variants: variants.length > 0 ? variants : [
+                {
+                    variantName: '',
+                    price: 0,
+                    sellingPrice: 0,
+                    quantity: 0,
+                    itemsPerUnit: null,
+                    units: null,
+                    itemQuantity: null,
+                    itemUnit: null,
+                    expiryDate: null,
+                    status: 'ACTIVE',
+                    description: null,
+                    nutritional: null,
+                    comboDiscounts: [],
+                    thresholdStock: null,
+                },
+            ],
+        };
+    }, []);
+
+    // Load product for clone mode: fetch then populate form (no ids on variants, empty images)
+    const hasCloneFetchedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!isCloneMode || !cloneFromProductId || hasCloneFetchedRef.current) return;
+        hasCloneFetchedRef.current = true;
+
+        (async () => {
+            try {
+                setFetchingProduct(true);
+                const product = await fetchProductDetails(cloneFromProductId);
+                await processProductData(product);
+                const cloneFormData = buildCloneFormData(product);
+                reset(cloneFormData as ProductFormData);
+            } catch (error) {
+                console.error('Error loading product for clone:', error);
+                showErrorToast('Failed to load product for clone');
+                navigate('/products');
+            } finally {
+                setFetchingProduct(false);
+            }
+        })();
+    }, [isCloneMode, cloneFromProductId, processProductData, buildCloneFormData, reset, navigate]);
 
     // Reset form when product data and related data are ready
     React.useEffect(() => {
@@ -811,6 +905,7 @@ export default function ProductForm() {
                 status: ProductStatus;
                 description?: string | null;
                 nutritional?: string | null;
+                thresholdStock?: number | null;
                 comboDiscounts?: ComboDiscount[];
                 concurrencyStamp?: string;
             } = {
@@ -826,6 +921,7 @@ export default function ProductForm() {
                 status: variant.status,
                 description: variant.description ?? undefined,
                 nutritional: variant.nutritional ?? undefined,
+                thresholdStock: variant.thresholdStock ?? undefined,
                 comboDiscounts: variant.comboDiscounts && variant.comboDiscounts.length > 0
                     ? variant.comboDiscounts.map((discount) => {
                         let startDateValue: string | undefined = undefined;
@@ -1038,10 +1134,10 @@ export default function ProductForm() {
                                     mb: 0.5
                                 }}
                             >
-                                {isEditMode ? 'Edit Product' : 'New Product'}
+                                {isEditMode ? 'Edit Product' : isCloneMode ? 'Clone Product' : 'New Product'}
                             </Typography>
                             <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
-                                {isEditMode ? 'Update product information and details' : 'Create a new product for your store'}
+                                {isEditMode ? 'Update product information and details' : isCloneMode ? 'Create a copy with the same details (add at least one image)' : 'Create a new product for your store'}
                             </Typography>
                         </Box>
                     </Box>
@@ -1490,6 +1586,8 @@ export default function ProductForm() {
                                             />
                                         </Grid>
 
+                          
+
                                         {/* Stock Details */}
                                         <Grid size={{ xs: 12, md: 4 }}>
                                             <FormTextField
@@ -1573,6 +1671,24 @@ export default function ProductForm() {
                                                 </Typography>
                                             )}
                                         </Grid>
+                                        <Grid size={{ xs: 12, md: 4 }}>
+                                            <FormNumberField
+                                                name={`variants.${index}.thresholdStock`}
+                                                control={control}
+                                                label="Threshold Stock"
+                                                placeholder="Optional — e.g. 5"
+                                                variant="outlined"
+                                                size="small"
+                                                disabled={loading}
+                                                inputProps={{ step: 1, min: 0 }}
+                                            />
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5, display: 'block', fontSize: '0.7rem' }}>
+                                                Get notified when stock drops below this level
+                                            </Typography>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, md: 4 }}></Grid>
+                                        <Grid size={{ xs: 12, md: 4 }}></Grid>
+
 
                                         <Grid size={{ xs: 12, md: 6 }}>
                                             <FormTextField

@@ -9,10 +9,6 @@ import {
     Avatar,
     Chip,
     Button,
-    Select,
-    MenuItem,
-    FormControl,
-    InputLabel,
     IconButton,
     Stack,
     Dialog,
@@ -23,7 +19,6 @@ import {
 } from '@mui/material';
 import PeopleIcon from '@mui/icons-material/People';
 import InventoryIcon from '@mui/icons-material/Inventory';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
@@ -33,6 +28,8 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import WarningIcon from '@mui/icons-material/Warning';
 import CloseIcon from '@mui/icons-material/Close';
+import AddIcon from '@mui/icons-material/Add';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import { format, differenceInDays } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { DateRangePicker, RangeKeyDict } from 'react-date-range';
@@ -40,7 +37,7 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import DataTable from '../components/DataTable';
 import type { Column, TableState } from '../types/table';
-import { getLastNDaysRangeForDatePicker } from '../utils/date';
+import { getLastNDaysRangeForDatePicker, DATE_PRESETS, getDateRangeFromPreset, type DatePresetKey } from '../utils/date';
 import { 
     fetchDashboardKPIs, 
     fetchTopProducts,
@@ -106,50 +103,6 @@ const buildBaseParams = (vendorId: number | undefined, selectedBranchId: number 
     return params;
 };
 
-// Helper function to sort expiring products
-const sortExpiringProducts = <T extends ExpiringProductVariant>(
-    data: T[],
-    orderBy: string,
-    order: 'asc' | 'desc'
-): T[] => {
-    return [...data].sort((a, b) => {
-        let aValue: any;
-        let bValue: any;
-
-        switch (orderBy) {
-            case 'expiryDate':
-                aValue = a.expiryDate.getTime();
-                bValue = b.expiryDate.getTime();
-                break;
-            case 'productName':
-                aValue = a.productName.toLowerCase();
-                bValue = b.productName.toLowerCase();
-                break;
-            case 'variantName':
-                aValue = a.variantName.toLowerCase();
-                bValue = b.variantName.toLowerCase();
-                break;
-            case 'quantity':
-                aValue = a.quantity;
-                bValue = b.quantity;
-                break;
-            case 'sellingPrice':
-                aValue = a.sellingPrice;
-                bValue = b.sellingPrice;
-                break;
-            case 'category':
-                aValue = a.category.toLowerCase();
-                bValue = b.category.toLowerCase();
-                break;
-            default:
-                return 0;
-        }
-
-        if (aValue < bValue) return order === 'asc' ? -1 : 1;
-        if (aValue > bValue) return order === 'asc' ? 1 : -1;
-        return 0;
-    });
-};
 
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -723,10 +676,15 @@ export default function Dashboard() {
         },
     ], []);
 
+    const handleDatePreset = (presetKey: DatePresetKey) => {
+        setDateRange(getDateRangeFromPreset(presetKey));
+        setDateAnchorEl(null);
+    };
+
     return (
         <Box sx={{ p: 3 }}>
             {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 4 }}>
                 <Box>
                     <Typography variant="h4" sx={{ fontWeight: 700, color: '#333', mb: 0.5 }}>
                         Dashboard
@@ -735,17 +693,55 @@ export default function Dashboard() {
                         Welcome back! Here's what's happening with your store today.
                     </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                    <Button
-                        variant="outlined"
-                        startIcon={<DateRangeIcon />}
-                        sx={{ textTransform: 'none' }}
-                        onClick={(e) => setDateAnchorEl(e.currentTarget)}
-                    >
-                        {dateRange[0]?.startDate && dateRange[0]?.endDate
-                            ? `${format(dateRange[0].startDate, 'MMM dd, yyyy')} - ${format(dateRange[0].endDate, 'MMM dd, yyyy')}`
-                            : format(new Date(), 'MMM dd, yyyy')}
-                    </Button>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                    {/* Quick actions */}
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                        <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<VisibilityIcon />}
+                            sx={{ textTransform: 'none' }}
+                            onClick={() => navigate('/orders')}
+                        >
+                            View Orders
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddIcon />}
+                            sx={{ textTransform: 'none' }}
+                            onClick={() => navigate('/products/new')}
+                        >
+                            Add Product
+                        </Button>
+                    </Stack>
+                    {/* Date range with presets */}
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                        {DATE_PRESETS.map((preset) => (
+                            <Chip
+                                key={preset.key}
+                                label={preset.label}
+                                onClick={() => handleDatePreset(preset.key)}
+                                size="small"
+                                variant="outlined"
+                                sx={{
+                                    cursor: 'pointer',
+                                    '&:hover': { bgcolor: 'action.hover' },
+                                }}
+                            />
+                        ))}
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<DateRangeIcon />}
+                            sx={{ textTransform: 'none' }}
+                            onClick={(e) => setDateAnchorEl(e.currentTarget)}
+                        >
+                            {dateRange[0]?.startDate && dateRange[0]?.endDate
+                                ? `${format(dateRange[0].startDate, 'MMM dd')} - ${format(dateRange[0].endDate, 'MMM dd')}`
+                                : 'Custom'}
+                        </Button>
+                    </Stack>
                 </Box>
             </Box>
 

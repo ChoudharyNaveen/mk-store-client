@@ -11,13 +11,16 @@ import SubCategoryList from '../pages/sub-category/SubCategoryList';
 import NewSubCategoryForm from '../pages/sub-category/NewSubCategoryForm';
 import SubCategoryDetail from '../pages/sub-category/SubCategoryDetail';
 import BrandList from '../pages/brands/BrandList';
+import BrandDetail from '../pages/brands/BrandDetail';
 import NewBrandForm from '../pages/brands/NewBrandForm';
 import ProductList from '../pages/products/ProductList';
 import NewProductForm from '../pages/products/NewProductForm';
 import ProductDetail from '../pages/products/ProductDetail';
 import PromocodeList from '../pages/promo-code/PromocodeList';
+import PromocodeDetail from '../pages/promo-code/PromocodeDetail';
 import NewPromocodeForm from '../pages/promo-code/NewPromocodeForm';
 import OfferList from '../pages/offers/OfferList';
+import OfferDetail from '../pages/offers/OfferDetail';
 import NewOfferForm from '../pages/offers/NewOfferForm';
 import OrderList from '../pages/orders/OrderList';
 import OrderDetail from '../pages/orders/OrderDetail';
@@ -27,6 +30,8 @@ import BannerForm from '../pages/banners/BannerForm';
 import BannerDetail from '../pages/banners/BannerDetail';
 import ShippingCharges from '../pages/settings/ShippingCharges';
 import NotificationList from '../pages/notifications/NotificationList';
+import ProductTypeList from '../pages/product-type/ProductTypeList';
+import ProductTypeForm from '../pages/product-type/ProductTypeForm';
 
 /**
  * Public routes (accessible without authentication)
@@ -107,6 +112,10 @@ export const protectedRoutes: RouteObject[] = [
     element: <NewBrandForm />,
   },
   {
+    path: '/brands/detail/:id',
+    element: <BrandDetail />,
+  },
+  {
     path: '/brands/edit/:id',
     element: <NewBrandForm />,
   },
@@ -137,6 +146,10 @@ export const protectedRoutes: RouteObject[] = [
     element: <NewPromocodeForm />,
   },
   {
+    path: '/promo-code/detail/:id',
+    element: <PromocodeDetail />,
+  },
+  {
     path: '/promo-code/edit/:id',
     element: <NewPromocodeForm />,
   },
@@ -148,6 +161,10 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/offers/new',
     element: <NewOfferForm />,
+  },
+  {
+    path: '/offers/detail/:id',
+    element: <OfferDetail />,
   },
   {
     path: '/offers/edit/:id',
@@ -187,6 +204,19 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/banners/detail/:id',
     element: <BannerDetail />,
+  },
+  // Product type routes
+  {
+    path: '/product-types',
+    element: <ProductTypeList />,
+  },
+  {
+    path: '/product-types/new',
+    element: <ProductTypeForm />,
+  },
+  {
+    path: '/product-types/edit/:id',
+    element: <ProductTypeForm />,
   },
   // Settings routes
   {

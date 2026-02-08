@@ -71,3 +71,13 @@ export interface UpdatePromocodeResponse {
   doc?: Promocode;
 }
 
+export interface PromocodeSummary {
+  totalRedemptions: number;
+  totalDiscountsGiven: number;
+}
+
+export interface PromocodeSummaryResponse {
+  success: boolean;
+  doc?: PromocodeSummary;
+}
+

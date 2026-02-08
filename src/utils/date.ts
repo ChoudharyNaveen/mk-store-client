@@ -68,3 +68,60 @@ export const getDayBounds = (date: Date): { startOfDay: Date; endOfDay: Date } =
     return { startOfDay, endOfDay };
 };
 
+/** Preset label and range for date picker */
+export type DatePresetKey = 'today' | 'last7' | 'last30' | 'thisMonth';
+
+export interface DatePreset {
+    key: DatePresetKey;
+    label: string;
+    getRange: () => { startDate: Date; endDate: Date };
+}
+
+/**
+ * Get today's range (start of today to end of today)
+ */
+export const getTodayRange = (): { startDate: Date; endDate: Date } => {
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(today);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+};
+
+/**
+ * Get current month's range (first day to last day of month)
+ */
+export const getThisMonthRange = (): { startDate: Date; endDate: Date } => {
+    const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+};
+
+/**
+ * Date presets for Dashboard and list filters
+ */
+export const DATE_PRESETS: DatePreset[] = [
+    { key: 'today', label: 'Today', getRange: getTodayRange },
+    { key: 'last7', label: 'Last 7 days', getRange: () => getLastNDaysRange(7) },
+    { key: 'last30', label: 'Last 30 days', getRange: () => getLastNDaysRange(30) },
+    {
+        key: 'thisMonth',
+        label: 'This month',
+        getRange: getThisMonthRange,
+    },
+];
+
+/**
+ * Get react-date-range selection from a preset key
+ */
+export const getDateRangeFromPreset = (presetKey: DatePresetKey) => {
+    const preset = DATE_PRESETS.find((p) => p.key === presetKey);
+    if (!preset) return getLastNDaysRangeForDatePicker(30);
+    const { startDate, endDate } = preset.getRange();
+    return [{ startDate, endDate, key: 'selection' as const }];
+};
+

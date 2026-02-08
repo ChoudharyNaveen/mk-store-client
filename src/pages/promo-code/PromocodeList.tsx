@@ -6,11 +6,15 @@ import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import BlockIcon from '@mui/icons-material/Block';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import RowActionsMenu from '../../components/RowActionsMenu';
+import type { RowActionItem } from '../../components/RowActionsMenu';
 import DateRangePopover from '../../components/DateRangePopover';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
-import StatusToggleButton from '../../components/StatusToggleButton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import promocodeService, { fetchPromocodes } from '../../services/promo-code.service';
 import type { Promocode } from '../../types/promo-code';
@@ -69,7 +73,29 @@ export default function PromocodeList() {
 
     const columns = [
         { id: 'type' as keyof Promocode, label: 'Type', minWidth: 100 },
-        { id: 'code' as keyof Promocode, label: 'Code', minWidth: 120 },
+        {
+            id: 'code' as keyof Promocode,
+            label: 'Code',
+            minWidth: 120,
+            render: (row: Promocode) => (
+                <Typography
+                    component="button"
+                    onClick={() => navigate(`/promo-code/detail/${row.id}`)}
+                    sx={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'primary.main',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        p: 0,
+                        font: 'inherit',
+                        '&:hover': { textDecoration: 'underline' },
+                    }}
+                >
+                    {row.code}
+                </Typography>
+            ),
+        },
         { id: 'percentage' as keyof Promocode, label: 'Percentage', minWidth: 100 },
         {
             id: 'start_date' as keyof Promocode,
@@ -93,28 +119,19 @@ export default function PromocodeList() {
         {
             id: 'action' as keyof Promocode,
             label: 'Action',
-            minWidth: 100,
+            minWidth: 80,
             align: 'center' as const,
             render: (row: Promocode) => (
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                    <IconButton
-                        size="small"
-                        onClick={() => navigate(`/promo-code/edit/${row.id}`)}
-                        sx={{
-                            border: '1px solid #e0e0e0',
-                            borderRadius: 2,
-                            color: 'text.secondary',
-                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' }
-                        }}
-                    >
-                        <EditIcon fontSize="small" />
-                    </IconButton>
-                    <StatusToggleButton
-                        status={row.status}
-                        onClick={() => handleToggleStatus(row)}
-                        disabled={updatingPromocodeId === row.id}
-                    />
-                </Box>
+                <RowActionsMenu<Promocode>
+                    row={row}
+                    ariaLabel="Promo code actions"
+                    items={(r): RowActionItem<Promocode>[] => [
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (p) => navigate(`/promo-code/detail/${p.id}`) },
+                        { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (p) => navigate(`/promo-code/edit/${p.id}`) },
+                        { type: 'divider' },
+                        { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (p) => handleToggleStatus(p), disabled: updatingPromocodeId === r.id },
+                    ]}
+                />
             )
         },
     ];
