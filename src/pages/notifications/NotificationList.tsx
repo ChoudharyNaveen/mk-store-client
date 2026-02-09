@@ -3,8 +3,6 @@ import {
   Box,
   Typography,
   Button,
-  TextField,
-  InputAdornment,
   IconButton,
   Chip,
   Paper,
@@ -16,7 +14,6 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import DoneIcon from '@mui/icons-material/Done';
 import MarkEmailUnreadIcon from '@mui/icons-material/MarkEmailUnread';
 import { useNavigate } from 'react-router-dom';
-import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import { format } from 'date-fns';
@@ -25,6 +22,7 @@ import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import DateRangePopover from '../../components/DateRangePopover';
+import SearchField from '../../components/SearchField';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { getNotifications } from '../../services/notification.service';
@@ -101,6 +99,7 @@ export default function NotificationList() {
   const {
     setPaginationModel,
     setFilters,
+    setSearchKeyword,
     tableState,
     tableHandlers,
   } = useServerPagination<Notification>({
@@ -125,6 +124,13 @@ export default function NotificationList() {
 
   const handleDateRangeApply = (newRange: DateRangeSelection) => {
     setDateRange(newRange);
+  };
+
+  const handleClearFilters = () => {
+    setSearchKeyword('');
+    setCategoryTab('all');
+    setReadFilter('all');
+    setDateRange(getLastNDaysRangeForDatePicker(30));
   };
 
   const handleMarkAllRead = async () => {
@@ -335,18 +341,11 @@ export default function NotificationList() {
             borderColor: 'divider',
           }}
         >
-          <TextField
-            size="small"
+          <SearchField
             placeholder="Search..."
             value={tableState.search}
             onChange={tableHandlers.handleSearch}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
+            onClearAndRefresh={handleClearFilters}
             sx={{ minWidth: 220 }}
           />
 

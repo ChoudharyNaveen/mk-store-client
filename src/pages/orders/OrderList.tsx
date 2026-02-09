@@ -1,39 +1,29 @@
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Chip, Paper, List, ListItem, ListItemText, Divider, Select, MenuItem, FormControl, InputLabel, Tooltip } from '@mui/material';
+import { Box, Typography, Button, TextField, Popover, Chip, List, ListItem, ListItemText, Divider, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import SearchIcon from '@mui/icons-material/Search';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
-import DateRangePopover from '../../components/DateRangePopover';
-import type { DateRangeSelection } from '../../components/DateRangePopover';
+import ListPageLayout from '../../components/ListPageLayout';
 import { useServerPagination } from '../../hooks/useServerPagination';
+import { useListPageDateRange } from '../../hooks/useListPageDateRange';
 import { fetchOrders } from '../../services/order.service';
 import type { Order } from '../../types/order';
 import type { ServerFilter } from '../../types/filter';
-import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
-import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
+import { useAppSelector } from '../../store/hooks';
 import { ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '../../constants/statusOptions';
 
 export default function OrderList() {
     const navigate = useNavigate();
-    const dispatch = useAppDispatch();
-    
-    // Get vendorId and branchId from store
     const { user } = useAppSelector((state) => state.auth);
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
-    
-    // Get date range from store, or use default
-    const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
-    const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
+
+    const { dateRange, handleDateRangeApply } = useListPageDateRange(30);
     
     const columns = [
         {
@@ -281,31 +271,18 @@ export default function OrderList() {
         },
     ];
     
-    const [dateRange, setDateRange] = React.useState<DateRangeSelection>(() => {
-        if (storeStartDate && storeEndDate) {
-            return [{
-                startDate: new Date(storeStartDate),
-                endDate: new Date(storeEndDate),
-                key: 'selection'
-            }];
-        }
-        return getLastNDaysRangeForDatePicker(30);
-    });
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
     const [itemsPopoverAnchor, setItemsPopoverAnchor] = React.useState<{ el: HTMLElement; orderId: number } | null>(null);
-    const [advancedFilters, setAdvancedFilters] = React.useState({
-        orderNumber: '',
-        customerName: '',
-        status: '',
-        payment_status: '',
-    });
+    const emptyAdvancedFilters = { orderNumber: '', customerName: '', status: '', payment_status: '' };
+    const [advancedFilters, setAdvancedFilters] = React.useState(emptyAdvancedFilters);
+    const [appliedAdvancedFilters, setAppliedAdvancedFilters] = React.useState(emptyAdvancedFilters);
 
-    // Helper function to build filters array with date range and default filters
+    // Build filters from applied values (so Apply button commits form state, then effect runs once)
     const buildFilters = React.useCallback((): ServerFilter[] => {
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
             dateRange,
             dateField: 'created_at',
-            advancedFilters,
+            advancedFilters: appliedAdvancedFilters,
             filterMappings: {
                 orderNumber: { field: 'order_number', operator: 'iLike' },
                 customerName: { field: 'user.name', operator: 'iLike' },
@@ -313,16 +290,15 @@ export default function OrderList() {
                 payment_status: { field: 'payment_status', operator: 'eq' },
             },
         });
-        
-        // Merge with default filters (vendorId and branchId)
         return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-    }, [dateRange, advancedFilters, vendorId, selectedBranchId]);
+    }, [dateRange, appliedAdvancedFilters, vendorId, selectedBranchId]);
 
     // Use server pagination hook - now includes tableState and tableHandlers
     const {
         paginationModel,
         setPaginationModel,
         setFilters,
+        setSearchKeyword,
         tableState,
         tableHandlers,
     } = useServerPagination<Order>({
@@ -340,195 +316,64 @@ export default function OrderList() {
         searchDebounceMs: 500,
     });
 
-    // Sync local date range with store when store dates change
-    React.useEffect(() => {
-        if (storeStartDate && storeEndDate) {
-            setDateRange([{
-                startDate: new Date(storeStartDate),
-                endDate: new Date(storeEndDate),
-                key: 'selection'
-            }]);
-        }
-    }, [storeStartDate, storeEndDate]);
-
-    // Update filters when advanced filters or date range changes
+    // Update filters when applied advanced filters or date range changes (single source → one fetch)
     React.useEffect(() => {
         setFilters(buildFilters());
-        // Reset to first page when filters change
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+    }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+
+    // When opening the filter popover, show currently applied values in the form
+    React.useEffect(() => {
+        if (filterAnchorEl) setAdvancedFilters(appliedAdvancedFilters);
+    }, [filterAnchorEl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleApplyFilters = () => {
+        setAppliedAdvancedFilters(advancedFilters);
         setFilterAnchorEl(null);
-        tableHandlers.refresh();
     };
 
     const handleClearFilters = () => {
-        setAdvancedFilters({ orderNumber: '', customerName: '', status: '', payment_status: '' });
-        tableHandlers.refresh();
-    };
-
-    const handleDateRangeApply = (newRange: DateRangeSelection) => {
-        setDateRange(newRange);
-        const range = newRange?.[0];
-        if (range) {
-            dispatch(setDateRangeAction({
-                startDate: range.startDate,
-                endDate: range.endDate,
-            }));
-        }
+        setSearchKeyword('');
+        setAdvancedFilters(emptyAdvancedFilters);
+        setAppliedAdvancedFilters(emptyAdvancedFilters);
+        setFilterAnchorEl(null);
+        // Effect will run (appliedAdvancedFilters changed), setFilters + setPaginationModel → hook's filters effect fetches once with empty search/filters
     };
 
     return (
-        <Paper sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, borderRadius: 1 }}>
-            {/* Page Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                    Orders
-                </Typography>
-            </Box>
-
-            {/* Unified Container for Search, Filters and Table */}
-            <Box sx={{ 
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                bgcolor: 'background.paper',
-                borderRadius: 2,
-                boxShadow: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-                overflow: 'hidden'
-            }}>
-                {/* Search and Filter Section */}
-                <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    flexWrap: 'wrap',
-                    gap: 2,
-                    p: 2.5,
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper'
-                }}>
-                    <TextField
-                        id="orders-search"
-                        placeholder="Search orders..."
-                        variant="outlined"
-                        size="small"
-                        value={tableState.search}
-                        onChange={tableHandlers.handleSearch}
-                        sx={{
-                            flex: 1,
-                            minWidth: 280,
-                            maxWidth: 400,
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: 2,
-                                bgcolor: 'background.default',
-                            }
-                        }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: 'text.secondary' }} />
-                                </InputAdornment>
-                            ),
-                        }}
-                    />
-                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <DateRangePopover
-                            value={dateRange}
-                            onChange={handleDateRangeApply}
-                            moveRangeOnFirstSelection={false}
-                        />
-                        <Tooltip title="Refresh table">
-                            <IconButton
-                                onClick={() => tableHandlers.refresh()}
-                                size="small"
-                                sx={{
-                                    borderRadius: 2,
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    color: 'text.secondary',
-                                    '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover', color: 'primary.main' },
-                                }}
-                            >
-                                <RefreshIcon />
-                            </IconButton>
-                        </Tooltip>
-                        <Button
-                            variant="outlined"
-                            startIcon={<FilterListIcon />}
-                            onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-                            sx={{ 
-                                borderRadius: 2, 
-                                textTransform: 'none', 
-                                borderColor: 'divider', 
-                                color: 'text.secondary',
-                                '&:hover': {
-                                    borderColor: 'primary.main',
-                                    bgcolor: 'action.hover'
-                                }
-                            }}
-                        >
-                            Advanced Search
-                        </Button>
-                    </Box>
-                </Box>
-
-            <Popover
-                open={Boolean(filterAnchorEl)}
-                anchorEl={filterAnchorEl}
-                onClose={() => setFilterAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-                <Box sx={{ p: 3, width: 300 }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Orders</Typography>
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label="Order Number"
-                        value={advancedFilters.orderNumber}
-                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, orderNumber: e.target.value })}
-                        sx={{ mb: 2 }}
-                    />
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label="Customer Name"
-                        value={advancedFilters.customerName}
-                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, customerName: e.target.value })}
-                        sx={{ mb: 2 }}
-                    />
+        <ListPageLayout
+            title="Orders"
+            searchId="orders-search"
+            searchPlaceholder="Search orders..."
+            searchValue={tableState.search}
+            onSearchChange={tableHandlers.handleSearch}
+            onClearAndRefresh={handleClearFilters}
+            dateRange={dateRange}
+            onDateRangeChange={handleDateRangeApply}
+            onRefresh={() => tableHandlers.refresh()}
+            filterAnchorEl={filterAnchorEl}
+            onOpenFilterClick={(e) => setFilterAnchorEl(e.currentTarget)}
+            onFilterClose={() => setFilterAnchorEl(null)}
+            filterPopoverTitle="Filter Orders"
+            filterPopoverContent={
+                <>
+                    <TextField fullWidth size="small" label="Order Number" value={advancedFilters.orderNumber} onChange={(e) => setAdvancedFilters({ ...advancedFilters, orderNumber: e.target.value })} sx={{ mb: 2 }} />
+                    <TextField fullWidth size="small" label="Customer Name" value={advancedFilters.customerName} onChange={(e) => setAdvancedFilters({ ...advancedFilters, customerName: e.target.value })} sx={{ mb: 2 }} />
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                         <InputLabel>Order Status</InputLabel>
-                        <Select
-                            value={advancedFilters.status}
-                            label="Order Status"
-                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
-                        >
+                        <Select value={advancedFilters.status} label="Order Status" onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}>
                             <MenuItem value="">All</MenuItem>
                             {ORDER_STATUS_OPTIONS.map((option) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </MenuItem>
+                                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
                             ))}
                         </Select>
                     </FormControl>
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                         <InputLabel>Payment Status</InputLabel>
-                        <Select
-                            value={advancedFilters.payment_status}
-                            label="Payment Status"
-                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, payment_status: e.target.value })}
-                        >
+                        <Select value={advancedFilters.payment_status} label="Payment Status" onChange={(e) => setAdvancedFilters({ ...advancedFilters, payment_status: e.target.value })}>
                             <MenuItem value="">All</MenuItem>
                             {PAYMENT_STATUS_OPTIONS.map((option) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </MenuItem>
+                                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
                             ))}
                         </Select>
                     </FormControl>
@@ -536,19 +381,10 @@ export default function OrderList() {
                         <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
                         <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
                     </Box>
-                </Box>
-            </Popover>
-
-                {/* Data Table Section */}
-                <Box sx={{ flex: 1, overflow: 'auto' }}>
-                    <DataTable 
-                        key={`order-table-${paginationModel.page}-${paginationModel.pageSize}`}
-                        columns={columns} 
-                        state={tableState} 
-                        handlers={tableHandlers} 
-                    />
-                </Box>
-            </Box>
-        </Paper>
+                </>
+            }
+        >
+            <DataTable key={`order-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} handlers={tableHandlers} />
+        </ListPageLayout>
     );
 }

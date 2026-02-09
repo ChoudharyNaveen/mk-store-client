@@ -72,17 +72,18 @@ export const fetchPromocodes = async (
       requestBody.sorting = params.sorting;
     }
 
-    // Handle searchKeyword - convert to filter if needed
-    if (params.searchKeyword) {
-      // If searchKeyword should be a filter, add it
-      // For now, we'll add it as a filter with 'iLike' operator on code
-      if (!requestBody.filters) {
-        requestBody.filters = [];
+    // Handle searchKeyword - upsert code filter when non-empty; remove when empty so API never gets stale search
+    const filters = (requestBody.filters ??= []);
+    const codeIdx = filters.findIndex((f: ServerFilter) => f.key === 'code');
+    if (params.searchKeyword !== undefined && params.searchKeyword !== null) {
+      const trimmed = String(params.searchKeyword).trim();
+      if (trimmed) {
+        const codeFilter: ServerFilter = { key: 'code', iLike: trimmed };
+        if (codeIdx >= 0) filters[codeIdx] = codeFilter;
+        else filters.push(codeFilter);
+      } else {
+        if (codeIdx >= 0) filters.splice(codeIdx, 1);
       }
-      requestBody.filters.push({
-        key: 'code',
-        iLike: params.searchKeyword,
-      });
     }
 
     // Make POST API call with JSON body

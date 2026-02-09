@@ -72,15 +72,18 @@ export const fetchOrders = async (
       requestBody.sorting = params.sorting;
     }
 
-    // Handle searchKeyword - convert to filter if needed
-    if (params.searchKeyword) {
-      if (!requestBody.filters) {
-        requestBody.filters = [];
+    // Handle searchKeyword - upsert order_number filter when non-empty; remove when empty so API never gets stale search
+    const filters = (requestBody.filters ??= []);
+    const orderNumIdx = filters.findIndex((f: ServerFilter) => f.key === 'order_number');
+    if (params.searchKeyword !== undefined && params.searchKeyword !== null) {
+      const trimmed = String(params.searchKeyword).trim();
+      if (trimmed) {
+        const orderNumFilter: ServerFilter = { key: 'order_number', iLike: trimmed };
+        if (orderNumIdx >= 0) filters[orderNumIdx] = orderNumFilter;
+        else filters.push(orderNumFilter);
+      } else {
+        if (orderNumIdx >= 0) filters.splice(orderNumIdx, 1);
       }
-      requestBody.filters.push({
-        key: 'order_number',
-        iLike: params.searchKeyword,
-      });
     }
 
     // Make POST API call with JSON body

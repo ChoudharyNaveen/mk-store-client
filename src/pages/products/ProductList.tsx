@@ -1,12 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import React from 'react';
-import { Box, Typography, Button, TextField, InputAdornment, Popover, IconButton, Avatar, Paper, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress, Tooltip } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import RefreshIcon from '@mui/icons-material/Refresh';
+import { Box, Typography, Button, TextField, Popover, IconButton, Avatar, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -18,9 +14,9 @@ import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
-import DateRangePopover from '../../components/DateRangePopover';
-import type { DateRangeSelection } from '../../components/DateRangePopover';
+import ListPageLayout from '../../components/ListPageLayout';
 import { useServerPagination } from '../../hooks/useServerPagination';
+import { useListPageDateRange } from '../../hooks/useListPageDateRange';
 import { fetchProducts, updateProduct, type FetchParams } from '../../services/product.service';
 import { fetchCategories } from '../../services/category.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
@@ -33,10 +29,8 @@ import type { ProductType } from '../../types/product-type';
 import type { Brand } from '../../types/brand';
 import type { ServerFilter } from '../../types/filter';
 import type { Column, TableState } from '../../types/table';
-import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
-import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { setDateRange as setDateRangeAction } from '../../store/dateRangeSlice';
+import { useAppSelector } from '../../store/hooks';
 import { PRODUCT_STATUS_OPTIONS, PRODUCT_STOCK_STATUS_OPTIONS } from '../../constants/statusOptions';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import StockUpdateDialog from './StockUpdateDialog';
@@ -251,17 +245,12 @@ const VariantsPopover: React.FC<{ product: Product }> = ({ product }) => {
 
 export default function ProductList() {
     const navigate = useNavigate();
-    const dispatch = useAppDispatch();
-    
-    // Get vendorId and branchId from store
     const { user } = useAppSelector((state) => state.auth);
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
-    
-    // Get date range from store, or use default
-    const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
-    const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
-    
+
+    const { dateRange, handleDateRangeApply: baseHandleDateRangeApply } = useListPageDateRange(30);
+
     // Variants popover state
     const [variantsAnchorEl, setVariantsAnchorEl] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
     // Stock update dialog
@@ -400,24 +389,14 @@ export default function ProductList() {
             render: (row: Product) => {
                 const variantCount = row.variants?.length || 0;
                 return (
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}
+                    onClick={(e) => setVariantsAnchorEl({ el: e.currentTarget, product: row })}>
                         <Chip
                             label={`${variantCount} variant${variantCount !== 1 ? 's' : ''}`}
                             size="small"
-                            sx={{ fontWeight: 500 }}
+                            sx={{ fontWeight: 500, '&:hover': { cursor: 'pointer', bgcolor: 'primary.main', color: 'white' } }}
+                            
                         />
-                        <IconButton
-                            size="small"
-                            onClick={(e) => setVariantsAnchorEl({ el: e.currentTarget, product: row })}
-                            sx={{
-                                border: '1px solid #e0e0e0',
-                                borderRadius: 2,
-                                color: 'primary.main',
-                                '&:hover': { bgcolor: '#e3f2fd', borderColor: 'primary.main' }
-                            }}
-                        >
-                            <InfoIcon fontSize="small" />
-                        </IconButton>
                     </Box>
                 );
             }
@@ -453,20 +432,9 @@ export default function ProductList() {
         },
     ];
 
-    const [dateRange, setDateRange] = React.useState<DateRangeSelection>(() => {
-        if (storeStartDate && storeEndDate) {
-            return [{
-                startDate: new Date(storeStartDate),
-                endDate: new Date(storeEndDate),
-                key: 'selection'
-            }];
-        }
-        return getLastNDaysRangeForDatePicker(30);
-    });
     const [filterAnchorEl, setFilterAnchorEl] = React.useState<null | HTMLElement>(null);
 
     type AdvancedFiltersState = {
-        productName: string;
         categoryIds: number[];
         subCategoryIds: number[];
         productTypeIds: number[];
@@ -475,7 +443,6 @@ export default function ProductList() {
         product_status: string;
     };
     const emptyAdvancedFilters: AdvancedFiltersState = {
-        productName: '',
         categoryIds: [],
         subCategoryIds: [],
         productTypeIds: [],
@@ -488,9 +455,7 @@ export default function ProductList() {
     const [appliedAdvancedFilters, setAppliedAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
     const [hasComboActive, setHasComboActive] = React.useState(false);
     const hasComboActiveRef = React.useRef(hasComboActive);
-    React.useEffect(() => {
-        hasComboActiveRef.current = hasComboActive;
-    }, [hasComboActive]);
+    hasComboActiveRef.current = hasComboActive;
 
     // Options for advanced search autocompletes (fetched via API)
     const [categories, setCategories] = React.useState<Category[]>([]);
@@ -505,9 +470,11 @@ export default function ProductList() {
     // Cache: only fetch filter options on first dialog open, not every time
     const filterOptionsLoadedRef = React.useRef(false);
 
-    // Fetch category, sub-category, product type, and brand options (once on first open, then cached)
+    // When filter popover opens: sync form to applied filters and load options (once, then cached)
     React.useEffect(() => {
-        if (!filterAnchorEl || filterOptionsLoadedRef.current) return;
+        if (!filterAnchorEl) return;
+        setAdvancedFilters(appliedAdvancedFilters);
+        if (filterOptionsLoadedRef.current) return;
         let cancelled = false;
         const loadOptions = async () => {
             setLoadingCategories(true);
@@ -526,13 +493,10 @@ export default function ProductList() {
                     setSubCategories(subRes.list || []);
                     setProductTypes(ptRes.list || []);
                     setBrands(brandRes.list || []);
-                    filterOptionsLoadedRef.current = true; // cache after successful load
+                    filterOptionsLoadedRef.current = true;
                 }
             } catch (err) {
-                if (!cancelled) {
-                    console.error('Error loading filter options:', err);
-                    // ref stays false so next open will retry
-                }
+                if (!cancelled) console.error('Error loading filter options:', err);
             } finally {
                 if (!cancelled) {
                     setLoadingCategories(false);
@@ -544,13 +508,12 @@ export default function ProductList() {
         };
         loadOptions();
         return () => { cancelled = true; };
-    }, [filterAnchorEl, vendorId, selectedBranchId]);
+    }, [filterAnchorEl, vendorId, selectedBranchId, appliedAdvancedFilters]);
 
     // Helper function to build filters array (uses applied filters; API is called on Apply)
     const buildFilters = React.useCallback((): ServerFilter[] => {
         const applied = appliedAdvancedFilters;
         const advancedFiltersForBuild: Record<string, string | number | number[] | undefined> = {
-            productName: applied.productName || undefined,
             status: applied.status || undefined,
             product_status: applied.product_status || undefined,
             categoryIds: applied.categoryIds?.length ? applied.categoryIds : undefined,
@@ -563,7 +526,6 @@ export default function ProductList() {
             dateField: 'createdAt',
             advancedFilters: advancedFiltersForBuild,
             filterMappings: {
-                productName: { field: 'title', operator: 'iLike' },
                 categoryIds: { field: 'categoryId', operator: 'in' },
                 subCategoryIds: { field: 'subCategoryId', operator: 'in' },
                 productTypeIds: { field: 'productTypeId', operator: 'in' },
@@ -586,11 +548,12 @@ export default function ProductList() {
         });
     }, []);
 
-    // Use server pagination hook - now includes tableState and tableHandlers
+    // Use server pagination hook (autoFetch: false – single fetch from effect below, same as CategoryList)
     const {
         paginationModel,
         setPaginationModel,
         setFilters,
+        setSearchKeyword,
         fetchData,
         tableState,
         tableHandlers,
@@ -598,7 +561,7 @@ export default function ProductList() {
         fetchFunction: fetchProductsWithCombo,
         initialPageSize: 20,
         enabled: true,
-        autoFetch: true,
+        autoFetch: false,
         filters: buildFilters(),
         initialSorting: [
             {
@@ -611,92 +574,59 @@ export default function ProductList() {
 
     refreshTableRef.current = tableHandlers.refresh;
 
-    // Refetch when "Has Combo" chip is toggled (request body changes)
-    const hasComboTouchedRef = React.useRef(false);
-    React.useEffect(() => {
-        if (!hasComboTouchedRef.current) {
-            hasComboTouchedRef.current = true;
-            return;
-        }
-        tableHandlers.refresh();
-    }, [hasComboActive]);
+    const fetchDataRef = React.useRef(fetchData);
+    fetchDataRef.current = fetchData;
 
-    // Sync local date range with store when store dates change
+    const hasFetchedInitialRef = React.useRef(false);
+    // Sync filters and pagination when applied filters or Has Combo change. On first run (mount) we trigger fetch (autoFetch: false); on subsequent runs the hook's filters effect performs the fetch to avoid double call.
     React.useEffect(() => {
-        if (storeStartDate && storeEndDate) {
-            setDateRange([{
-                startDate: new Date(storeStartDate),
-                endDate: new Date(storeEndDate),
-                key: 'selection'
-            }]);
-        }
-    }, [storeStartDate, storeEndDate]);
+        const range = dateRange?.[0];
+        const hasValidDateRange =
+            range?.startDate && range?.endDate &&
+            !isNaN(new Date(range.startDate).getTime()) &&
+            !isNaN(new Date(range.endDate).getTime());
+        if (!hasValidDateRange) return;
 
-    // Update filters when applied filters or date range change (not on every form change; Apply triggers applied)
-    React.useEffect(() => {
-        setFilters(buildFilters());
+        const newFilters = buildFilters();
+        setFilters(newFilters);
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
-
-    // When opening the filter popover, sync form state to currently applied filters
-    React.useEffect(() => {
-        if (filterAnchorEl) {
-            setAdvancedFilters(appliedAdvancedFilters);
+        if (!hasFetchedInitialRef.current) {
+            hasFetchedInitialRef.current = true;
+            fetchDataRef.current({ initialFetch: true, filters: newFilters });
         }
-    }, [filterAnchorEl]); // eslint-disable-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when applied filters or hasCombo change; date range applied in handleDateRangeApply
+    }, [appliedAdvancedFilters, hasComboActive]);
 
     const handleApplyFilters = () => {
-        const pending = advancedFilters;
-        setAppliedAdvancedFilters(pending);
-        const advancedFiltersForBuild: Record<string, string | number | number[] | undefined> = {
-            productName: pending.productName || undefined,
-            status: pending.status || undefined,
-            product_status: pending.product_status || undefined,
-            categoryIds: pending.categoryIds?.length ? pending.categoryIds : undefined,
-            subCategoryIds: pending.subCategoryIds?.length ? pending.subCategoryIds : undefined,
-            productTypeIds: pending.productTypeIds?.length ? pending.productTypeIds : undefined,
-            brandIds: pending.brandIds?.length ? pending.brandIds : undefined,
-        };
-        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-            dateRange,
-            dateField: 'createdAt',
-            advancedFilters: advancedFiltersForBuild,
-            filterMappings: {
-                productName: { field: 'title', operator: 'iLike' },
-                categoryIds: { field: 'categoryId', operator: 'in' },
-                subCategoryIds: { field: 'subCategoryId', operator: 'in' },
-                productTypeIds: { field: 'productTypeId', operator: 'in' },
-                brandIds: { field: 'brandId', operator: 'in' },
-                status: { field: 'status', operator: 'eq' },
-                product_status: { field: 'product_status', operator: 'eq' },
-            },
-        });
-        const filtersToApply = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-        setFilters(filtersToApply);
-        setPaginationModel((prev) => ({ ...prev, page: 0 }));
+        setAppliedAdvancedFilters(advancedFilters);
         setFilterAnchorEl(null);
+        // Effect [appliedAdvancedFilters, hasComboActive] runs → setFilters + setPaginationModel → hook's filters effect fetches once
     };
 
     const handleClearFilters = () => {
         hasComboActiveRef.current = false;
         setHasComboActive(false);
+        setSearchKeyword('');
         setAdvancedFilters(emptyAdvancedFilters);
         setAppliedAdvancedFilters(emptyAdvancedFilters);
-        const emptyForBuild: Record<string, string | number[] | undefined> = {
-            productName: undefined,
-            status: undefined,
-            product_status: undefined,
-            categoryIds: undefined,
-            subCategoryIds: undefined,
-            productTypeIds: undefined,
-            brandIds: undefined,
-        };
+        setFilterAnchorEl(null);
+        // Effect runs (appliedAdvancedFilters changed) → setFilters + setPaginationModel → hook's filters effect fetches once; search skip ref prevents second fetch
+    };
+
+    const handleDateRangeApply = (newRange: Parameters<typeof baseHandleDateRangeApply>[0]) => {
+        baseHandleDateRangeApply(newRange);
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-            dateRange,
+            dateRange: newRange,
             dateField: 'createdAt',
-            advancedFilters: emptyForBuild,
+            advancedFilters: {
+                status: appliedAdvancedFilters.status || undefined,
+                product_status: appliedAdvancedFilters.product_status || undefined,
+                categoryIds: appliedAdvancedFilters.categoryIds?.length ? appliedAdvancedFilters.categoryIds : undefined,
+                subCategoryIds: appliedAdvancedFilters.subCategoryIds?.length ? appliedAdvancedFilters.subCategoryIds : undefined,
+                productTypeIds: appliedAdvancedFilters.productTypeIds?.length ? appliedAdvancedFilters.productTypeIds : undefined,
+                brandIds: appliedAdvancedFilters.brandIds?.length ? appliedAdvancedFilters.brandIds : undefined,
+            },
             filterMappings: {
-                productName: { field: 'title', operator: 'iLike' },
                 categoryIds: { field: 'categoryId', operator: 'in' },
                 subCategoryIds: { field: 'subCategoryId', operator: 'in' },
                 productTypeIds: { field: 'productTypeId', operator: 'in' },
@@ -705,142 +635,31 @@ export default function ProductList() {
                 product_status: { field: 'product_status', operator: 'eq' },
             },
         });
-        const filtersToApply = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-        setFilters(filtersToApply);
+        const newFilters = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
+        setFilters(newFilters);
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-        setFilterAnchorEl(null);
-        // Cleared filters match initial filters, so the hook's filters-effect skips the fetch.
-        // Call fetchData with override filters so one API call runs immediately with cleared filters.
-        fetchData({ force: true, initialFetch: true, filters: filtersToApply });
-    };
-
-    const handleDateRangeApply = (newRange: DateRangeSelection) => {
-        setDateRange(newRange);
-        const range = newRange?.[0];
-        if (range) {
-            dispatch(setDateRangeAction({ startDate: range.startDate, endDate: range.endDate }));
-        }
+        fetchDataRef.current({ force: true, initialFetch: true, filters: newFilters });
     };
 
     return (
-        <Paper sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, borderRadius: 1 }}>
-            {/* Page Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                    Products
-                </Typography>
-                <Link to="/products/new" style={{ textDecoration: 'none' }}>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        sx={{
-                            bgcolor: 'primary.main',
-                            '&:hover': { bgcolor: 'primary.dark' },
-                            textTransform: 'none',
-                            px: 3,
-                            borderRadius: 2,
-                            boxShadow: 2,
-                        }}
-                    >
-                        Add Product
-                    </Button>
-                </Link>
-            </Box>
-
-            {/* Unified Container for Search, Filters and Table */}
-            <Box sx={{ 
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                bgcolor: 'background.paper',
-                borderRadius: 2,
-                boxShadow: 1,
-                border: '1px solid',
-                borderColor: 'divider',
-                overflow: 'hidden'
-            }}>
-                {/* Search and Filter Section */}
-                <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    flexWrap: 'wrap',
-                    gap: 2,
-                    p: 2.5,
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
-                    bgcolor: 'background.paper'
-                }}>
-                    <TextField
-                        id="products-search"
-                        placeholder="Search products..."
-                        variant="outlined"
-                        size="small"
-                        value={tableState.search}
-                        onChange={tableHandlers.handleSearch}
-                        sx={{
-                            flex: 1,
-                            minWidth: 280,
-                            maxWidth: 400,
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: 2,
-                                bgcolor: 'background.default',
-                            }
-                        }}
-                        InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: 'text.secondary' }} />
-                                </InputAdornment>
-                            ),
-                        }}
-                    />
-                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <DateRangePopover value={dateRange} onChange={handleDateRangeApply} />
-                        <Tooltip title="Refresh table">
-                            <IconButton
-                                onClick={() => tableHandlers.refresh()}
-                                size="small"
-                                sx={{
-                                    borderRadius: 2,
-                                    border: '1px solid',
-                                    borderColor: 'divider',
-                                    color: 'text.secondary',
-                                    '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover', color: 'primary.main' },
-                                }}
-                            >
-                                <RefreshIcon />
-                            </IconButton>
-                        </Tooltip>
-                        <Button
-                            variant="outlined"
-                            startIcon={<FilterListIcon />}
-                            onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-                            sx={{ 
-                                borderRadius: 2, 
-                                textTransform: 'none', 
-                                borderColor: 'divider', 
-                                color: 'text.secondary',
-                                '&:hover': {
-                                    borderColor: 'primary.main',
-                                    bgcolor: 'action.hover'
-                                }
-                            }}
-                        >
-                            Advanced Search
-                        </Button>
-                    </Box>
-                </Box>
-
-            <Popover
-                open={Boolean(filterAnchorEl)}
-                anchorEl={filterAnchorEl}
-                onClose={() => setFilterAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-                <Box sx={{ p: 3, width: 340 }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>Filter Products</Typography>
+        <ListPageLayout
+            title="Products"
+            addButton={{ to: '/products/new', label: 'Add Product' }}
+            searchId="products-search"
+            searchPlaceholder="Search products..."
+            searchValue={tableState.search}
+            onSearchChange={tableHandlers.handleSearch}
+            onClearAndRefresh={handleClearFilters}
+            dateRange={dateRange}
+            onDateRangeChange={handleDateRangeApply}
+            onRefresh={() => tableHandlers.refresh()}
+            filterAnchorEl={filterAnchorEl}
+            onOpenFilterClick={(e) => setFilterAnchorEl(e.currentTarget)}
+            onFilterClose={() => setFilterAnchorEl(null)}
+            filterPopoverTitle="Filter Products"
+            filterPopoverWidth={340}
+            filterPopoverContent={
+                <>
                     <Box sx={{ mb: 2 }}>
                         <Chip
                             label="Has Combo"
@@ -851,20 +670,10 @@ export default function ProductList() {
                             sx={{
                                 fontWeight: 500,
                                 cursor: 'pointer',
-                                '&:hover': {
-                                    bgcolor: hasComboActive ? 'primary.dark' : 'action.hover',
-                                },
+                                '&:hover': { bgcolor: hasComboActive ? 'primary.dark' : 'action.hover' },
                             }}
                         />
                     </Box>
-                    <TextField
-                        fullWidth
-                        size="small"
-                        label="Product Name"
-                        value={advancedFilters.productName}
-                        onChange={(e) => setAdvancedFilters({ ...advancedFilters, productName: e.target.value })}
-                        sx={{ mb: 2 }}
-                    />
                     <Autocomplete
                         multiple
                         size="small"
@@ -971,31 +780,19 @@ export default function ProductList() {
                     />
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                         <InputLabel>Status</InputLabel>
-                        <Select
-                            value={advancedFilters.status}
-                            label="Status"
-                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}
-                        >
+                        <Select value={advancedFilters.status} label="Status" onChange={(e) => setAdvancedFilters({ ...advancedFilters, status: e.target.value })}>
                             <MenuItem value="">All</MenuItem>
                             {PRODUCT_STATUS_OPTIONS.map((option) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </MenuItem>
+                                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
                             ))}
                         </Select>
                     </FormControl>
                     <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                         <InputLabel>Stock Status</InputLabel>
-                        <Select
-                            value={advancedFilters.product_status}
-                            label="Stock Status"
-                            onChange={(e) => setAdvancedFilters({ ...advancedFilters, product_status: e.target.value })}
-                        >
+                        <Select value={advancedFilters.product_status} label="Stock Status" onChange={(e) => setAdvancedFilters({ ...advancedFilters, product_status: e.target.value })}>
                             <MenuItem value="">All</MenuItem>
                             {PRODUCT_STOCK_STATUS_OPTIONS.map((option) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </MenuItem>
+                                <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
                             ))}
                         </Select>
                     </FormControl>
@@ -1003,45 +800,34 @@ export default function ProductList() {
                         <Button onClick={handleClearFilters} size="small" sx={{ color: 'text.secondary' }}>Clear</Button>
                         <Button onClick={handleApplyFilters} variant="contained" size="small">Apply</Button>
                     </Box>
-                </Box>
-            </Popover>
-
+                </>
+            }
+        >
             <Popover
                 open={Boolean(variantsAnchorEl)}
                 anchorEl={variantsAnchorEl?.el}
                 onClose={() => setVariantsAnchorEl(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-                PaperProps={{
-                    sx: {
-                        maxHeight: '80vh',
-                        overflow: 'auto',
-                    }
-                }}
+                PaperProps={{ sx: { maxHeight: '80vh', overflow: 'auto' } }}
             >
                 {variantsAnchorEl && <VariantsPopover product={variantsAnchorEl.product} />}
             </Popover>
-
             <StockUpdateDialog
                 open={Boolean(stockUpdateProduct)}
                 onClose={() => setStockUpdateProduct(null)}
                 onSuccess={() => refreshTableRef.current()}
                 product={stockUpdateProduct}
             />
-
-                {/* Data Table Section */}
-                <Box sx={{ flex: 1, overflow: 'auto' }}>
-                    <DataTable 
-                        key={`product-table-${paginationModel.page}-${paginationModel.pageSize}`}
-                        columns={columns} 
-                        state={tableState} 
-                        handlers={tableHandlers}
-                        emptyStateMessage="No products yet"
-                        emptyStateActionLabel="Add Product"
-                        emptyStateActionOnClick={() => navigate('/products/new')}
-                    />
-                </Box>
-            </Box>
-        </Paper>
+            <DataTable
+                key={`product-table-${paginationModel.page}-${paginationModel.pageSize}`}
+                columns={columns}
+                state={tableState}
+                handlers={tableHandlers}
+                emptyStateMessage="No products yet"
+                emptyStateActionLabel="Add Product"
+                emptyStateActionOnClick={() => navigate('/products/new')}
+            />
+        </ListPageLayout>
     );
 }

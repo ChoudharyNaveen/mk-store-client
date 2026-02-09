@@ -78,15 +78,18 @@ export const fetchBanners = async (
       }));
     }
 
-    // Handle searchKeyword - convert to filter if needed
-    if (params.searchKeyword) {
-      if (!requestBody.filters) {
-        requestBody.filters = [];
+    // Handle searchKeyword - upsert image_url filter when non-empty; remove when empty so API never gets stale search
+    const filters = (requestBody.filters ??= []);
+    const imageIdx = filters.findIndex((f: ServerFilter) => f.key === 'image_url');
+    if (params.searchKeyword !== undefined && params.searchKeyword !== null) {
+      const trimmed = String(params.searchKeyword).trim();
+      if (trimmed) {
+        const imageFilter: ServerFilter = { key: 'image_url', iLike: trimmed };
+        if (imageIdx >= 0) filters[imageIdx] = imageFilter;
+        else filters.push(imageFilter);
+      } else {
+        if (imageIdx >= 0) filters.splice(imageIdx, 1);
       }
-      requestBody.filters.push({
-        key: 'image_url',
-        iLike: params.searchKeyword,
-      });
     }
 
     // Make POST API call with JSON body

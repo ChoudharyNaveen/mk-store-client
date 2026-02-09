@@ -3,24 +3,22 @@
  * Handles all product-related API calls with server pagination support
  */
 
-import http from '../utils/http';
-import { API_URLS } from '../constants/urls';
-import type { 
-  Product, 
+import http from "../utils/http";
+import { API_URLS } from "../constants/urls";
+import type {
+  Product,
   ProductListResponse,
   CreateProductRequest,
   CreateProductResponse,
   UpdateProductRequest,
   UpdateProductResponse,
-  ProductVariant,
-  ProductImage,
   ProductStats,
   ProductStatsResponse,
   InventoryMovement,
-  InventoryMovementsResponse
-} from '../types/product';
-import type { ServerFilter, ServerSorting } from '../types/filter';
-import { convertSimpleFiltersToServerFilters } from '../utils/filterBuilder';
+  InventoryMovementsResponse,
+} from "../types/product";
+import type { ServerFilter, ServerSorting } from "../types/filter";
+import { convertSimpleFiltersToServerFilters } from "../utils/filterBuilder";
 
 /**
  * Fetch parameters for server pagination hook
@@ -29,7 +27,9 @@ export interface FetchParams {
   page?: number; // Page number for API (0-based: 0, 1, 2, ...). Omitted on initial fetch.
   pageSize?: number; // Omitted on initial fetch
   searchKeyword?: string;
-  filters?: Record<string, string | number | boolean | null | undefined> | ServerFilter[];
+  filters?:
+    | Record<string, string | number | boolean | null | undefined>
+    | ServerFilter[];
   sorting?: ServerSorting[];
   signal?: AbortSignal;
   /** When true, send hasActiveComboDiscounts: true in request body (not part of filters) */
@@ -54,7 +54,7 @@ export interface ServerPaginationResponse<T = Product> {
  * Uses POST request with JSON body containing pagination, filters, and sorting
  */
 export const fetchProducts = async (
-  params: FetchParams
+  params: FetchParams,
 ): Promise<ServerPaginationResponse<Product>> => {
   try {
     const page = params.page ?? 0;
@@ -83,7 +83,9 @@ export const fetchProducts = async (
         requestBody.filters = params.filters;
       } else {
         // Convert simple object format to ServerFilter array
-        requestBody.filters = convertSimpleFiltersToServerFilters(params.filters);
+        requestBody.filters = convertSimpleFiltersToServerFilters(
+          params.filters,
+        );
       }
     }
 
@@ -92,15 +94,18 @@ export const fetchProducts = async (
       requestBody.sorting = params.sorting;
     }
 
-    // Handle searchKeyword - convert to filter if needed
-    if (params.searchKeyword) {
-      if (!requestBody.filters) {
-        requestBody.filters = [];
+    // Handle searchKeyword - upsert title filter when non-empty; remove title filter when empty so API never gets stale search
+    const filters = (requestBody.filters ??= []);
+    const titleIdx = filters.findIndex((f: ServerFilter) => f.key === "title");
+    if (params.searchKeyword !== undefined && params.searchKeyword !== null) {
+      const trimmed = String(params.searchKeyword).trim();
+      if (trimmed) {
+        const titleFilter: ServerFilter = { key: "title", iLike: trimmed };
+        if (titleIdx >= 0) filters[titleIdx] = titleFilter;
+        else filters.push(titleFilter);
+      } else {
+        if (titleIdx >= 0) filters.splice(titleIdx, 1);
       }
-      requestBody.filters.push({
-        key: 'title',
-        iLike: params.searchKeyword,
-      });
     }
 
     // Make POST API call with JSON body
@@ -109,16 +114,16 @@ export const fetchProducts = async (
       requestBody,
       {
         signal: params.signal,
-      }
+      },
     );
 
     // Transform API response to hook's expected format
     // Map snake_case fields to camelCase and handle new fields
     const mappedList = (response.doc || []).map((product: unknown) => {
       const p = product as Record<string, unknown>;
-      
+
       // Map variants array if present
-      const variants = Array.isArray(p.variants) 
+      const variants = Array.isArray(p.variants)
         ? (p.variants as unknown[]).map((variant: unknown) => {
             const v = variant as Record<string, unknown>;
             return {
@@ -128,7 +133,7 @@ export const fetchProducts = async (
             };
           })
         : p.variants;
-      
+
       return {
         ...p,
         variants,
@@ -144,7 +149,10 @@ export const fetchProducts = async (
         brandId: (p.brand as { id?: number })?.id || p.brandId || undefined,
         // Handle productType - API may return as object or null
         productType: p.productType || p.product_type || undefined,
-        productTypeId: (p.productType as { id?: number })?.id ?? (p.product_type as { id?: number })?.id ?? undefined,
+        productTypeId:
+          (p.productType as { id?: number })?.id ??
+          (p.product_type as { id?: number })?.id ??
+          undefined,
       } as unknown as Product;
     });
 
@@ -158,7 +166,7 @@ export const fetchProducts = async (
       },
     };
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error("Error fetching products:", error);
     // Return empty response on error
     return {
       list: [],
@@ -175,25 +183,25 @@ export const fetchProducts = async (
  * Uses POST request to fetch product stats
  */
 export const fetchProductStats = async (
-  productId: string | number
+  productId: string | number,
 ): Promise<ProductStats> => {
   try {
     const response = await http.post<ProductStatsResponse>(
       API_URLS.PRODUCTS.GET_STATS,
-      { productId: Number(productId) }
+      { productId: Number(productId) },
     );
 
     if (!response.success || !response.doc) {
       throw {
-        message: 'Product stats not found',
+        message: "Product stats not found",
         status: 404,
-        data: { error: 'Product stats not found' },
+        data: { error: "Product stats not found" },
       };
     }
 
     return response.doc;
   } catch (error) {
-    console.error('Error fetching product stats:', error);
+    console.error("Error fetching product stats:", error);
     throw error;
   }
 };
@@ -205,7 +213,7 @@ export const fetchProductStats = async (
 export const fetchInventoryMovements = async (
   productId: string | number,
   page: number = 0,
-  pageSize: number = 10
+  pageSize: number = 10,
 ): Promise<ServerPaginationResponse<InventoryMovement>> => {
   try {
     const pageNumber = page + 1; // Convert 0-based to 1-based
@@ -216,7 +224,7 @@ export const fetchInventoryMovements = async (
         productId: Number(productId),
         pageSize,
         pageNumber,
-      }
+      },
     );
 
     if (!response.success || !response.doc) {
@@ -239,7 +247,7 @@ export const fetchInventoryMovements = async (
       },
     };
   } catch (error) {
-    console.error('Error fetching inventory movements:', error);
+    console.error("Error fetching inventory movements:", error);
     return {
       list: [],
       totalCount: 0,
@@ -255,59 +263,59 @@ export const fetchInventoryMovements = async (
  * Handles multipart/form-data for file upload
  */
 export const createProduct = async (
-  data: CreateProductRequest
+  data: CreateProductRequest,
 ): Promise<CreateProductResponse> => {
   try {
     // Validate at least one variant is required
     if (!data.variants || data.variants.length === 0) {
       throw {
-        message: 'At least one variant is required',
+        message: "At least one variant is required",
         status: 400,
-        data: { error: 'At least one variant is required' },
+        data: { error: "At least one variant is required" },
       };
     }
 
     // Create FormData for multipart/form-data
     const formData = new FormData();
-    formData.append('title', data.title);
-    formData.append('categoryId', String(data.categoryId));
-    formData.append('subCategoryId', String(data.subCategoryId));
-    formData.append('branchId', String(data.branchId));
-    formData.append('vendorId', String(data.vendorId));
-    formData.append('status', data.status);
-    
+    formData.append("title", data.title);
+    formData.append("categoryId", String(data.categoryId));
+    formData.append("subCategoryId", String(data.subCategoryId));
+    formData.append("branchId", String(data.branchId));
+    formData.append("vendorId", String(data.vendorId));
+    formData.append("status", data.status);
+
     if (data.brandId) {
-      formData.append('brandId', String(data.brandId));
+      formData.append("brandId", String(data.brandId));
     }
-    if (data.productTypeId != null && data.productTypeId !== '') {
-      formData.append('productTypeId', String(data.productTypeId));
+    if (data.productTypeId != null && data.productTypeId !== "") {
+      formData.append("productTypeId", String(data.productTypeId));
     }
 
     // Add createdBy if available (from user context)
-    const userId = localStorage.getItem('user_id');
+    const userId = localStorage.getItem("user_id");
     if (userId) {
-      formData.append('createdBy', userId);
+      formData.append("createdBy", userId);
     }
-    
+
     // Send variants as a single JSON string array
-    formData.append('variants', JSON.stringify(data.variants));
-    
+    formData.append("variants", JSON.stringify(data.variants));
+
     // Append multiple image files
     if (data.images && data.images.length > 0) {
-      data.images.forEach(image => {
-        formData.append('images', image);
+      data.images.forEach((image) => {
+        formData.append("images", image);
       });
     }
 
     // Make API call with FormData using httpRequest
     const response = await http.post<CreateProductResponse>(
       API_URLS.PRODUCTS.CREATE,
-      formData
+      formData,
     );
 
     return response;
   } catch (error) {
-    console.error('Error creating product:', error);
+    console.error("Error creating product:", error);
     throw error;
   }
 };
@@ -317,29 +325,29 @@ export const createProduct = async (
  * Uses GET request to fetch detailed product information
  */
 export const fetchProductDetails = async (
-  id: string | number
+  id: string | number,
 ): Promise<Product> => {
   try {
     const response = await http.get<{ success: boolean; doc: Product }>(
-      API_URLS.PRODUCTS.GET_DETAILS(id)
+      API_URLS.PRODUCTS.GET_DETAILS(id),
     );
 
     if (!response.success || !response.doc) {
       throw {
-        message: 'Product not found',
+        message: "Product not found",
         status: 404,
-        data: { error: 'Product not found' },
+        data: { error: "Product not found" },
       };
     }
 
     // Map snake_case fields to camelCase and handle nested objects
     const product = response.doc as unknown as Record<string, unknown>;
-    
+
     // Map variants array if present
-    const variants = Array.isArray(product.variants) 
+    const variants = Array.isArray(product.variants)
       ? (product.variants as unknown[]).map((variant: unknown) => {
           const v = variant as Record<string, unknown>;
-          
+
           // Map combo_discounts if present
           const comboDiscounts = Array.isArray(v.combo_discounts)
             ? (v.combo_discounts as unknown[]).map((discount: unknown) => {
@@ -350,23 +358,23 @@ export const fetchProductDetails = async (
                   discountValue: d.discount_value ?? d.discountValue,
                   startDate: d.start_date ?? d.startDate,
                   endDate: d.end_date ?? d.endDate,
-                  status: d.status || 'ACTIVE',
+                  status: d.status || "ACTIVE",
                 };
               })
             : undefined;
-          
+
           return {
             ...v,
             items_per_unit: v.items_per_unit ?? v.itemsPerUnit ?? null,
             units: v.units ?? null,
             expiry_date: v.expiry_date ?? v.expiryDate ?? null,
-            product_status: v.product_status ?? v.productStatus ?? 'INSTOCK',
+            product_status: v.product_status ?? v.productStatus ?? "INSTOCK",
             concurrency_stamp: v.concurrency_stamp ?? v.concurrencyStamp,
             combo_discounts: comboDiscounts,
           };
         })
       : product.variants || [];
-    
+
     // Map images array if present
     const images = Array.isArray(product.images)
       ? (product.images as unknown[]).map((image: unknown) => {
@@ -382,11 +390,6 @@ export const fetchProductDetails = async (
         })
       : product.images || [];
 
-    // Find default image or use first image
-    const defaultImage = Array.isArray(images)
-      ? (images.find((img: ProductImage) => img && (img as ProductImage).is_default) || images[0] || null)
-      : null;
-    const defaultImageUrl = defaultImage ? defaultImage.image_url : null;
 
     // Map the product with proper field names
     const mappedProduct = {
@@ -400,14 +403,19 @@ export const fetchProductDetails = async (
       category: product.category || undefined,
       subCategory: product.subCategory || product.sub_category || undefined,
       brand: product.brand || null,
-      brandId: (product.brand as { id?: number })?.id || product.brandId || undefined,
+      brandId:
+        (product.brand as { id?: number })?.id || product.brandId || undefined,
       productType: product.productType || product.product_type || undefined,
-      productTypeId: (product.productType as { id?: number })?.id ?? (product.product_type as { id?: number })?.id ?? product.productTypeId ?? undefined,
+      productTypeId:
+        (product.productType as { id?: number })?.id ??
+        (product.product_type as { id?: number })?.id ??
+        product.productTypeId ??
+        undefined,
     } as unknown as Product;
 
     return mappedProduct;
   } catch (error) {
-    console.error('Error fetching product details:', error);
+    console.error("Error fetching product details:", error);
     throw error;
   }
 };
@@ -419,7 +427,7 @@ export const fetchProductDetails = async (
  */
 export const updateProduct = async (
   id: string | number,
-  data: UpdateProductRequest
+  data: UpdateProductRequest,
 ): Promise<UpdateProductResponse> => {
   try {
     // Validate variants: if variants are provided or deletions are specified, ensure at least one variant remains
@@ -428,16 +436,17 @@ export const updateProduct = async (
         // Check if we're deleting all variants
         if (data.variantIdsToDelete && data.variantIdsToDelete.length > 0) {
           throw {
-            message: 'At least one variant is required. Cannot delete all variants.',
+            message:
+              "At least one variant is required. Cannot delete all variants.",
             status: 400,
-            data: { error: 'At least one variant is required' },
+            data: { error: "At least one variant is required" },
           };
         }
         // If no variants and no deletions specified, it's invalid
         throw {
-          message: 'At least one variant is required',
+          message: "At least one variant is required",
           status: 400,
-          data: { error: 'At least one variant is required' },
+          data: { error: "At least one variant is required" },
         };
       }
     } else if (data.variantIdsToDelete && data.variantIdsToDelete.length > 0) {
@@ -447,83 +456,89 @@ export const updateProduct = async (
 
     // Create FormData for multipart/form-data
     const formData = new FormData();
-    
+
     // Basic product fields (optional - only include if provided)
     if (data.title !== undefined) {
-      formData.append('title', data.title);
+      formData.append("title", data.title);
     }
     if (data.categoryId !== undefined) {
-      formData.append('categoryId', String(data.categoryId));
+      formData.append("categoryId", String(data.categoryId));
     }
     if (data.subCategoryId !== undefined) {
-      formData.append('subCategoryId', String(data.subCategoryId));
+      formData.append("subCategoryId", String(data.subCategoryId));
     }
     if (data.status !== undefined) {
-      formData.append('status', data.status);
+      formData.append("status", data.status);
     }
-    
+
     // Required fields
-    formData.append('updatedBy', String(data.updatedBy));
-    formData.append('concurrencyStamp', data.concurrencyStamp);
-    
+    formData.append("updatedBy", String(data.updatedBy));
+    formData.append("concurrencyStamp", data.concurrencyStamp);
+
     // Brand ID - can be null to remove brand
     if (data.brandId !== undefined) {
       if (data.brandId === null) {
-        formData.append('brandId', ''); // Empty string to set to null
+        formData.append("brandId", ""); // Empty string to set to null
       } else {
-        formData.append('brandId', String(data.brandId));
+        formData.append("brandId", String(data.brandId));
       }
     }
     // Product type ID - optional
     if (data.productTypeId !== undefined) {
-      if (data.productTypeId === null || data.productTypeId === '') {
-        formData.append('productTypeId', '');
+      if (data.productTypeId === null || data.productTypeId === "") {
+        formData.append("productTypeId", "");
       } else {
-        formData.append('productTypeId', String(data.productTypeId));
+        formData.append("productTypeId", String(data.productTypeId));
       }
     }
 
     // Variants - send as a single JSON string array
     if (data.variants && data.variants.length > 0) {
-      formData.append('variants', JSON.stringify(data.variants));
+      formData.append("variants", JSON.stringify(data.variants));
     }
-    
+
     // Variant IDs to delete
     if (data.variantIdsToDelete && data.variantIdsToDelete.length > 0) {
-      formData.append('variantIdsToDelete', JSON.stringify(data.variantIdsToDelete));
+      formData.append(
+        "variantIdsToDelete",
+        JSON.stringify(data.variantIdsToDelete),
+      );
     }
-    
+
     // Image file uploads (multipart/form-data)
     if (data.images && data.images.length > 0) {
-      data.images.forEach(image => {
-        formData.append('images', image);
+      data.images.forEach((image) => {
+        formData.append("images", image);
       });
     }
-    
+
     // Images data (for existing images or pre-uploaded URLs)
     if (data.imagesData && data.imagesData.length > 0) {
-      formData.append('imagesData', JSON.stringify(data.imagesData));
+      formData.append("imagesData", JSON.stringify(data.imagesData));
     }
-    
+
     // Image IDs to delete
     if (data.imageIdsToDelete && data.imageIdsToDelete.length > 0) {
-      formData.append('imageIdsToDelete', JSON.stringify(data.imageIdsToDelete));
+      formData.append(
+        "imageIdsToDelete",
+        JSON.stringify(data.imageIdsToDelete),
+      );
     }
-  
+
     // Make API call with FormData and concurrencyStamp header using httpRequest
     const response = await http.patch<UpdateProductResponse>(
       API_URLS.PRODUCTS.UPDATE(id),
       formData,
       {
         headers: {
-          'x-concurrencystamp': data.concurrencyStamp,
+          "x-concurrencystamp": data.concurrencyStamp,
         },
-      }
+      },
     );
 
     return response;
   } catch (error) {
-    console.error('Error updating product:', error);
+    console.error("Error updating product:", error);
     throw error;
   }
 };
@@ -538,4 +553,3 @@ const productService = {
 };
 
 export default productService;
-

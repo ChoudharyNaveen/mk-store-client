@@ -69,12 +69,18 @@ export const getProductTypes = async (
     requestBody.sorting = params.sorting;
   }
 
-  if (params.searchKeyword) {
-    if (!requestBody.filters) requestBody.filters = [];
-    requestBody.filters.push({
-      key: 'title',
-      iLike: params.searchKeyword,
-    });
+  // Handle searchKeyword - upsert title filter when non-empty; remove when empty so API never gets stale search
+  const filters = (requestBody.filters ??= []);
+  const titleIdx = filters.findIndex((f: ServerFilter) => f.key === 'title');
+  if (params.searchKeyword !== undefined && params.searchKeyword !== null) {
+    const trimmed = String(params.searchKeyword).trim();
+    if (trimmed) {
+      const titleFilter: ServerFilter = { key: 'title', iLike: trimmed };
+      if (titleIdx >= 0) filters[titleIdx] = titleFilter;
+      else filters.push(titleFilter);
+    } else {
+      if (titleIdx >= 0) filters.splice(titleIdx, 1);
+    }
   }
 
   const response = await http.post<ProductTypeListResponse>(

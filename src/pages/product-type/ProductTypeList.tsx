@@ -3,20 +3,18 @@ import {
   Box,
   Typography,
   Button,
-  TextField,
-  InputAdornment,
   Paper,
   Chip,
   IconButton,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DataTable from '../../components/DataTable';
+import SearchField from '../../components/SearchField';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
 import { useServerPagination } from '../../hooks/useServerPagination';
@@ -172,18 +170,11 @@ export default function ProductTypeList() {
           overflow: 'hidden',
         }}
       >
-        <TextField
-          size="small"
+        <SearchField
           placeholder="Search by title..."
           value={tableState.search}
           onChange={tableHandlers.handleSearch}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-          }}
+          onClearAndRefresh={tableHandlers.refresh}
           sx={{ minWidth: 220 }}
         />
         <IconButton size="small" onClick={() => tableHandlers.refresh()} title="Refresh">

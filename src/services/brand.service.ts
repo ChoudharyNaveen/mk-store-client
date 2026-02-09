@@ -81,15 +81,18 @@ export const fetchBrands = async (
       requestBody.sorting = params.sorting;
     }
 
-    // Handle searchKeyword - convert to filter if needed
-    if (params.searchKeyword) {
-      if (!requestBody.filters) {
-        requestBody.filters = [];
+    // Handle searchKeyword - upsert name filter when non-empty; remove when empty so API never gets stale search
+    const filters = (requestBody.filters ??= []);
+    const nameIdx = filters.findIndex((f: ServerFilter) => f.key === 'name');
+    if (params.searchKeyword !== undefined && params.searchKeyword !== null) {
+      const trimmed = String(params.searchKeyword).trim();
+      if (trimmed) {
+        const nameFilter: ServerFilter = { key: 'name', iLike: trimmed };
+        if (nameIdx >= 0) filters[nameIdx] = nameFilter;
+        else filters.push(nameFilter);
+      } else {
+        if (nameIdx >= 0) filters.splice(nameIdx, 1);
       }
-      requestBody.filters.push({
-        key: 'name',
-        iLike: params.searchKeyword,
-      });
     }
 
     // Make POST API call with JSON body
