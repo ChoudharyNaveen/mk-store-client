@@ -120,6 +120,7 @@ export const API_URLS = {
     GET_TOP_PRODUCTS: `${API_PREFIX}/get-top-products`,
     GET_RECENT_ORDERS: `${API_PREFIX}/get-recent-orders`,
     GET_EXPIRING_PRODUCTS: `${API_PREFIX}/get-expiring-products`,
+    GET_LOW_STOCK_PRODUCTS: `${API_PREFIX}/get-low-stock-products`,
   },
   
   // Product type endpoints

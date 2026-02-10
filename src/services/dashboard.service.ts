@@ -5,82 +5,26 @@
 
 import http from '../utils/http';
 import { API_URLS } from '../constants/urls';
-
-/**
- * KPI Metric
- */
-export interface KPIMetric {
-  value: number;
-  change: number;
-  change_type: 'up' | 'down';
-  period: string;
-}
-
-/**
- * Dashboard KPIs Response
- */
-export interface DashboardKPIs {
-  total_users: KPIMetric;
-  total_orders: KPIMetric;
-  revenue: KPIMetric;
-  total_returns: KPIMetric;
-}
-
-/**
- * Dashboard KPIs API Response
- */
-export interface DashboardKPIsResponse {
-  success: boolean;
-  doc: DashboardKPIs;
-}
-
-/**
- * Fetch Dashboard KPIs Request Parameters
- */
-export interface FetchDashboardKPIsParams {
-  vendorId: number;
-  branchId: number;
-}
-
-/**
- * Sales Overview Data Point
- */
-export interface SalesOverviewDataPoint {
-  period_type: 'hour' | 'day' | 'week' | 'month';
-  period_label: string;
-  period_value: string | number;
-  sales: number;
-  orders: number;
-  // Additional fields based on period_type
-  hour?: number;
-  date?: string;
-  day?: string;
-  day_name?: string;
-  week_start?: string;
-  week_number?: number;
-  year?: number;
-  month?: number;
-}
-
-/**
- * Sales Overview API Response
- */
-export interface SalesOverviewResponse {
-  success: boolean;
-  doc: SalesOverviewDataPoint[];
-  period_type: 'hour' | 'day' | 'week' | 'month';
-}
-
-/**
- * Fetch Sales Overview Request Parameters
- */
-export interface FetchSalesOverviewParams {
-  days?: number;
-  startDate?: string; // YYYY-MM-DD format
-  endDate?: string; // YYYY-MM-DD format
-  vendorId?: number;
-  branchId?: number;
-}
+import type {
+  DashboardKPIs,
+  DashboardKPIsResponse,
+  FetchDashboardKPIsParams,
+  SalesOverviewDataPoint,
+  SalesOverviewResponse,
+  FetchSalesOverviewParams,
+  SalesByCategoryDataPoint,
+  SalesByCategoryResponse,
+  FetchSalesByCategoryParams,
+  TopProductDataPoint,
+  TopProductsResponse,
+  FetchTopProductsParams,
+  RecentOrderDataPoint,
+  RecentOrdersResponse,
+  FetchRecentOrdersParams,
+  ExpiringProductsResponse,
+  FetchExpiringProductsParams,
+  LowStockProductsResponse
+} from '../types/dashboard';
 
 /**
  * Fetch dashboard KPIs
@@ -129,35 +73,6 @@ export const fetchSalesOverview = async (
 };
 
 /**
- * Sales by Category Data Point
- */
-export interface SalesByCategoryDataPoint {
-  category_id: number;
-  category_name: string;
-  sales: number;
-  order_count: number;
-  percentage: string;
-}
-
-/**
- * Sales by Category API Response
- */
-export interface SalesByCategoryResponse {
-  success: boolean;
-  doc: SalesByCategoryDataPoint[];
-}
-
-/**
- * Fetch Sales by Category Request Parameters
- */
-export interface FetchSalesByCategoryParams {
-  vendorId?: number;
-  branchId?: number;
-  startDate?: string; // YYYY-MM-DD format
-  endDate?: string; // YYYY-MM-DD format
-}
-
-/**
  * Fetch sales by category data
  */
 export const fetchSalesByCategory = async (
@@ -179,38 +94,6 @@ export const fetchSalesByCategory = async (
     throw error;
   }
 };
-
-/**
- * Top Product Data Point
- */
-export interface TopProductDataPoint {
-  rank: number;
-  product_id: number;
-  product_name: string;
-  revenue: number;
-  orders: number;
-  trend: number;
-  trend_type: 'up' | 'down';
-}
-
-/**
- * Top Products API Response
- */
-export interface TopProductsResponse {
-  success: boolean;
-  doc: TopProductDataPoint[];
-}
-
-/**
- * Fetch Top Products Request Parameters
- */
-export interface FetchTopProductsParams {
-  limit?: number; // default: 5
-  vendorId?: number;
-  branchId?: number;
-  startDate?: string; // YYYY-MM-DD format
-  endDate?: string; // YYYY-MM-DD format
-}
 
 /**
  * Fetch top products data
@@ -236,40 +119,6 @@ export const fetchTopProducts = async (
 };
 
 /**
- * Recent Order Data Point
- */
-export interface RecentOrderDataPoint {
-  order_id: number;
-  order_number: string;
-  status: string;
-  customer_name: string;
-  customer_email: string;
-  customer_mobile: string;
-  price: number;
-  time_ago: string;
-  created_at: string;
-}
-
-/**
- * Recent Orders API Response
- */
-export interface RecentOrdersResponse {
-  success: boolean;
-  doc: RecentOrderDataPoint[];
-}
-
-/**
- * Fetch Recent Orders Request Parameters
- */
-export interface FetchRecentOrdersParams {
-  limit?: number; // default: 5
-  vendorId?: number;
-  branchId?: number;
-  startDate?: string; // YYYY-MM-DD format
-  endDate?: string; // YYYY-MM-DD format
-}
-
-/**
  * Fetch recent orders data
  */
 export const fetchRecentOrders = async (
@@ -293,85 +142,37 @@ export const fetchRecentOrders = async (
 };
 
 /**
- * Expiring Product Variant (API Response)
- */
-export interface ExpiringProductVariantResponse {
-  variant_id: number;
-  variant_name: string;
-  variant_type: string;
-  product_id: number;
-  product_name: string;
-  category_id: number;
-  category_name: string;
-  stock: number;
-  price: number;
-  expiry_date: string; // ISO 8601 format
-  expiry_date_formatted: string;
-  expiry_status: string;
-  expiry_status_type: 'expired' | 'expiring_today' | 'expiring_soon';
-  days_until_expiry: number;
-}
-
-/**
- * Expiring Products API Response
- */
-export interface ExpiringProductsResponse {
-  success: boolean;
-  doc: ExpiringProductVariantResponse[];
-  pagination: {
-    pageSize: number;
-    pageNumber: number; // 1-based
-    totalCount: number;
-    totalPages: number;
-  };
-}
-
-/**
- * Fetch Expiring Products Request Parameters
- */
-export interface FetchExpiringProductsParams {
-  pageSize?: number; // default: 10
-  pageNumber?: number; // 1-based, default: 1
-  vendorId?: number;
-  branchId?: number;
-  daysAhead?: number; // default: 30
-  filters?: Array<{
-    key: string;
-    eq?: string;
-    neq?: string;
-    in?: any[];
-    gt?: string;
-    gte?: string;
-    lt?: string;
-    lte?: string;
-    like?: string;
-    iLike?: string;
-  }>;
-  sorting?: Array<{
-    key: string;
-    direction: 'ASC' | 'DESC';
-  }>;
-}
-
-/**
  * Fetch expiring products data
  */
 export const fetchExpiringProducts = async (
   params: FetchExpiringProductsParams = {}
 ): Promise<ExpiringProductsResponse> => {
-  try {
-    const response = await http.post<ExpiringProductsResponse>(
-      API_URLS.DASHBOARD.GET_EXPIRING_PRODUCTS,
-      params
-    );
+  const response = await http.post<ExpiringProductsResponse>(
+    API_URLS.DASHBOARD.GET_EXPIRING_PRODUCTS,
+    params
+  );
 
-    if (response.success) {
-      return response;
-    }
-
-    throw new Error('Invalid response format');
-  } catch (error) {
-    console.error('Error fetching expiring products:', error);
-    throw error;
+  if (response.success) {
+    return response;
   }
+
+  throw new Error('Invalid response format');
+};
+
+/**
+ * Fetch low stock products data
+ */
+export const fetchLowStockProducts = async (
+  params: FetchExpiringProductsParams = {}
+): Promise<LowStockProductsResponse> => {
+  const response = await http.post<LowStockProductsResponse>(
+    API_URLS.DASHBOARD.GET_LOW_STOCK_PRODUCTS,
+    params
+  );
+
+  if (response.success) {
+    return response;
+  }
+
+  throw new Error('Invalid response format');
 };
