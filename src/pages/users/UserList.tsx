@@ -34,6 +34,7 @@ import { useServerPagination } from "../../hooks/useServerPagination";
 import {
   fetchUsers,
   convertUserToRider,
+  convertRiderToUser,
   updateUserStatus,
   type FetchParams,
 } from "../../services/user.service";
@@ -219,10 +220,19 @@ export default function UserList() {
     try {
       await convertUserToRider(userId);
       showSuccessToast("User converted to rider successfully!");
-      // Refresh the table to reflect the changes
       tableHandlers.refresh();
     } catch {
       showErrorToast("Failed to convert user to rider. Please try again.");
+    }
+  };
+
+  const handleConvertToUser = async (userId: string | number) => {
+    try {
+      await convertRiderToUser(userId);
+      showSuccessToast("Rider converted to user successfully!");
+      tableHandlers.refresh();
+    } catch {
+      showErrorToast("Failed to convert rider to user. Please try again.");
     }
   };
 
@@ -342,7 +352,16 @@ export default function UserList() {
                       onClick: (u: User) => handleConvertToRider(u.id),
                     },
                   ]
-                : []),
+                : activeTab === "RIDER"
+                  ? [
+                      {
+                        type: "item" as const,
+                        label: "Convert to User",
+                        icon: <SwapHorizIcon fontSize="small" />,
+                        onClick: (u: User) => handleConvertToUser(u.id),
+                      },
+                    ]
+                  : []),
               { type: "divider" },
               {
                 type: "item",

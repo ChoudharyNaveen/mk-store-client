@@ -178,21 +178,49 @@ export const deleteUser = async (
 };
 
 /**
+ * Request body for role conversion
+ */
+export interface ConvertUserRoleRequest {
+  userId: number;
+  targetRole: UserRole;
+}
+
+/**
+ * Convert user role (USER ↔ RIDER).
+ * Sends body: { userId: number, targetRole: "RIDER" | "USER" }
+ */
+export const convertUserRole = async (
+  userId: string | number,
+  targetRole: UserRole
+): Promise<{ success: boolean; message?: string }> => {
+  try {
+    const response = await http.post<{ success: boolean; message?: string }>(
+      API_URLS.USERS.CONVERT_TO_RIDER,
+      { userId: Number(userId), targetRole }
+    );
+    return response;
+  } catch (error) {
+    console.error(`Error converting user to ${targetRole}:`, error);
+    throw error;
+  }
+};
+
+/**
  * Convert user to rider
  */
 export const convertUserToRider = async (
   userId: string | number
 ): Promise<{ success: boolean; message?: string }> => {
-  try {
-    const response = await http.post<{ success: boolean; message?: string }>(
-      API_URLS.USERS.CONVERT_TO_RIDER,
-      { userId }
-    );
-    return response;
-  } catch (error) {
-    console.error('Error converting user to rider:', error);
-    throw error;
-  }
+  return convertUserRole(userId, 'RIDER');
+};
+
+/**
+ * Convert rider to user
+ */
+export const convertRiderToUser = async (
+  userId: string | number
+): Promise<{ success: boolean; message?: string }> => {
+  return convertUserRole(userId, 'USER');
 };
 
 /**
@@ -227,7 +255,9 @@ const userService = {
   createUser,
   updateUser,
   deleteUser,
+  convertUserRole,
   convertUserToRider,
+  convertRiderToUser,
   updateUserStatus,
 };
 
