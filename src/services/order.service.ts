@@ -181,6 +181,11 @@ export interface OrderDetailsResponse {
       postal_code?: string;
       mobile_number?: string;
     };
+    rider_information?: {
+      rider_name: string;
+      rider_phone_number: string;
+      rider_pickup_time: string;
+    } | null;
     order_information: {
       order_date: string;
       estimated_delivery?: string | null;

@@ -202,26 +202,31 @@ export default function OrderList() {
             label: 'Status',
             minWidth: 120,
             render: (row: Order) => {
-                const getStatusColor = (status: string) => {
-                    switch (status) {
-                        case 'DELIVERED':
-                            return 'success';
-                        case 'PENDING':
-                            return 'warning';
-                        case 'CANCELLED':
-                            return 'error';
-                        case 'PROCESSING':
-                        case 'SHIPPED':
-                            return 'info';
-                        default:
-                            return 'default';
-                    }
+                const getStatusSx = (status: string) => {
+                    const styles: Record<string, { bgcolor: string; color: string }> = {
+                        DELIVERED: { bgcolor: '#a5d6a7', color: '#1b5e20' },
+                        PENDING: { bgcolor: '#ffcc80', color: '#e65100' },
+                        CANCELLED: { bgcolor: '#ef9a9a', color: '#b71c1c' },
+                        REJECTED: { bgcolor: '#bcaaa4', color: '#3e2723' },
+                        FAILED: { bgcolor: '#e57373', color: '#b71c1c' },
+                        RETURN: { bgcolor: '#ffb74d', color: '#e65100' },
+                        RETURNED: { bgcolor: '#ffa726', color: '#ef6c00' },
+                        ACCEPTED: { bgcolor: '#90caf9', color: '#0d47a1' },
+                        CONFIRMED: { bgcolor: '#4fc3f7', color: '#01579b' },
+                        PROCESSING: { bgcolor: '#9fa8da', color: '#283593' },
+                        SHIPPED: { bgcolor: '#80cbc4', color: '#004d40' },
+                        READY_FOR_PICKUP: { bgcolor: '#ce93d8', color: '#4a148c' },
+                        PICKED_UP: { bgcolor: '#b39ddb', color: '#311b92' },
+                        ARRIVED: { bgcolor: '#b0bec5', color: '#263238' },
+                    };
+                    return styles[status] ?? { bgcolor: '#bdbdbd', color: '#212121' };
                 };
+                const sx = getStatusSx(row.status);
                 return (
                     <Chip
                         label={row.status}
-                        color={getStatusColor(row.status)}
                         size="small"
+                        sx={{ ...sx, fontWeight: 500 }}
                     />
                 );
             }

@@ -36,6 +36,8 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import BuildIcon from '@mui/icons-material/Build';
 import HistoryIcon from '@mui/icons-material/History';
+import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
+import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { Order, OrderStatus, PaymentStatus, OrderPriority } from '../../types/order';
@@ -77,11 +79,18 @@ interface StatusHistoryItem {
     previousStatus?: string | null;
 }
 
+interface RiderInformation {
+    rider_name: string;
+    rider_phone_number: string;
+    rider_pickup_time: string;
+}
+
 interface OrderDetailData extends Order {
     concurrency_stamp: string;
     rawOrderStatus?: string; // Store raw API status to check for ACCEPTED
     orderItems: OrderItem[];
     statusHistory?: StatusHistoryItem[];
+    riderInformation?: RiderInformation | null;
     appliedDiscounts?: Array<{
         type: string;
         code?: string;
@@ -106,7 +115,7 @@ const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDe
     status: apiData.order_information.order_status as OrderStatus,
     rawOrderStatus: apiData.order_information.order_status, // Store raw status for ACCEPTED check
     payment_status: apiData.order_information.payment_status as PaymentStatus,
-    rider_id: null,
+    rider_id: apiData.rider_information ? 1 : null,
     branch_id: 0,
     address_id: 0,
     created_by: 0,
@@ -154,6 +163,7 @@ const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDe
         previousStatus: historyItem.previous_status || undefined,
         isCurrent: historyItem.status === apiData.order_information.order_status,
     })) || [],
+    riderInformation: apiData.rider_information ?? null,
     appliedDiscounts: apiData.applied_discounts,
 });
 
@@ -1138,6 +1148,56 @@ export default function OrderDetail() {
                                     value={order.user?.mobile_number || order.address?.mobile_number || 'N/A'} 
                                     icon={<PhoneIcon fontSize="small" sx={{ color: 'text.secondary' }} />}
                                 />
+                            </Stack>
+                        </InfoSection>
+
+                        {/* Rider Details – from API rider_information when present */}
+                        <InfoSection icon={<TwoWheelerIcon color="primary" />} title="Rider Details">
+                            <Stack spacing={2}>
+                                {order.riderInformation ? (
+                                    <>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                                            <Avatar sx={{ width: 48, height: 48, bgcolor: 'primary.main', fontSize: '1.25rem' }}>
+                                                {order.riderInformation.rider_name?.charAt(0)?.toUpperCase() || 'R'}
+                                            </Avatar>
+                                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                                    {order.riderInformation.rider_name}
+                                                </Typography>
+                                                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                                    {order.riderInformation.rider_phone_number}
+                                                </Typography>
+                                            </Box>
+                                            <Chip label="Assigned" size="small" color="success" variant="outlined" />
+                                        </Box>
+                                        <Divider sx={{ my: 0.5 }} />
+                                        <InfoField label="Phone" value={order.riderInformation.rider_phone_number} icon={<PhoneIcon fontSize="small" sx={{ color: 'text.secondary' }} />} />
+                                        <InfoField label="Pickup time" value={order.riderInformation.rider_pickup_time ? format(new Date(order.riderInformation.rider_pickup_time), 'MMM dd, yyyy hh:mm a') : '—'} icon={<EventAvailableIcon fontSize="small" sx={{ color: 'text.secondary' }} />} />
+                                        {order.estimated_delivery_time && (
+                                            <InfoField label="Estimated arrival" value={format(new Date(order.estimated_delivery_time), 'MMM dd, yyyy hh:mm a')} />
+                                        )}
+                                    </>
+                                ) : (
+                                    <Box
+                                        sx={{
+                                            py: 2.5,
+                                            px: 2,
+                                            textAlign: 'center',
+                                            bgcolor: 'action.hover',
+                                            borderRadius: 2,
+                                            border: '1px dashed',
+                                            borderColor: 'divider',
+                                        }}
+                                    >
+                                        <TwoWheelerIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+                                        <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                                            No rider assigned
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 0.5 }}>
+                                            Rider will be assigned when order is ready for delivery
+                                        </Typography>
+                                    </Box>
+                                )}
                             </Stack>
                         </InfoSection>
 
