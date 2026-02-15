@@ -109,33 +109,22 @@ export default function CategoryPage() {
         return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
     }, [dateRange, appliedAdvancedFilters, vendorId, selectedBranchId]);
 
-    const { paginationModel, setPaginationModel, setFilters, setSearchKeyword, fetchData, tableState, tableHandlers } = useServerPagination<Category>({
+    const { paginationModel, setPaginationModel, setFilters, setSearchKeyword, tableState, tableHandlers } = useServerPagination<Category>({
         fetchFunction: fetchCategories,
         initialPageSize: 20,
         enabled: true,
-        autoFetch: false,
+        autoFetch: true,
         filters: buildFilters(),
         initialSorting: [{ key: 'createdAt', direction: 'DESC' }],
         searchDebounceMs: 500,
     });
 
     refreshTableRef.current = tableHandlers.refresh;
-    const fetchDataRef = React.useRef(fetchData);
-    fetchDataRef.current = fetchData;
 
-    const hasFetchedInitialRef = React.useRef(false);
     React.useEffect(() => {
-        const range = dateRange?.[0];
-        const hasValidDateRange = range?.startDate && range?.endDate && !isNaN(new Date(range.startDate).getTime()) && !isNaN(new Date(range.endDate).getTime());
-        if (!hasValidDateRange) return;
-        const newFilters = buildFilters();
-        setFilters(newFilters);
+        setFilters(buildFilters());
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-        if (!hasFetchedInitialRef.current) {
-            hasFetchedInitialRef.current = true;
-            fetchDataRef.current({ initialFetch: true, filters: newFilters });
-        }
-    }, [appliedAdvancedFilters]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
 
     React.useEffect(() => {
         if (filterAnchorEl) setAdvancedFilters(appliedAdvancedFilters);
@@ -151,20 +140,10 @@ export default function CategoryPage() {
         setAdvancedFilters(emptyAdvancedFilters);
         setAppliedAdvancedFilters(emptyAdvancedFilters);
         setFilterAnchorEl(null);
-        // Effect runs (appliedAdvancedFilters changed) → setFilters + setPaginationModel → hook's filters effect fetches once; search skip ref prevents second fetch
     };
 
     const handleDateRangeApply = (newRange: Parameters<typeof baseHandleDateRangeApply>[0]) => {
         baseHandleDateRangeApply(newRange);
-        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-            dateRange: newRange,
-            dateField: 'createdAt',
-            advancedFilters: { status: appliedAdvancedFilters.status || undefined },
-            filterMappings: { status: { field: 'status', operator: 'eq' } },
-        });
-        const newFilters = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-        setFilters(newFilters);
-        setPaginationModel((prev) => ({ ...prev, page: 0 }));
     };
 
     return (
@@ -201,7 +180,7 @@ export default function CategoryPage() {
                 </>
             }
         >
-            <DataTable key={`category-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} handlers={tableHandlers} />
+            <DataTable key={`category-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
         </ListPageLayout>
     );
 }

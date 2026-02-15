@@ -97,6 +97,7 @@ export default function NotificationList() {
   );
 
   const {
+    paginationModel,
     setPaginationModel,
     setFilters,
     setSearchKeyword,
@@ -414,7 +415,8 @@ export default function NotificationList() {
         <DataTable
           columns={columns}
           state={tableState}
-          handlers={tableHandlers}
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
           onRowClick={handleRowClick}
           getRowSx={(row) =>
             !row.is_read

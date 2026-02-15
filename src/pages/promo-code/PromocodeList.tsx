@@ -175,7 +175,7 @@ export default function PromocodeList() {
                 </>
             }
         >
-            <DataTable key={`promocode-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} handlers={tableHandlers} />
+            <DataTable key={`promocode-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
         </ListPageLayout>
     );
 }

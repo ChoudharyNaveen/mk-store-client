@@ -328,13 +328,6 @@ export const useServerPagination = <T = any>(
 
         setRows(response.list || []);
         lastFetchSignatureRef.current = fetchSignature;
-
-        // IMPORTANT: totalCount is ONLY returned in the initial fetch
-        // Never update it from subsequent page requests
-
-        // Only sync page number from server if server returned a completely different page
-        // than what we requested (rare edge case)
-        // NOTE: serverPage (pageNumber) is 1-based, fetchPage is 0-based
         const serverPage = response?.pageDetails?.pageNumber;
         if (serverPage !== undefined) {
           // Convert server's 1-based pageNumber to 0-based for comparison

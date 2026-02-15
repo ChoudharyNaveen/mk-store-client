@@ -73,6 +73,8 @@ export default function ProductDetail() {
     const [overviewTabValue, setOverviewTabValue] = React.useState(0);
 
     const {
+        paginationModel,
+        setPaginationModel,
         tableState,
         tableHandlers,
     } = useServerPagination<InventoryMovement>({
@@ -643,17 +645,10 @@ export default function ProductDetail() {
                                         search: '',
                                     };
 
-                                    const variantHandlers = {
-                                        handleRequestSort: () => {},
-                                        handleChangePage: () => {},
-                                        handleChangeRowsPerPage: () => {},
-                                    };
-
                                     return (
                                         <DataTable<ProductVariant>
                                             columns={variantColumns}
                                             state={variantTableState}
-                                            handlers={variantHandlers}
                                         />
                                     );
                                 })()
@@ -762,7 +757,8 @@ export default function ProductDetail() {
                                     <DataTable<InventoryMovement>
                                         columns={columns}
                                         state={tableState}
-                                        handlers={tableHandlers}
+                                        paginationModel={paginationModel}
+                                        onPaginationModelChange={setPaginationModel}
                                     />
                                 );
                             })()}
@@ -908,17 +904,10 @@ export default function ProductDetail() {
                                     search: '',
                                 };
 
-                                const comboDiscountHandlers = {
-                                    handleRequestSort: () => {},
-                                    handleChangePage: () => {},
-                                    handleChangeRowsPerPage: () => {},
-                                };
-
                                 return (
                                     <DataTable<ComboDiscountRow>
                                         columns={columns}
                                         state={comboDiscountTableState}
-                                        handlers={comboDiscountHandlers}
                                     />
                                 );
                             })()}

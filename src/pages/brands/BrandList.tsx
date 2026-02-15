@@ -191,7 +191,7 @@ export default function BrandList() {
                 </>
             }
         >
-            <DataTable key={`brand-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} handlers={tableHandlers} />
+            <DataTable key={`brand-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
         </ListPageLayout>
     );
 }

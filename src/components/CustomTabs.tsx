@@ -26,6 +26,7 @@ export default function CustomTabs<T = string>({
                 p: 0.5,
                 gap: 0,
                 width: '100%',
+                minWidth: 320,
                 maxWidth: '100%',
                 overflow: 'hidden',
                 boxSizing: 'border-box',
@@ -48,7 +49,7 @@ export default function CustomTabs<T = string>({
                             color: isActive ? '#000000' : '#666666',
                             transition: 'all 0.2s ease-in-out',
                             flex: '1 1 0',
-                            minWidth: 0,
+                            minWidth: 140,
                             maxWidth: '100%',
                             boxShadow: isActive ? '0 1px 2px rgba(0, 0, 0, 0.05)' : 'none',
                             '&:hover': {

@@ -520,27 +520,21 @@ export default function OrderDetail() {
         return sortedOrderItems.slice(start, end);
     }, [sortedOrderItems, tableState.page, tableState.rowsPerPage]);
 
-    // Table handlers for order items
-    const handleRequestSort = (property: string) => {
-        const isAsc = tableState.orderBy === property && tableState.order === 'asc';
-        setTableState(prev => ({
-            ...prev,
-            order: isAsc ? 'desc' : 'asc',
-            orderBy: property,
-        }));
-    };
-
-    const handleChangePage = (_event: unknown, newPage: number) => {
-        setTableState(prev => ({ ...prev, page: newPage - 1 }));
-    };
-
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setTableState(prev => ({
-            ...prev,
-            rowsPerPage: parseInt(event.target.value, 10),
-            page: 0,
-        }));
-    };
+    const orderItemsPaginationModel = React.useMemo(
+        () => ({ page: tableState.page, pageSize: tableState.rowsPerPage }),
+        [tableState.page, tableState.rowsPerPage],
+    );
+    const setOrderItemsPaginationModel = React.useCallback(
+        (model: { page: number; pageSize: number }) => {
+            setTableState((prev) => ({
+                ...prev,
+                page: model.page,
+                rowsPerPage: model.pageSize,
+                ...(model.pageSize !== prev.rowsPerPage ? { page: 0 } : {}),
+            }));
+        },
+        [],
+    );
 
     // Product Image Component with error handling
     const ProductImage: React.FC<{
@@ -622,7 +616,7 @@ export default function OrderDetail() {
                         productId={row.product_id}
                     />
                     <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, flexWrap: 'wrap' }}>
                             <Typography
                                 component="button"
                                 onClick={() => navigate(`/products/detail/${row.product_id}`)}
@@ -906,20 +900,18 @@ export default function OrderDetail() {
                             </Typography>
                         </Box>
                         <DataTable
+                            key={`order-items-table-${orderItemsPaginationModel.page}-${orderItemsPaginationModel.pageSize}`}
                             columns={orderItemColumns}
                             state={{
                                 ...tableState,
                                 data: paginatedItems,
                                 total: sortedOrderItems.length,
                             }}
-                            handlers={{
-                                handleRequestSort,
-                                handleChangePage,
-                                handleChangeRowsPerPage,
-                            }}
+                            rowHeight={60}
+                            paginationModel={orderItemsPaginationModel}
+                            onPaginationModelChange={setOrderItemsPaginationModel}
                         />
 
-                        <Divider sx={{ my: 3 }} />
 
                         {/* Pricing Summary */}
                         <Box sx={{ 
@@ -927,7 +919,6 @@ export default function OrderDetail() {
                             flexDirection: 'column', 
                             gap: 1.5, 
                             alignItems: 'flex-end',
-                            mt: 3,
                             pt: 3,
                             px: 2,
                             py: 2.5,

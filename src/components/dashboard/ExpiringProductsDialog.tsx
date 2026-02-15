@@ -20,13 +20,9 @@ export interface ExpiringProductsDialogProps {
     open: boolean;
     onClose: () => void;
     tableState: TableState<ExpiringProductVariant>;
-    tableHandlers: {
-        handleRequestSort: (property: string) => void;
-        handleChangePage: (event: unknown, newPage: number) => void;
-        handleChangeRowsPerPage: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-    };
     columns: Column<ExpiringProductVariant>[];
     paginationModel: { page: number; pageSize: number };
+    onPaginationModelChange: (model: { page: number; pageSize: number }) => void;
     onRowClick: (row: ExpiringProductVariant) => void;
 }
 
@@ -34,9 +30,9 @@ export default function ExpiringProductsDialog({
     open,
     onClose,
     tableState,
-    tableHandlers,
     columns,
     paginationModel,
+    onPaginationModelChange,
     onRowClick,
 }: ExpiringProductsDialogProps) {
     return (
@@ -77,7 +73,8 @@ export default function ExpiringProductsDialog({
                     key={`expiring-products-table-${paginationModel.page}-${paginationModel.pageSize}`}
                     columns={columns}
                     state={tableState}
-                    handlers={tableHandlers}
+                    paginationModel={paginationModel}
+                    onPaginationModelChange={onPaginationModelChange}
                     onRowClick={onRowClick}
                 />
             </DialogContent>

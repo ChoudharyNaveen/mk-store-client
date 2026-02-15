@@ -138,6 +138,7 @@ function SubCategoriesTable({ categoryId }: SubCategoriesTableProps) {
 
     const {
         paginationModel,
+        setPaginationModel,
         tableState,
         tableHandlers,
     } = useServerPagination<SubCategoryByCategoryIdItem>({
@@ -155,7 +156,8 @@ function SubCategoriesTable({ categoryId }: SubCategoriesTableProps) {
                 key={`sub-category-table-${paginationModel.page}-${paginationModel.pageSize}`}
                 columns={columns}
                 state={tableState}
-                handlers={tableHandlers}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
             />
     );
 }

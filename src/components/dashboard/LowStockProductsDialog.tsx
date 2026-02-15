@@ -47,15 +47,6 @@ export default function LowStockProductsDialog({
         [products, loading],
     );
 
-    const noopHandlers = React.useMemo(
-        () => ({
-            handleRequestSort: () => {},
-            handleChangePage: () => {},
-            handleChangeRowsPerPage: () => {},
-        }),
-        [],
-    );
-
     return (
         <Dialog
             open={open}
@@ -98,7 +89,6 @@ export default function LowStockProductsDialog({
                     <DataTable
                         columns={columns}
                         state={tableState}
-                        handlers={noopHandlers}
                         hidePagination={products.length <= 10}
                         onRowClick={onRowClick}
                     />

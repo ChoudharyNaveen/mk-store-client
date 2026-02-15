@@ -121,7 +121,6 @@ export default function BannerList() {
   const [subCategories, setSubCategories] = React.useState<SubCategory[]>([]);
   const [loadingSubCategories, setLoadingSubCategories] = React.useState(false);
   const filterOptionsLoadedRef = React.useRef(false);
-  const hasSyncedFiltersOnceRef = React.useRef(false);
 
   const { user } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
@@ -226,13 +225,8 @@ export default function BannerList() {
 
   refreshTableRef.current = tableHandlers.refresh;
 
-  // Update filters when applied filters or date range change (Apply updates applied; don't refetch on every form change).
-  // Skip first run to avoid triggering a second fetch on mount (hook already has initial filters from config).
+  // Update filters when applied filters or date range change (same pattern as SubCategoryList)
   React.useEffect(() => {
-    if (!hasSyncedFiltersOnceRef.current) {
-      hasSyncedFiltersOnceRef.current = true;
-      return;
-    }
     setFilters(buildFilters());
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
   }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
@@ -249,6 +243,7 @@ export default function BannerList() {
   };
 
   const handleClearFilters = () => {
+    setSearchKeyword('');
     setAdvancedFilters(emptyAdvancedFilters);
     setAppliedAdvancedFilters(emptyAdvancedFilters);
     setFilterAnchorEl(null);
@@ -323,7 +318,7 @@ export default function BannerList() {
           </>
         }
       >
-        <DataTable key={`banner-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} handlers={tableHandlers} />
+        <DataTable key={`banner-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
       </ListPageLayout>
 
       {/* View Banner Image Dialog - full XL */}

@@ -136,6 +136,7 @@ export default function UserList() {
     paginationModel,
     setPaginationModel,
     setFilters,
+    setSearchKeyword,
     tableState,
     tableHandlers,
   } = useServerPagination<User>({
@@ -178,14 +179,11 @@ export default function UserList() {
     }
   }, [storeStartDate, storeEndDate]);
 
-  // Update filters when advanced filters or date range changes
+  // Update filters when advanced filters or date range change (same pattern as SubCategoryList)
   React.useEffect(() => {
-    const newFilters = buildFilters();
-    setFilters(newFilters);
-    // Reset to first page when filters change
+    setFilters(buildFilters());
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [advancedFilters, dateRange]);
+  }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
 
   const handleApplyFilters = () => {
     setFilterAnchorEl(null);
@@ -194,6 +192,7 @@ export default function UserList() {
   };
 
   const handleClearFilters = () => {
+    setSearchKeyword("");
     setAdvancedFilters({
       name: "",
       email: "",
@@ -201,8 +200,6 @@ export default function UserList() {
       status: "",
       profileStatus: "",
     });
-    // Filters will be updated via the useEffect that watches advancedFilters
-    // No need to manually refresh, the effect will handle it
   };
 
   const handleDateRangeApply = (newRange: DateRangeSelection) => {
@@ -646,7 +643,8 @@ export default function UserList() {
             key={`user-table-${activeTab}-${paginationModel.page}-${paginationModel.pageSize}`}
             columns={columns}
             state={tableState}
-            handlers={tableHandlers}
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
           />
         </Box>
       </Box>

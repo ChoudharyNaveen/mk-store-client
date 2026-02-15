@@ -214,19 +214,6 @@ const VariantsPopover: React.FC<{ product: Product }> = ({ product }) => {
         search: '',
     };
 
-    // Create handlers (no-ops since we're showing all variants without pagination/sorting)
-    const variantHandlers = {
-        handleRequestSort: () => {
-            // No-op: sorting not needed for popover
-        },
-        handleChangePage: () => {
-            // No-op: pagination not needed for popover
-        },
-        handleChangeRowsPerPage: () => {
-            // No-op: pagination not needed for popover
-        },
-    };
-
     return (
         <Box sx={{ width: 900, maxHeight: '80vh', overflow: 'auto', p: 2 }}>
             <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>
@@ -235,7 +222,6 @@ const VariantsPopover: React.FC<{ product: Product }> = ({ product }) => {
             <DataTable
                 columns={variantColumns}
                 state={variantTableState}
-                handlers={variantHandlers}
                 hidePagination={true}
             />
         </Box>
@@ -441,7 +427,7 @@ function ProductsTable({ subCategoryId }: ProductsTableProps) {
         [subCategoryId]
     );
 
-    const { paginationModel, tableState, tableHandlers } = useServerPagination<Product>({
+    const { paginationModel, setPaginationModel, tableState, tableHandlers } = useServerPagination<Product>({
         fetchFunction: fetchProductsBySubCategory,
         initialPageSize: 20,
         enabled: true,
@@ -462,7 +448,8 @@ function ProductsTable({ subCategoryId }: ProductsTableProps) {
                 key={`sub-category-products-table-${paginationModel.page}-${paginationModel.pageSize}`}
                 columns={columns}
                 state={tableState}
-                handlers={tableHandlers}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
             />
             <Popover
                 open={Boolean(variantsAnchorEl)}
@@ -511,7 +498,7 @@ function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
         [subCategoryId]
     );
 
-    const { paginationModel, tableState, tableHandlers } = useServerPagination<ProductType>({
+    const { paginationModel, setPaginationModel, tableState, tableHandlers } = useServerPagination<ProductType>({
         fetchFunction: fetchProductTypesBySubCategory,
         initialPageSize: 20,
         enabled: true,
@@ -609,7 +596,8 @@ function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
                 key={`sub-category-product-types-table-${paginationModel.page}-${paginationModel.pageSize}`}
                 columns={columns}
                 state={tableState}
-                handlers={tableHandlers}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
             />
             <NewProductTypeDialog
                 open={productTypeDialogOpen}

@@ -51,6 +51,8 @@ export default function ProductTypeList() {
   );
 
   const {
+    paginationModel,
+    setPaginationModel,
     tableState,
     tableHandlers,
   } = useServerPagination<ProductType>({
@@ -185,7 +187,8 @@ export default function ProductTypeList() {
       <DataTable
         columns={columns}
         state={tableState}
-        handlers={tableHandlers}
+        paginationModel={paginationModel}
+        onPaginationModelChange={setPaginationModel}
         emptyStateMessage="No product types yet"
         emptyStateActionLabel="Add Product Type"
         emptyStateActionOnClick={() => navigate('/product-types/new')}

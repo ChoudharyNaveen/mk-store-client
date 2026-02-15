@@ -175,7 +175,7 @@ export default function OfferList() {
                 </>
             }
         >
-            <DataTable key={`offer-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} handlers={tableHandlers} />
+            <DataTable key={`offer-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
         </ListPageLayout>
     );
 }

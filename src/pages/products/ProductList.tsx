@@ -34,6 +34,7 @@ import { useAppSelector } from '../../store/hooks';
 import { PRODUCT_STATUS_OPTIONS, PRODUCT_STOCK_STATUS_OPTIONS } from '../../constants/statusOptions';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import StockUpdateDialog from './StockUpdateDialog';
+import VariantsPopover from './VariantsPopover';
 
 // Helper function to get default image from images array
 const getDefaultImage = (product: Product): string | undefined => {
@@ -102,147 +103,6 @@ const formatItemDetails = (product: Product): string => {
     return parts.length > 0 ? parts.join(' × ') : 'N/A';
 };
 
-// Helper function to format expiry date with color coding
-const formatExpiryDate = (expiryDate: string | Date | undefined | null): { text: string; color: string } => {
-    if (!expiryDate) {
-        return { text: 'N/A', color: '#666' };
-    }
-    
-    try {
-        const date = typeof expiryDate === 'string' ? new Date(expiryDate) : expiryDate;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const expiry = new Date(date);
-        expiry.setHours(0, 0, 0, 0);
-        
-        const diffTime = expiry.getTime() - today.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
-        const formattedDate = format(date, 'MMM dd, yyyy');
-        
-        if (diffDays < 0) {
-            return { text: formattedDate, color: '#d32f2f' }; // Red - expired
-        } else if (diffDays <= 7) {
-            return { text: formattedDate, color: '#ed6c02' }; // Orange - expiring soon
-        } else {
-            return { text: formattedDate, color: '#2e7d32' }; // Green - valid
-        }
-    } catch {
-        return { text: 'Invalid Date', color: '#666' };
-    }
-};
-
-// Helper component for Variants Popover
-const VariantsPopover: React.FC<{ product: Product }> = ({ product }) => {
-    if (!product.variants || product.variants.length === 0) {
-        return (
-            <Box sx={{ p: 2 }}>
-                <Typography variant="body2" color="text.secondary">No variants available</Typography>
-            </Box>
-        );
-    }
-
-    // Define columns for variants table
-    const variantColumns: Column<ProductVariant>[] = [
-        {
-            id: 'variant_name',
-            label: 'Variant Name',
-            minWidth: 120,
-        },
-        {
-            id: 'price',
-            label: 'MRP',
-            minWidth: 100,
-            align: 'right',
-            format: (value: number) => `₹${value}`,
-        },
-        {
-            id: 'selling_price',
-            label: 'Selling Price',
-            minWidth: 120,
-            align: 'right',
-            format: (value: number) => `₹${value}`,
-        },
-        {
-            id: 'quantity',
-            label: 'Quantity',
-            minWidth: 100,
-            align: 'right',
-        },
-        {
-            id: 'item_quantity' as keyof ProductVariant,
-            label: 'Item Details',
-            minWidth: 150,
-            render: (row: ProductVariant) => formatVariantItemDetails(row),
-        },
-        {
-            id: 'expiry_date' as keyof ProductVariant,
-            label: 'Expiry Date',
-            minWidth: 120,
-            render: (row: ProductVariant) => {
-                const { text: expiryText, color: expiryColor } = formatExpiryDate(row.expiry_date);
-                return (
-                    <Typography variant="body2" sx={{ color: expiryColor, fontWeight: 500 }}>
-                        {expiryText}
-                    </Typography>
-                );
-            },
-        },
-        {
-            id: 'product_status' as keyof ProductVariant,
-            label: 'Status',
-            minWidth: 100,
-            render: (row: ProductVariant) => (
-                <Chip
-                    label={row.product_status}
-                    size="small"
-                    color={row.product_status === 'INSTOCK' ? 'success' : 'error'}
-                    sx={{ fontWeight: 500 }}
-                />
-            ),
-        },
-    ];
-
-    // Create static table state (no pagination needed for popover)
-    const variantTableState: TableState<ProductVariant> = {
-        data: product.variants,
-        total: product.variants.length,
-        page: 0,
-        rowsPerPage: product.variants.length, // Show all variants
-        order: 'asc',
-        orderBy: 'variant_name',
-        loading: false,
-        search: '',
-    };
-
-    // Create handlers (no-ops since we're showing all variants without pagination/sorting)
-    const variantHandlers = {
-        handleRequestSort: () => {
-            // No-op: sorting not needed for popover
-        },
-        handleChangePage: () => {
-            // No-op: pagination not needed for popover
-        },
-        handleChangeRowsPerPage: () => {
-            // No-op: pagination not needed for popover
-        },
-    };
-
-    return (
-        <Box sx={{ width: 900, maxHeight: '80vh', overflow: 'auto', p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontSize: '1rem', fontWeight: 600 }}>
-                Variants for {product.title}
-            </Typography>
-            <DataTable
-                columns={variantColumns}
-                state={variantTableState}
-                handlers={variantHandlers}
-                hidePagination={true}
-            />
-        </Box>
-    );
-};
-
 export default function ProductList() {
     const navigate = useNavigate();
     const { user } = useAppSelector((state) => state.auth);
@@ -291,7 +151,6 @@ export default function ProductList() {
         {
             id: 'image' as keyof Product,
             label: 'Image',
-            minWidth: 80,
             render: (row: Product) => {
                 const imageUrl = getDefaultImage(row);
                 return (
@@ -299,33 +158,43 @@ export default function ProductList() {
                         src={imageUrl}
                         alt={row.title}
                         variant="rounded"
-                        sx={{ width: 50, height: 50 }}
-                    />
+                        sx={{ width: 50, height: 50, py: 1 }}
+                        onClick={() => navigate(`/products/detail/${row.id}`)}
+                    />  
                 );
             }
         },
         { 
             id: 'title' as keyof Product, 
             label: 'Product Name', 
-            minWidth: 150,
+            minWidth: 250,
             render: (row: Product) => (
-                <Typography
+                <Box
                     component="button"
                     onClick={() => navigate(`/products/detail/${row.id}`)}
                     sx={{
+                        width: '100%',
+                        minWidth: 0,
+                        maxHeight: '2.8em',
+                        margin: 0,
+                        padding: 0,
                         background: 'none',
                         border: 'none',
-                        color: '#204564',
-                        cursor: 'pointer',
                         textAlign: 'left',
+                        cursor: 'pointer',
+                        display: 'block',
+                        overflow: 'hidden',
+                        whiteSpace: 'normal',
+                        wordBreak: 'break-word',
+                        color: '#204564',
+                        fontSize: '14px',
+                        lineHeight: 1.4,
                         textDecoration: 'none',
-                        '&:hover': {
-                            textDecoration: 'underline',
-                        },
+                        '&:hover': { textDecoration: 'underline' },
                     }}
                 >
                     {row.title}
-                </Typography>
+                </Box>
             )
         },
         { 
@@ -548,20 +417,19 @@ export default function ProductList() {
         });
     }, []);
 
-    // Use server pagination hook (autoFetch: false – single fetch from effect below, same as CategoryList)
+    // Use server pagination hook (same pattern as SubCategoryList: autoFetch true, effect updates filters + reset page)
     const {
         paginationModel,
         setPaginationModel,
         setFilters,
         setSearchKeyword,
-        fetchData,
         tableState,
         tableHandlers,
     } = useServerPagination<Product>({
         fetchFunction: fetchProductsWithCombo,
         initialPageSize: 20,
         enabled: true,
-        autoFetch: false,
+        autoFetch: true,
         filters: buildFilters(),
         initialSorting: [
             {
@@ -574,33 +442,21 @@ export default function ProductList() {
 
     refreshTableRef.current = tableHandlers.refresh;
 
-    const fetchDataRef = React.useRef(fetchData);
-    fetchDataRef.current = fetchData;
-
-    const hasFetchedInitialRef = React.useRef(false);
-    // Sync filters and pagination when applied filters or Has Combo change. On first run (mount) we trigger fetch (autoFetch: false); on subsequent runs the hook's filters effect performs the fetch to avoid double call.
+    // Update filters when applied filters, date range, or Has Combo change (same pattern as SubCategoryList)
     React.useEffect(() => {
-        const range = dateRange?.[0];
-        const hasValidDateRange =
-            range?.startDate && range?.endDate &&
-            !isNaN(new Date(range.startDate).getTime()) &&
-            !isNaN(new Date(range.endDate).getTime());
-        if (!hasValidDateRange) return;
-
-        const newFilters = buildFilters();
-        setFilters(newFilters);
+        setFilters(buildFilters());
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-        if (!hasFetchedInitialRef.current) {
-            hasFetchedInitialRef.current = true;
-            fetchDataRef.current({ initialFetch: true, filters: newFilters });
+    }, [appliedAdvancedFilters, dateRange, hasComboActive, setFilters, buildFilters, setPaginationModel]);
+
+    React.useEffect(() => {
+        if (filterAnchorEl) {
+            setAdvancedFilters(appliedAdvancedFilters);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when applied filters or hasCombo change; date range applied in handleDateRangeApply
-    }, [appliedAdvancedFilters, hasComboActive]);
+    }, [filterAnchorEl]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleApplyFilters = () => {
         setAppliedAdvancedFilters(advancedFilters);
         setFilterAnchorEl(null);
-        // Effect [appliedAdvancedFilters, hasComboActive] runs → setFilters + setPaginationModel → hook's filters effect fetches once
     };
 
     const handleClearFilters = () => {
@@ -610,35 +466,11 @@ export default function ProductList() {
         setAdvancedFilters(emptyAdvancedFilters);
         setAppliedAdvancedFilters(emptyAdvancedFilters);
         setFilterAnchorEl(null);
-        // Effect runs (appliedAdvancedFilters changed) → setFilters + setPaginationModel → hook's filters effect fetches once; search skip ref prevents second fetch
     };
 
     const handleDateRangeApply = (newRange: Parameters<typeof baseHandleDateRangeApply>[0]) => {
         baseHandleDateRangeApply(newRange);
-        const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-            dateRange: newRange,
-            dateField: 'createdAt',
-            advancedFilters: {
-                status: appliedAdvancedFilters.status || undefined,
-                product_status: appliedAdvancedFilters.product_status || undefined,
-                categoryIds: appliedAdvancedFilters.categoryIds?.length ? appliedAdvancedFilters.categoryIds : undefined,
-                subCategoryIds: appliedAdvancedFilters.subCategoryIds?.length ? appliedAdvancedFilters.subCategoryIds : undefined,
-                productTypeIds: appliedAdvancedFilters.productTypeIds?.length ? appliedAdvancedFilters.productTypeIds : undefined,
-                brandIds: appliedAdvancedFilters.brandIds?.length ? appliedAdvancedFilters.brandIds : undefined,
-            },
-            filterMappings: {
-                categoryIds: { field: 'categoryId', operator: 'in' },
-                subCategoryIds: { field: 'subCategoryId', operator: 'in' },
-                productTypeIds: { field: 'productTypeId', operator: 'in' },
-                brandIds: { field: 'brandId', operator: 'in' },
-                status: { field: 'status', operator: 'eq' },
-                product_status: { field: 'product_status', operator: 'eq' },
-            },
-        });
-        const newFilters = mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
-        setFilters(newFilters);
-        setPaginationModel((prev) => ({ ...prev, page: 0 }));
-        fetchDataRef.current({ force: true, initialFetch: true, filters: newFilters });
+        // Effect [appliedAdvancedFilters, dateRange, hasComboActive] will run (dateRange changed) → setFilters + setPaginationModel → hook fetches
     };
 
     return (
@@ -809,7 +641,6 @@ export default function ProductList() {
                 onClose={() => setVariantsAnchorEl(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-                PaperProps={{ sx: { maxHeight: '80vh', overflow: 'auto' } }}
             >
                 {variantsAnchorEl && <VariantsPopover product={variantsAnchorEl.product} />}
             </Popover>
@@ -823,7 +654,8 @@ export default function ProductList() {
                 key={`product-table-${paginationModel.page}-${paginationModel.pageSize}`}
                 columns={columns}
                 state={tableState}
-                handlers={tableHandlers}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
                 emptyStateMessage="No products yet"
                 emptyStateActionLabel="Add Product"
                 emptyStateActionOnClick={() => navigate('/products/new')}

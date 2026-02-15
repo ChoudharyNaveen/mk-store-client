@@ -1,1499 +1,1809 @@
-import React from 'react';
+import React from "react";
 import {
-    Box,
-    Typography,
-    Paper,
-    Grid,
-    Card,
-    CardContent,
-    Avatar,
-    Chip,
-    Button,
-    Stack,
-    Popover,
-} from '@mui/material';
-import PeopleIcon from '@mui/icons-material/People';
-import InventoryIcon from '@mui/icons-material/Inventory';
-import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import DateRangeIcon from '@mui/icons-material/DateRange';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import WarningIcon from '@mui/icons-material/Warning';
-import AddIcon from '@mui/icons-material/Add';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import { format, differenceInDays } from 'date-fns';
-import { useNavigate } from 'react-router-dom';
-import { DateRangePicker, RangeKeyDict } from 'react-date-range';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
-import DataTable from '../components/DataTable';
-import CustomTabs from '../components/CustomTabs';
-import ExpiringProductsDialog from '../components/dashboard/ExpiringProductsDialog';
-import LowStockProductsDialog from '../components/dashboard/LowStockProductsDialog';
-import type { Column, TableState } from '../types/table';
-import { getLastNDaysRangeForDatePicker, DATE_PRESETS, getDateRangeFromPreset, type DatePresetKey } from '../utils/date';
-import { 
-    fetchDashboardKPIs, 
-    fetchTopProducts,
-    fetchRecentOrders,
-    fetchExpiringProducts,
-    fetchLowStockProducts,
-} from '../services/dashboard.service';
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  Card,
+  CardContent,
+  Avatar,
+  Chip,
+  Button,
+  Stack,
+  Popover,
+} from "@mui/material";
+import PeopleIcon from "@mui/icons-material/People";
+import InventoryIcon from "@mui/icons-material/Inventory";
+import AssignmentReturnIcon from "@mui/icons-material/AssignmentReturn";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import DateRangeIcon from "@mui/icons-material/DateRange";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import WarningIcon from "@mui/icons-material/Warning";
+import AddIcon from "@mui/icons-material/Add";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import { format, differenceInDays } from "date-fns";
+import { useNavigate } from "react-router-dom";
+import { DateRangePicker, RangeKeyDict } from "react-date-range";
+import "react-date-range/dist/styles.css";
+import "react-date-range/dist/theme/default.css";
+import DataTable from "../components/DataTable";
+import CustomTabs from "../components/CustomTabs";
+import ExpiringProductsDialog from "../components/dashboard/ExpiringProductsDialog";
+import LowStockProductsDialog from "../components/dashboard/LowStockProductsDialog";
+import type { Column, TableState } from "../types/table";
+import {
+  getLastNDaysRangeForDatePicker,
+  DATE_PRESETS,
+  getDateRangeFromPreset,
+  type DatePresetKey,
+} from "../utils/date";
+import {
+  fetchDashboardKPIs,
+  fetchTopProducts,
+  fetchRecentOrders,
+  fetchExpiringProducts,
+  fetchLowStockProducts,
+} from "../services/dashboard.service";
 
-import type { 
-    DashboardKPIs, 
-    TopProductDataPoint,
-    RecentOrderDataPoint,
-    ExpiringProductVariantResponse,
-    FetchExpiringProductsParams,
-    LowStockProductVariantResponse,
-    ExpiringProductVariant, 
-    LowStockProduct 
-} from '../types/dashboard';
-import { useServerPagination } from '../hooks/useServerPagination';
-import type { FetchParams, ServerPaginationResponse } from '../hooks/useServerPagination';
-import { useAppSelector } from '../store/hooks';
-import { showErrorToast } from '../utils/toast';
-import { formatDateToYYYYMMDD } from '../utils/date';
+import type {
+  DashboardKPIs,
+  TopProductDataPoint,
+  RecentOrderDataPoint,
+  ExpiringProductVariantResponse,
+  FetchExpiringProductsParams,
+  LowStockProductVariantResponse,
+  ExpiringProductVariant,
+  LowStockProduct,
+} from "../types/dashboard";
+import { useServerPagination } from "../hooks/useServerPagination";
+import type {
+  FetchParams,
+  ServerPaginationResponse,
+} from "../hooks/useServerPagination";
+import { useAppSelector } from "../store/hooks";
+import { showErrorToast } from "../utils/toast";
+import { formatDateToYYYYMMDD } from "../utils/date";
 
 // Threshold for low stock highlighting on dashboard
 const LOW_STOCK_THRESHOLD = 10;
 
 // Helper function to get expiry status and color
-const getExpiryStatus = (expiryDate: Date): { text: string; color: string; days: number } => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const expiry = new Date(expiryDate);
-    expiry.setHours(0, 0, 0, 0);
+const getExpiryStatus = (
+  expiryDate: Date,
+): { text: string; color: string; days: number } => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(expiryDate);
+  expiry.setHours(0, 0, 0, 0);
 
-    const days = differenceInDays(expiry, today);
+  const days = differenceInDays(expiry, today);
 
-    if (days < 0) {
-        return { text: `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago`, color: '#d32f2f', days };
-    } else if (days <= 7) {
-        return { text: `Expires in ${days} day${days !== 1 ? 's' : ''}`, color: '#ed6c02', days };
-    } else {
-        return { text: `Expires in ${days} days`, color: '#2e7d32', days };
-    }
+  if (days < 0) {
+    return {
+      text: `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? "s" : ""} ago`,
+      color: "#d32f2f",
+      days,
+    };
+  } else if (days <= 7) {
+    return {
+      text: `Expires in ${days} day${days !== 1 ? "s" : ""}`,
+      color: "#ed6c02",
+      days,
+    };
+  } else {
+    return { text: `Expires in ${days} days`, color: "#2e7d32", days };
+  }
 };
 
 // Helper function to build base API params
-const buildBaseParams = (vendorId: number | undefined, selectedBranchId: number | undefined, includeDateRange = false, dateRange?: any) => {
-    const params: any = {
-        vendorId: Number(vendorId),
-        branchId: Number(selectedBranchId),
-    };
-    
-    if (includeDateRange && dateRange?.[0]?.startDate && dateRange[0]?.endDate) {
-        params.startDate = formatDateToYYYYMMDD(dateRange[0].startDate);
-        params.endDate = formatDateToYYYYMMDD(dateRange[0].endDate);
-    }
-    
-    return params;
+const buildBaseParams = (
+  vendorId: number | undefined,
+  selectedBranchId: number | undefined,
+  includeDateRange = false,
+  dateRange?: any,
+) => {
+  const params: any = {
+    vendorId: Number(vendorId),
+    branchId: Number(selectedBranchId),
+  };
+
+  if (includeDateRange && dateRange?.[0]?.startDate && dateRange[0]?.endDate) {
+    params.startDate = formatDateToYYYYMMDD(dateRange[0].startDate);
+    params.endDate = formatDateToYYYYMMDD(dateRange[0].endDate);
+  }
+
+  return params;
 };
 
-
 export default function Dashboard() {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
-    // Get vendorId and branchId from store
-    const { user } = useAppSelector((state) => state.auth);
-    const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
-    const vendorId = user?.vendorId;
+  // Get vendorId and branchId from store
+  const { user } = useAppSelector((state) => state.auth);
+  const selectedBranchId = useAppSelector(
+    (state) => state.branch.selectedBranchId,
+  );
+  const vendorId = user?.vendorId;
 
-    const [expiringDialogOpen, setExpiringDialogOpen] = React.useState(false);
-    const [lowStockDialogOpen, setLowStockDialogOpen] = React.useState(false);
-    const [inventoryAlertTab, setInventoryAlertTab] = React.useState<'expiring' | 'low_stock'>('expiring');
+  const [expiringDialogOpen, setExpiringDialogOpen] = React.useState(false);
+  const [lowStockDialogOpen, setLowStockDialogOpen] = React.useState(false);
+  const [inventoryAlertTab, setInventoryAlertTab] = React.useState<
+    "expiring" | "low_stock"
+  >("expiring");
 
-    // KPI state
-    const [kpis, setKpis] = React.useState<DashboardKPIs | null>(null);
-    const [kpisLoading, setKpisLoading] = React.useState(true);
+  // KPI state
+  const [kpis, setKpis] = React.useState<DashboardKPIs | null>(null);
+  const [kpisLoading, setKpisLoading] = React.useState(true);
 
-    // Date range state
-    const [dateAnchorEl, setDateAnchorEl] = React.useState<HTMLElement | null>(null);
-    const [dateRange, setDateRange] = React.useState(getLastNDaysRangeForDatePicker(30));
+  // Date range state
+  const [dateAnchorEl, setDateAnchorEl] = React.useState<HTMLElement | null>(
+    null,
+  );
+  const [dateRange, setDateRange] = React.useState(
+    getLastNDaysRangeForDatePicker(30),
+  );
 
-    // Memoize date range strings to prevent unnecessary re-renders
-    const dateRangeKey = React.useMemo(() => {
-        if (dateRange[0]?.startDate && dateRange[0]?.endDate) {
-            return `${formatDateToYYYYMMDD(dateRange[0].startDate)}_${formatDateToYYYYMMDD(dateRange[0].endDate)}`;
-        }
-        return 'default';
-    }, [dateRange]);
+  // Memoize date range strings to prevent unnecessary re-renders
+  const dateRangeKey = React.useMemo(() => {
+    if (dateRange[0]?.startDate && dateRange[0]?.endDate) {
+      return `${formatDateToYYYYMMDD(dateRange[0].startDate)}_${formatDateToYYYYMMDD(dateRange[0].endDate)}`;
+    }
+    return "default";
+  }, [dateRange]);
 
-    // Refs to prevent duplicate API calls
-    const fetchRefs = React.useRef<Record<string, string | boolean | null>>({});
+  // Refs to prevent duplicate API calls
+  const fetchRefs = React.useRef<Record<string, string | boolean | null>>({});
 
-    // Fetch KPIs
-    React.useEffect(() => {
-        if (!vendorId || !selectedBranchId) {
-            setKpisLoading(false);
-            return;
-        }
+  // Fetch KPIs
+  React.useEffect(() => {
+    if (!vendorId || !selectedBranchId) {
+      setKpisLoading(false);
+      return;
+    }
 
-        const fetchKey = `kpis_${vendorId}_${selectedBranchId}`;
-        if (fetchRefs.current[fetchKey] === true) {
-            return;
-        }
-        fetchRefs.current[fetchKey] = true;
+    const fetchKey = `kpis_${vendorId}_${selectedBranchId}`;
+    if (fetchRefs.current[fetchKey] === true) {
+      return;
+    }
+    fetchRefs.current[fetchKey] = true;
 
-        const loadKPIs = async () => {
-            try {
-                setKpisLoading(true);
-                const kpiData = await fetchDashboardKPIs({
-                    vendorId: Number(vendorId),
-                    branchId: Number(selectedBranchId),
-                });
-                setKpis(kpiData);
-            } catch (error) {
-                console.error('Error fetching dashboard KPIs:', error);
-                showErrorToast('Failed to load dashboard KPIs');
-                fetchRefs.current[fetchKey] = null;
-            } finally {
-                setKpisLoading(false);
-                fetchRefs.current[fetchKey] = false;
-            }
-        };
-
-        loadKPIs();
-    }, [vendorId, selectedBranchId]);
-
-    // Top products state
-    const [topProducts, setTopProducts] = React.useState<TopProductDataPoint[]>([]);
-    const [topProductsLoading, setTopProductsLoading] = React.useState(false);
-    
-    // Recent orders state
-    const [recentOrders, setRecentOrders] = React.useState<RecentOrderDataPoint[]>([]);
-    const [recentOrdersLoading, setRecentOrdersLoading] = React.useState(false);
-
-    // Helper function to map API response to ExpiringProductVariant
-    const mapExpiringProductVariant = (item: ExpiringProductVariantResponse): ExpiringProductVariant => ({
-        id: item.variant_id,
-        productId: item.product_id,
-        productName: item.product_name,
-        variantId: item.variant_id,
-        variantName: item.variant_name,
-        quantity: item.stock,
-        expiryDate: new Date(item.expiry_date),
-        sellingPrice: item.price,
-        category: item.category_name,
-    });
-
-    // Helper function to map API response to LowStockProduct
-    const mapLowStockProductVariant = (item: LowStockProductVariantResponse): LowStockProduct => ({
-        id: item.variant_id,
-        productId: item.product_id,
-        productName: item.product_name,
-        variantId: item.variant_id,
-        variantName: item.variant_name,
-        stock: item.stock,
-        price: item.price,
-        category: item.category_name,
-        status: item.product_status,
-        thresholdStock: item.threshold_stock,
-    });
-
-    // Wrapper function for useServerPagination to convert API format
-    const fetchExpiringProductsForPagination = React.useCallback(async (
-        params: FetchParams
-    ): Promise<ServerPaginationResponse<ExpiringProductVariant>> => {
-        // Validate required parameters
-        if (!vendorId || !selectedBranchId) {
-            return {
-                list: [],
-                totalCount: 0,
-                pageDetails: {
-                    pageNumber: 1,
-                    pageSize: params.pageSize ?? 10,
-                    paginationEnabled: true,
-                },
-            };
-        }
-
-        try {
-            const apiParams: FetchExpiringProductsParams = {
-                pageSize: params.pageSize ?? 10,
-                pageNumber: (params.page ?? 0) + 1, // Convert 0-based to 1-based
-                vendorId: Number(vendorId),
-                branchId: Number(selectedBranchId),
-                daysAhead: 30,
-                sorting: params.sorting?.map(s => ({
-                    key: s.key,
-                    direction: s.direction,
-                })),
-            };
-
-            // Convert filters if provided
-            if (params.filters && Object.keys(params.filters).length > 0) {
-                apiParams.filters = Object.entries(params.filters).map(([key, value]) => {
-                    if (typeof value === 'string') {
-                        return { key, eq: value };
-                    }
-                    return { key, eq: String(value) };
-                });
-            }
-
-            const response = await fetchExpiringProducts(apiParams);
-            
-            return {
-                list: response.doc.map(mapExpiringProductVariant),
-                totalCount: response.pagination.totalCount,
-                pageDetails: {
-                    pageNumber: response.pagination.pageNumber,
-                    pageSize: response.pagination.pageSize,
-                    paginationEnabled: true,
-                },
-            };
-        } catch (error) {
-            console.error('Error fetching expiring products:', error);
-            // Return empty response to prevent infinite retries
-            return {
-                list: [],
-                totalCount: 0,
-                pageDetails: {
-                    pageNumber: 1,
-                    pageSize: params.pageSize ?? 10,
-                    paginationEnabled: true,
-                },
-            };
-        }
-    }, [vendorId, selectedBranchId]);
-
-    // Build filters for expiring products (vendorId and branchId)
-    const buildExpiringProductsFilters = React.useCallback(() => {
-        const filters: Record<string, any> = {};
-        if (vendorId) {
-            filters.vendorId = vendorId;
-        }
-        if (selectedBranchId) {
-            filters.branchId = selectedBranchId;
-        }
-        return filters;
-    }, [vendorId, selectedBranchId]);
-
-    // Use server pagination for dialog table - following ProductList.tsx pattern
-    const {
-        paginationModel: expiringPaginationModel,
-        setPaginationModel: setExpiringPaginationModel,
-        setFilters: setExpiringFilters,
-        tableState: expiringTableState,
-        tableHandlers: expiringTableHandlers,
-    } = useServerPagination<ExpiringProductVariant>({
-        fetchFunction: fetchExpiringProductsForPagination,
-        initialPageSize: 10,
-        enabled: true,
-        autoFetch: false, // Fetch only when dialog opens
-        filters: buildExpiringProductsFilters(),
-        initialSorting: [
-            {
-                key: 'expiry_date',
-                direction: 'ASC',
-            },
-        ],
-        searchDebounceMs: 500,
-    });
-
-    // Expiring products state for dashboard table (first 10 items)
-    const [dashboardExpiringProducts, setDashboardExpiringProducts] = React.useState<ExpiringProductVariant[]>([]);
-    const [dashboardExpiringProductsLoading, setDashboardExpiringProductsLoading] = React.useState(false);
-    const [expiringProductsTotalCount, setExpiringProductsTotalCount] = React.useState(0);
-
-    // Low stock products state for dashboard table (first 10 items)
-    const [dashboardLowStockProducts, setDashboardLowStockProducts] = React.useState<LowStockProduct[]>([]);
-    const [dashboardLowStockProductsLoading, setDashboardLowStockProductsLoading] = React.useState(false);
-    const [lowStockProductsTotalCount, setLowStockProductsTotalCount] = React.useState(0);
-
-    // Fetch top products data
-    React.useEffect(() => {
-        if (!vendorId || !selectedBranchId) return;
-
-        const fetchKey = `topProducts_${vendorId}_${selectedBranchId}_${dateRangeKey}`;
-        if (fetchRefs.current[fetchKey] === true) return;
-        fetchRefs.current[fetchKey] = true;
-
-        const loadTopProducts = async () => {
-            try {
-                setTopProductsLoading(true);
-                const params = buildBaseParams(vendorId, selectedBranchId, true, dateRange);
-                params.limit = 5;
-                const data = await fetchTopProducts(params);
-                setTopProducts(data);
-            } catch (error) {
-                console.error('Error fetching top products:', error);
-                fetchRefs.current[fetchKey] = null;
-            } finally {
-                setTopProductsLoading(false);
-                fetchRefs.current[fetchKey] = false;
-            }
-        };
-
-        loadTopProducts();
-    }, [dateRangeKey, vendorId, selectedBranchId]);
-
-    // Fetch recent orders data
-    React.useEffect(() => {
-        if (!vendorId || !selectedBranchId) return;
-
-        const fetchKey = `recentOrders_${vendorId}_${selectedBranchId}`;
-        if (fetchRefs.current[fetchKey] === true) return;
-        fetchRefs.current[fetchKey] = true;
-
-        const loadRecentOrders = async () => {
-            try {
-                setRecentOrdersLoading(true);
-                const params = buildBaseParams(vendorId, selectedBranchId);
-                params.limit = 5;
-                const data = await fetchRecentOrders(params);
-                setRecentOrders(data);
-            } catch (error) {
-                console.error('Error fetching recent orders:', error);
-                fetchRefs.current[fetchKey] = null;
-            } finally {
-                setRecentOrdersLoading(false);
-                fetchRefs.current[fetchKey] = false;
-            }
-        };
-
-        loadRecentOrders();
-    }, [vendorId, selectedBranchId]);
-
-    // Fetch expiring products for dashboard (first 10 items)
-    React.useEffect(() => {
-        if (!vendorId || !selectedBranchId) {
-            setDashboardExpiringProducts([]);
-            setExpiringProductsTotalCount(0);
-            return;
-        }
-
-        const fetchKey = `dashboardExpiringProducts_${vendorId}_${selectedBranchId}`;
-        if (fetchRefs.current[fetchKey] === true) return;
-        fetchRefs.current[fetchKey] = true;
-
-        const loadDashboardExpiringProducts = async () => {
-            try {
-                setDashboardExpiringProductsLoading(true);
-                const params: FetchExpiringProductsParams = {
-                    pageSize: 10,
-                    pageNumber: 1,
-                    vendorId: Number(vendorId),
-                    branchId: Number(selectedBranchId),
-                    daysAhead: 30,
-                    sorting: [
-                        {
-                            key: 'expiry_date',
-                            direction: 'ASC',
-                        },
-                    ],
-                };
-
-                const response = await fetchExpiringProducts(params);
-                const mappedProducts = response.doc.map(mapExpiringProductVariant);
-                setDashboardExpiringProducts(mappedProducts);
-                // Store total count from API response for "View All" button
-                setExpiringProductsTotalCount(response.pagination.totalCount);
-            } catch (error) {
-                console.error('Error fetching dashboard expiring products:', error);
-                setDashboardExpiringProducts([]);
-                setExpiringProductsTotalCount(0);
-                fetchRefs.current[fetchKey] = null;
-            } finally {
-                setDashboardExpiringProductsLoading(false);
-                fetchRefs.current[fetchKey] = false;
-            }
-        };
-
-        loadDashboardExpiringProducts();
-    }, [vendorId, selectedBranchId]);
-
-    // Fetch low stock products for dashboard (first 10 items)
-    React.useEffect(() => {
-        if (!vendorId || !selectedBranchId) {
-            setDashboardLowStockProducts([]);
-            setLowStockProductsTotalCount(0);
-            return;
-        }
-
-        const fetchKey = `dashboardLowStockProducts_${vendorId}_${selectedBranchId}`;
-        if (fetchRefs.current[fetchKey] === true) return;
-        fetchRefs.current[fetchKey] = true;
-
-        const loadDashboardLowStockProducts = async () => {
-            try {
-                setDashboardLowStockProductsLoading(true);
-                // User requested same request body as expiring products
-                const params: FetchExpiringProductsParams = {
-                    pageSize: 10,
-                    pageNumber: 1,
-                    vendorId: Number(vendorId),
-                    branchId: Number(selectedBranchId),
-                    daysAhead: 30, // Keeping as is per user request
-                    sorting: [
-                        {
-                            key: 'expiry_date', // Keeping as is per user request
-                            direction: 'ASC',
-                        },
-                    ],
-                };
-
-                const response = await fetchLowStockProducts(params);
-                const mappedProducts = response.doc.map(mapLowStockProductVariant);
-                setDashboardLowStockProducts(mappedProducts);
-                setLowStockProductsTotalCount(response.pagination.totalCount);
-            } catch (error) {
-                console.error('Error fetching dashboard low stock products:', error);
-                setDashboardLowStockProducts([]);
-                setLowStockProductsTotalCount(0);
-                fetchRefs.current[fetchKey] = null;
-            } finally {
-                setDashboardLowStockProductsLoading(false);
-                fetchRefs.current[fetchKey] = false;
-            }
-        };
-
-        loadDashboardLowStockProducts();
-    }, [vendorId, selectedBranchId]);
-
-    // Ref to track if we've already fetched when dialog opens (prevent infinite retries)
-    const expiringDialogFetchedRef = React.useRef(false);
-
-    // Update filters when vendorId or selectedBranchId changes
-    React.useEffect(() => {
-        if (!vendorId || !selectedBranchId) {
-            return;
-        }
-        setExpiringFilters(buildExpiringProductsFilters());
-        // Reset to first page when filters change
-        setExpiringPaginationModel((prev) => ({ ...prev, page: 0 }));
-        // Reset fetch flag when filters change
-        expiringDialogFetchedRef.current = false;
-    }, [vendorId, selectedBranchId, setExpiringFilters, buildExpiringProductsFilters, setExpiringPaginationModel]);
-
-    // Fetch expiring products for dialog when it opens - following ProductList.tsx pattern
-    React.useEffect(() => {
-        if (expiringDialogOpen && vendorId && selectedBranchId && !expiringDialogFetchedRef.current) {
-            expiringDialogFetchedRef.current = true;
-            expiringTableHandlers.refresh();
-        }
-        // Reset fetch flag when dialog closes
-        if (!expiringDialogOpen) {
-            expiringDialogFetchedRef.current = false;
-        }
-    }, [expiringDialogOpen, vendorId, selectedBranchId]);
-
-    // Derived lists for dashboard tables (limited display - 10 rows, no pagination)
-    const dashboardExpiringTableState: TableState<ExpiringProductVariant> = React.useMemo(
-        () => ({
-            data: dashboardExpiringProducts,
-            total: dashboardExpiringProducts.length,
-            page: 1,
-            rowsPerPage: 10,
-            order: 'asc',
-            orderBy: 'expiryDate',
-            loading: dashboardExpiringProductsLoading,
-            search: '',
-        }),
-        [dashboardExpiringProducts, dashboardExpiringProductsLoading],
-    );
-
-    // Low stock products table state
-    const lowStockTableState: TableState<LowStockProduct> = React.useMemo(
-        () => ({
-            data: dashboardLowStockProducts,
-            total: dashboardLowStockProducts.length,
-            page: 1,
-            rowsPerPage: 10,
-            order: 'asc',
-            orderBy: 'quantity',
-            loading: dashboardLowStockProductsLoading,
-            search: '',
-        }),
-        [dashboardLowStockProducts, dashboardLowStockProductsLoading],
-    );
-
-    // Table handlers for dashboard expiring products (no-op since no pagination)
-    const handleDashboardExpiringRequestSort = React.useCallback(() => {
-        // Sorting is handled by API, but we can't change it for dashboard view
-    }, []);
-
-    const handleDashboardExpiringChangePage = React.useCallback(() => {
-        // No pagination on dashboard
-    }, []);
-
-    const handleDashboardExpiringChangeRowsPerPage = React.useCallback(() => {
-        // No pagination on dashboard
-    }, []);
-
-    const handleExpiringProductClick = React.useCallback((row: ExpiringProductVariant) => {
-        navigate(`/products/detail/${row.productId}`);
-    }, [navigate]);
-
-    const handleLowStockProductClick = React.useCallback((row: LowStockProduct) => {
-        navigate(`/products/detail/${row.productId}`);
-    }, [navigate]);
-
-    // Columns for expiring products table (dashboard)
-    const dashboardExpiringColumns: Column<ExpiringProductVariant>[] = React.useMemo(() => [
-        {
-            id: 'productName',
-            label: 'Product Name',
-            minWidth: 130,
-            sortable: true,
-            render: (row) => (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                    <Avatar
-                        sx={{
-                            width: 28,
-                            height: 28,
-                            bgcolor: getExpiryStatus(row.expiryDate).days < 0
-                                ? 'error.main'
-                                : getExpiryStatus(row.expiryDate).days <= 7
-                                    ? 'warning.main'
-                                    : 'success.main',
-                        }}
-                    >
-                        <WarningIcon sx={{ fontSize: 14 }} />
-                    </Avatar>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: '#333', fontSize: '0.8rem' }}>
-                        {row.productName}
-                    </Typography>
-                </Box>
-            ),
-        },
-        {
-            id: 'variantName',
-            label: 'Variant',
-            minWidth: 100,
-            sortable: true,
-            render: (row) => (
-                <Chip
-                    label={row.variantName}
-                    size="small"
-                    sx={{
-                        height: 20,
-                        fontSize: '0.7rem',
-                        fontWeight: 500,
-                        bgcolor: 'primary.light',
-                        color: 'primary.contrastText',
-                    }}
-                />
-            ),
-        },
-        {
-            id: 'category',
-            label: 'Category',
-            minWidth: 90,
-            sortable: true,
-            render: (row) => (
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8rem' }}>
-                    {row.category}
-                </Typography>
-            ),
-        },
-        {
-            id: 'quantity',
-            label: 'Stock',
-            minWidth: 80,
-            align: 'right',
-            sortable: true,
-            render: (row) => {
-                const isLowStock = row.quantity <= LOW_STOCK_THRESHOLD;
-                return (
-                    <Typography
-                        variant="caption"
-                        sx={{
-                            fontWeight: 700,
-                            color: isLowStock ? 'error.main' : '#333',
-                            fontSize: '0.8rem',
-                        }}
-                    >
-                        {row.quantity}
-                    </Typography>
-                );
-            },
-        },
-        {
-            id: 'sellingPrice',
-            label: 'Price',
-            minWidth: 80,
-            align: 'right',
-            sortable: true,
-            render: (row) => (
-                <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
-                    ₹{row.sellingPrice}
-                </Typography>
-            ),
-        },
-        {
-            id: 'expiryDate',
-            label: 'Expiry Status',
-            minWidth: 160,
-            sortable: true,
-            render: (row) => {
-                const expiryStatus = getExpiryStatus(row.expiryDate);
-                const isExpired = expiryStatus.days < 0;
-                const isExpiringSoon = expiryStatus.days <= 7 && expiryStatus.days >= 0;
-    return (
-        <Box>
-                        <Typography variant="caption" sx={{ fontWeight: 500, mb: 0.25, color: '#333', fontSize: '0.75rem', display: 'block' }}>
-                            {format(row.expiryDate, 'MMM dd, yyyy')}
-                        </Typography>
-                        <Box
-                            sx={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 0.25,
-                                px: 1,
-                                py: 0.25,
-                                borderRadius: 1,
-                                bgcolor: isExpired
-                                    ? 'error.light'
-                                    : isExpiringSoon
-                                        ? 'warning.light'
-                                        : 'success.light',
-                                border: '1px solid',
-                                borderColor: expiryStatus.color,
-                            }}
-                        >
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    color: 'white',
-                                    fontWeight: 700,
-                                    fontSize: '0.7rem',
-                                }}
-                            >
-                                {expiryStatus.text}
-                            </Typography>
-                        </Box>
-                    </Box>
-                );
-            },
-        },
-    ], []);
-
-    // Columns for low stock products table (dashboard & dialog)
-    const dashboardLowStockColumns: Column<LowStockProduct>[] = React.useMemo(() => [
-        {
-            id: 'productName',
-            label: 'Product Name',
-            minWidth: 150,
-            sortable: true,
-            render: (row) => (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                     <Avatar
-                        sx={{
-                            width: 28,
-                            height: 28,
-                            bgcolor: 'error.light', // Consistent red for low stock
-                        }}
-                    >
-                        <WarningIcon sx={{ fontSize: 14, color: 'error.main' }} />
-                    </Avatar>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {row.productName}
-                    </Typography>
-                </Box>
-            ),
-        },
-        {
-            id: 'variantName',
-            label: 'Variant',
-            minWidth: 100,
-            sortable: true,
-            render: (row) => (
-                <Chip
-                    label={row.variantName}
-                    size="small"
-                    sx={{
-                        height: 20,
-                        fontSize: '0.7rem',
-                        fontWeight: 500,
-                        bgcolor: 'primary.light',
-                        color: 'primary.contrastText',
-                    }}
-                />
-            ),
-        },
-        {
-            id: 'category',
-            label: 'Category',
-            minWidth: 100,
-            sortable: true,
-            render: (row) => (
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8rem' }}>
-                    {row.category}
-                </Typography>
-            ),
-        },
-        {
-            id: 'stock',
-            label: 'Stock',
-            minWidth: 100,
-            align: 'right',
-            sortable: true,
-            render: (row) => (
-                <Box>
-                    <Typography
-                        variant="caption"
-                        sx={{
-                            fontWeight: 700,
-                            color: 'error.main',
-                            fontSize: '0.8rem',
-                            display: 'block'
-                        }}
-                    >
-                        {row.stock}
-                    </Typography>
-                    {row.thresholdStock && (
-                         <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-                            Limit: {row.thresholdStock}
-                         </Typography>
-                    )}
-                </Box>
-            ),
-        },
-        {
-            id: 'price',
-            label: 'Price',
-            minWidth: 100,
-            align: 'right',
-            sortable: true,
-            render: (row) => (
-                <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main', fontSize: '0.8rem' }}>
-                    ₹{row.price}
-                </Typography>
-            ),
-        },
-    ], []);
-
-    // Columns for expiring products table (dialog)
-    const expiringColumns: Column<ExpiringProductVariant>[] = React.useMemo(() => [
-        {
-            id: 'productName',
-            label: 'Product Name',
-            minWidth: 150,
-            sortable: true,
-            render: (row) => (
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {row.productName}
-                </Typography>
-            ),
-        },
-        {
-            id: 'variantName',
-            label: 'Variant',
-            minWidth: 120,
-            sortable: true,
-            render: (row) => (
-                <Chip
-                    label={row.variantName}
-                    size="small"
-                    sx={{ height: 24, fontSize: '0.75rem' }}
-                />
-            ),
-        },
-        {
-            id: 'category',
-            label: 'Category',
-            minWidth: 100,
-            sortable: true,
-            render: (row) => (
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                    {row.category}
-                </Typography>
-            ),
-        },
-        {
-            id: 'quantity',
-            label: 'Quantity',
-            minWidth: 100,
-            align: 'right',
-            sortable: true,
-            render: (row) => (
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {row.quantity}
-                </Typography>
-            ),
-        },
-        {
-            id: 'sellingPrice',
-            label: 'Price',
-            minWidth: 100,
-            align: 'right',
-            sortable: true,
-            render: (row) => (
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                    ₹{row.sellingPrice}
-                </Typography>
-            ),
-        },
-        {
-            id: 'expiryDate',
-            label: 'Expiry Date',
-            minWidth: 150,
-            sortable: true,
-            render: (row) => {
-                const expiryStatus = getExpiryStatus(row.expiryDate);
-                return (
-                            <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
-                            {format(row.expiryDate, 'MMM dd, yyyy')}
-                        </Typography>
-                        <Chip
-                            label={expiryStatus.text}
-                            size="small"
-                            sx={{
-                                height: 20,
-                                fontSize: '0.7rem',
-                                bgcolor: expiryStatus.days < 0
-                                    ? 'error.light'
-                                    : expiryStatus.days <= 7
-                                        ? 'warning.light'
-                                        : 'success.light',
-                                color: "white",
-                                fontWeight: 600,
-                            }}
-                        />
-                    </Box>
-                );
-            },
-        },
-    ], []);
-
-    const handleDatePreset = (presetKey: DatePresetKey) => {
-        setDateRange(getDateRangeFromPreset(presetKey));
-        setDateAnchorEl(null);
+    const loadKPIs = async () => {
+      try {
+        setKpisLoading(true);
+        const kpiData = await fetchDashboardKPIs({
+          vendorId: Number(vendorId),
+          branchId: Number(selectedBranchId),
+        });
+        setKpis(kpiData);
+      } catch (error) {
+        console.error("Error fetching dashboard KPIs:", error);
+        showErrorToast("Failed to load dashboard KPIs");
+        fetchRefs.current[fetchKey] = null;
+      } finally {
+        setKpisLoading(false);
+        fetchRefs.current[fetchKey] = false;
+      }
     };
 
-    return (
-        <Box sx={{ p: 3 }}>
-            {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, mb: 4 }}>
-                <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#333', mb: 0.5 }}>
-                        Dashboard
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                        Welcome back! Here's what's happening with your store today.
-                    </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
-                    {/* Quick actions */}
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-                        <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={<VisibilityIcon />}
-                            sx={{ textTransform: 'none' }}
-                            onClick={() => navigate('/orders')}
-                        >
-                            View Orders
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<AddIcon />}
-                            sx={{ textTransform: 'none' }}
-                            onClick={() => navigate('/products/new')}
-                        >
-                            Add Product
-                        </Button>
-                    </Stack>
-                    {/* Date range with presets */}
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-                        {DATE_PRESETS.map((preset) => (
-                            <Chip
-                                key={preset.key}
-                                label={preset.label}
-                                onClick={() => handleDatePreset(preset.key)}
-                                size="small"
-                                variant="outlined"
-                                sx={{
-                                    cursor: 'pointer',
-                                    '&:hover': { bgcolor: 'action.hover' },
-                                }}
-                            />
-                        ))}
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<DateRangeIcon />}
-                            sx={{ textTransform: 'none' }}
-                            onClick={(e) => setDateAnchorEl(e.currentTarget)}
-                        >
-                            {dateRange[0]?.startDate && dateRange[0]?.endDate
-                                ? `${format(dateRange[0].startDate, 'MMM dd')} - ${format(dateRange[0].endDate, 'MMM dd')}`
-                                : 'Custom'}
-                        </Button>
-                    </Stack>
-                </Box>
-            </Box>
+    loadKPIs();
+  }, [vendorId, selectedBranchId]);
 
-            {/* Date Range Picker Popover */}
-            <Popover
-                open={Boolean(dateAnchorEl)}
-                anchorEl={dateAnchorEl}
-                onClose={() => setDateAnchorEl(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'center' }}
-            >
-                <Box sx={{ p: 1 }}>
-                    <DateRangePicker
-                        ranges={dateRange}
-                        onChange={(ranges: RangeKeyDict) => {
-                            if (ranges.selection && ranges.selection.startDate && ranges.selection.endDate) {
-                                setDateRange([{
-                                    startDate: ranges.selection.startDate,
-                                    endDate: ranges.selection.endDate,
-                                    key: ranges.selection.key || 'selection'
-                                }]);
-                            }
-                        }}
-                        moveRangeOnFirstSelection={false}
-                    />
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1, px: 1, pb: 1 }}>
-                        <Button
-                            size="small"
-                            onClick={() => {
-                                setDateRange(getLastNDaysRangeForDatePicker(30));
-                                setDateAnchorEl(null);
-                            }}
-                            sx={{ textTransform: 'none' }}
-                        >
-                            Reset
-                        </Button>
-                        <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => setDateAnchorEl(null)}
-                            sx={{ textTransform: 'none' }}
-                        >
-                            Apply
-                        </Button>
-                    </Box>
-                </Box>
-            </Popover>
+  // Top products state
+  const [topProducts, setTopProducts] = React.useState<TopProductDataPoint[]>(
+    [],
+  );
+  const [topProductsLoading, setTopProductsLoading] = React.useState(false);
 
-            {/* Stats Cards */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-                {kpisLoading ? (
-                    // Loading state - show skeleton or loading cards
-                    Array.from({ length: 4 }).map((_, index) => (
-                        <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
-                            <Card
-                                sx={{
-                                    p: 2.5,
-                                    height: '100%',
-                                    borderRadius: 3,
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                }}
-                            >
-                                <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Box sx={{ flex: 1 }}>
-                                            <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 1 }}>
-                                                Loading...
-                                            </Typography>
-                                            <Typography variant="h4" sx={{ fontWeight: 700, mb: 1.5 }}>
-                                                --
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    ))
-                ) : kpis ? (
-                    // Render KPIs from API
-                    [
-                        {
-                            title: 'Total Users',
-                            kpi: kpis.total_users,
-                            icon: PeopleIcon,
-                            color: '#7e57c2',
-                            bgColor: '#ede7f6',
-                            formatValue: (val: number) => val.toLocaleString(),
-                        },
-                        {
-                            title: 'Total Orders',
-                            kpi: kpis.total_orders,
-                            icon: InventoryIcon,
-                            color: '#ffca28',
-                            bgColor: '#fff8e1',
-                            formatValue: (val: number) => val.toLocaleString(),
-                        },
-                        {
-                            title: 'Revenue',
-                            kpi: kpis.revenue,
-                            icon: AttachMoneyIcon,
-                            color: '#66bb6a',
-                            bgColor: '#e8f5e9',
-                            formatValue: (val: number) => `₹${val.toLocaleString()}`,
-                        },
-                        {
-                            title: 'Total Returns',
-                            kpi: kpis.total_returns,
-                            icon: AssignmentReturnIcon,
-                            color: '#ff7043',
-                            bgColor: '#fbe9e7',
-                            formatValue: (val: number) => val.toLocaleString(),
-                        },
-                    ].map((card, index) => {
-                        const IconComponent = card.icon;
-                        const isUp = card.kpi.change_type === 'up';
-                        return (
-                            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
-                                <Card
-                                    sx={{
-                                        p: 2.5,
-                                        height: '100%',
-                                        background: `linear-gradient(135deg, ${card.bgColor} 0%, ${card.bgColor}dd 100%)`,
-                                        borderRadius: 3,
-                                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                        transition: 'transform 0.2s, box-shadow 0.2s',
-                                        '&:hover': {
-                                            transform: 'translateY(-4px)',
-                                            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                                        },
-                                    }}
-                                >
-                                    <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 1, fontWeight: 500 }}>
-                                                    {card.title}
-                                                </Typography>
-                                                <Typography variant="h4" sx={{ fontWeight: 700, mb: 1.5, color: '#333' }}>
-                                                    {card.formatValue(card.kpi.value)}
-                                                </Typography>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                    {isUp ? (
-                                                        <ArrowUpwardIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                                                    ) : (
-                                                        <ArrowDownwardIcon sx={{ fontSize: 16, color: 'error.main' }} />
-                                                    )}
-                                                    <Typography
-                                                        variant="caption"
-                                                        sx={{
-                                                            color: isUp ? 'success.main' : 'error.main',
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        {Math.abs(card.kpi.change)}%
-                                                    </Typography>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.5 }}>
-                                                        {isUp ? 'Up' : 'Down'} from {card.kpi.period}
-                                </Typography>
-                            </Box>
-                                            </Box>
-                                            <Avatar
-                                                sx={{
-                                bgcolor: card.color,
-                                                    width: 56,
-                                                    height: 56,
-                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                                                }}
-                                            >
-                                                <IconComponent sx={{ fontSize: 28 }} />
-                                            </Avatar>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
-                            </Grid>
-                        );
-                    })
-                ) : (
-                    // No data available
-                    Array.from({ length: 4 }).map((_, index) => (
-                        <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
-                            <Card
-                                sx={{
-                                    p: 2.5,
-                                    height: '100%',
-                                    borderRadius: 3,
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                }}
-                            >
-                                <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Box sx={{ flex: 1 }}>
-                                            <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 1 }}>
-                                                No data available
-                                            </Typography>
-                                            <Typography variant="h4" sx={{ fontWeight: 700, mb: 1.5 }}>
-                                                --
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                </CardContent>
-                            </Card>
-                        </Grid>
-                    ))
-                )}
-            </Grid>
+  // Recent orders state
+  const [recentOrders, setRecentOrders] = React.useState<
+    RecentOrderDataPoint[]
+  >([]);
+  const [recentOrdersLoading, setRecentOrdersLoading] = React.useState(false);
 
-            {/* Bottom Row - Top Products and Recent Orders */}
-            <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Paper
-                        sx={{
-                            p: 3,
-                            borderRadius: 3,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                        }}
-                    >
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333' }}>
-                                Top Products
-                            </Typography>
-                            <Button 
-                                size="small" 
-                                sx={{ textTransform: 'none' }}
-                                onClick={() => navigate('/products')}
-                            >
-                                View All
-                            </Button>
-                        </Box>
-                        {topProductsLoading ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
-                                <Typography color="text.secondary">Loading top products...</Typography>
-                            </Box>
-                        ) : topProducts.length > 0 ? (
-                            <Stack spacing={2}>
-                                {topProducts.map((product, index) => (
-                                    <Box
-                                        key={product.product_id}
-                                        sx={{
-                                display: 'flex',
-                                            justifyContent: 'space-between',
-                                alignItems: 'center',
-                                            p: 2,
-                                            borderRadius: 2,
-                                            bgcolor: index % 2 === 0 ? 'background.default' : 'transparent',
-                                            transition: 'background-color 0.2s, cursor 0.2s',
-                                            cursor: 'pointer',
-                                            '&:hover': {
-                                                bgcolor: 'action.hover',
-                                            },
-                                        }}
-                                        onClick={() => navigate(`/products/detail/${product.product_id}`)}
-                                    >
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                            <Avatar
-                                                sx={{
-                                                    bgcolor: 'primary.main',
-                                                    width: 40,
-                                                    height: 40,
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                {product.rank}
-                                            </Avatar>
-                                            <Box>
-                                                <Typography variant="body1" sx={{ fontWeight: 500, color: 'primary.main' }}>
-                                                    {product.product_name}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                    ₹{product.revenue.toLocaleString()} • {product.orders} orders
-                                                </Typography>
-                            </Box>
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            {product.trend_type === 'up' ? (
-                                                <TrendingUpIcon sx={{ fontSize: 18, color: 'success.main' }} />
-                                            ) : (
-                                                <TrendingDownIcon sx={{ fontSize: 18, color: 'error.main' }} />
-                                            )}
-                                            <Typography
-                                                variant="body2"
-                                                sx={{
-                                                    color: product.trend_type === 'up' ? 'success.main' : 'error.main',
-                                                    fontWeight: 600,
-                                                }}
-                                            >
-                                                {product.trend_type === 'up' ? '+' : ''}{product.trend}%
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                ))}
-                            </Stack>
-                        ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
-                                <Typography color="text.secondary">No top products data available</Typography>
-                            </Box>
-                        )}
-                        </Paper>
-                    </Grid>
+  // Helper function to map API response to ExpiringProductVariant
+  const mapExpiringProductVariant = (
+    item: ExpiringProductVariantResponse,
+  ): ExpiringProductVariant => ({
+    id: item.variant_id,
+    productId: item.product_id,
+    productName: item.product_name,
+    variantId: item.variant_id,
+    variantName: item.variant_name,
+    quantity: item.stock,
+    expiryDate: new Date(item.expiry_date),
+    sellingPrice: item.price,
+    category: item.category_name,
+  });
 
-                <Grid size={{ xs: 12, md: 6 }}>
-                    <Paper
-                        sx={{
-                            p: 3,
-                            borderRadius: 3,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                        }}
-                    >
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 600, color: '#333' }}>
-                                Recent Orders
-                            </Typography>
-                            <Button
-                                size="small"
-                                sx={{ textTransform: 'none' }}
-                                onClick={() => navigate('/orders')}
-                            >
-                                View All
-                            </Button>
-                        </Box>
-                        {recentOrdersLoading ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
-                                <Typography color="text.secondary">Loading recent orders...</Typography>
-                            </Box>
-                        ) : recentOrders.length > 0 ? (
-                            <Stack spacing={2}>
-                                {recentOrders.map((order) => {
-                                    const getStatusColor = (status: string) => {
-                                        const upperStatus = status.toUpperCase();
-                                        if (upperStatus === 'DELIVERED' || upperStatus === 'COMPLETED') return 'success';
-                                        if (upperStatus === 'PENDING') return 'warning';
-                                        if (upperStatus === 'ACCEPTED' || upperStatus === 'PROCESSING') return 'info';
-                                        return 'default';
-                                    };
+  // Helper function to map API response to LowStockProduct
+  const mapLowStockProductVariant = (
+    item: LowStockProductVariantResponse,
+  ): LowStockProduct => ({
+    id: item.variant_id,
+    productId: item.product_id,
+    productName: item.product_name,
+    variantId: item.variant_id,
+    variantName: item.variant_name,
+    stock: item.stock,
+    price: item.price,
+    category: item.category_name,
+    status: item.product_status,
+    thresholdStock: item.threshold_stock,
+  });
 
-                                    return (
-                                        <Box
-                                            key={order.order_id}
-                                            sx={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                p: 2,
-                                                borderRadius: 2,
-                                                border: '1px solid',
-                                                borderColor: 'divider',
-                                                transition: 'box-shadow 0.2s, cursor 0.2s',
-                                                cursor: 'pointer',
-                                                '&:hover': {
-                                                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                                                    borderColor: 'primary.main',
-                                                },
-                                            }}
-                                            onClick={() => navigate(`/orders/detail/${order.order_id}`)}
-                                        >
-                                            <Box sx={{ flex: 1 }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                                    <Typography
-                                                        variant="body2"
-                                                        sx={{
-                                                            fontWeight: 600,
-                                                            color: 'primary.main',
-                                                            '&:hover': {
-                                                                textDecoration: 'underline',
-                                                            },
-                                                        }}
-                                                    >
-                                                        {order.order_number}
-                                                    </Typography>
-                                                    <Chip
-                                                        label={order.status}
-                                                        size="small"
-                                                        color={getStatusColor(order.status)}
-                                                        sx={{ height: 20, fontSize: '0.7rem' }}
-                                                    />
-                                                </Box>
-                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                    {order.customer_name != "N/A" ? order.customer_name : ''} • {order.time_ago}
-                                                </Typography>
-                                            </Box>
-                                            <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                                                ₹{order.price.toLocaleString()}
-                                            </Typography>
-                                        </Box>
-                                    );
-                                })}
-                            </Stack>
-                        ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
-                                <Typography color="text.secondary">No recent orders data available</Typography>
-                            </Box>
-                        )}
-                    </Paper>
-                </Grid>
-            </Grid>
+  // Wrapper function for useServerPagination to convert API format
+  const fetchExpiringProductsForPagination = React.useCallback(
+    async (
+      params: FetchParams,
+    ): Promise<ServerPaginationResponse<ExpiringProductVariant>> => {
+      // Validate required parameters
+      if (!vendorId || !selectedBranchId) {
+        return {
+          list: [],
+          totalCount: 0,
+          pageDetails: {
+            pageNumber: 1,
+            pageSize: params.pageSize ?? 10,
+            paginationEnabled: true,
+          },
+        };
+      }
 
-            {/* Inventory Alerts Section (Expiring vs Low Stock with Tabs) */}
-            <Grid container spacing={3} sx={{ mt: 3 }}>
-                <Grid size={{ xs: 12 }}>
-                    <Paper
-                        sx={{
-                            p: 3,
-                            borderRadius: 3,
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                            background: 'linear-gradient(135deg, #fff9e6 0%, #ffffff 100%)',
-                            border: '1px solid',
-                            borderColor: 'warning.light',
-                        }}
-                    >
-                        <Box
-                            sx={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                mb: 2,
-                                flexWrap: 'wrap',
-                                gap: 2,
-                            }}
-                        >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Avatar
-                                    sx={{
-                                        bgcolor: 'warning.main',
-                                        width: 40,
-                                        height: 40,
-                                        boxShadow: '0 2px 8px rgba(237, 108, 2, 0.3)',
-                                    }}
-                                >
-                                    <WarningIcon sx={{ fontSize: 24 }} />
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#333', mb: 0.25 }}>
-                                        Inventory Alerts
-                                    </Typography>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                        Monitor products that are expiring soon or running low on stock
-                                    </Typography>
-                                </Box>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                                <CustomTabs<'expiring' | 'low_stock'>
-                                    tabs={[
-                                        { value: 'expiring', label: 'Expiring' },
-                                        { value: 'low_stock', label: 'Low Stock' },
-                                    ]}
-                                    value={inventoryAlertTab}
-                                    onChange={(val) => setInventoryAlertTab(val)}
-                                />
-                                {inventoryAlertTab === 'expiring' ? (
-                                    <Button
-                                        variant="outlined"
-                                        size="small"
-                                        sx={{
-                                            textTransform: 'none',
-                                            borderColor: 'warning.main',
-                                            color: 'warning.main',
-                                            '&:hover': {
-                                                borderColor: 'warning.dark',
-                                                bgcolor: 'warning.light',
-                                                color: 'white',
-                                            },
-                                        }}
-                                        onClick={() => setExpiringDialogOpen(true)}
-                                    >
-                                        View All ({expiringProductsTotalCount})
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        variant="outlined"
-                                        size="small"
-                                        sx={{
-                                            textTransform: 'none',
-                                            borderColor: 'error.main',
-                                            color: 'error.main',
-                                            '&:hover': {
-                                                borderColor: 'error.dark',
-                                                bgcolor: 'error.light',
-                                                color: 'white',
-                                            },
-                                        }}
-                                        onClick={() => setLowStockDialogOpen(true)}
-                                    >
-                                        View All ({lowStockProductsTotalCount})
-                                    </Button>
-                                )}
-                            </Box>
-                        </Box>
-                        <Box
-                            sx={{
-                                borderRadius: 2,
-                                overflow: 'hidden',
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                bgcolor: 'background.paper',
-                                mt: 1,
-                            }}
-                        >
-                            {dashboardExpiringProductsLoading ? (
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
-                                    <Typography color="text.secondary">
-                                        {inventoryAlertTab === 'expiring'
-                                            ? 'Loading expiring products...'
-                                            : 'Loading low stock products...'}
-                                    </Typography>
-                                </Box>
-                            ) : inventoryAlertTab === 'expiring' ? (
-                                dashboardExpiringProducts.length > 0 ? (
-                                    <DataTable
-                                        columns={dashboardExpiringColumns}
-                                        state={dashboardExpiringTableState}
-                                        handlers={{
-                                            handleRequestSort: handleDashboardExpiringRequestSort,
-                                            handleChangePage: handleDashboardExpiringChangePage,
-                                            handleChangeRowsPerPage: handleDashboardExpiringChangeRowsPerPage,
-                                        }}
-                                        hidePagination={true}
-                                        compact={true}
-                                        onRowClick={handleExpiringProductClick}
-                                    />
-                                ) : (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
-                                        <Typography color="text.secondary">No expiring products found</Typography>
-                                    </Box>
-                                )
-                            ) : dashboardLowStockProducts.length > 0 ? (
-                                <DataTable
-                                    columns={dashboardLowStockColumns}
-                                    state={lowStockTableState}
-                                    handlers={{
-                                        // No-op handlers as we don't have sorting/paging for dashboard widget yet
-                                        handleRequestSort: () => {},
-                                        handleChangePage: () => {},
-                                        handleChangeRowsPerPage: () => {},
-                                    }}
-                                    hidePagination={true}
-                                    compact={true}
-                                    onRowClick={handleLowStockProductClick}
-                                />
-                            ) : (
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
-                                    <Typography color="text.secondary">No low stock products found</Typography>
-                                </Box>
-                            )}
-                        </Box>
-                    </Paper>
-                </Grid>
-            </Grid>
+      try {
+        const apiParams: FetchExpiringProductsParams = {
+          pageSize: params.pageSize ?? 10,
+          pageNumber: (params.page ?? 0) + 1, // Convert 0-based to 1-based
+          vendorId: Number(vendorId),
+          branchId: Number(selectedBranchId),
+          daysAhead: 30,
+          sorting: params.sorting?.map((s) => ({
+            key: s.key,
+            direction: s.direction,
+          })),
+        };
 
-            <ExpiringProductsDialog
-                open={expiringDialogOpen}
-                onClose={() => setExpiringDialogOpen(false)}
-                tableState={expiringTableState}
-                tableHandlers={expiringTableHandlers}
-                columns={expiringColumns}
-                paginationModel={expiringPaginationModel}
-                onRowClick={handleExpiringProductClick}
-            />
+        // Convert filters if provided
+        if (params.filters && Object.keys(params.filters).length > 0) {
+          apiParams.filters = Object.entries(params.filters).map(
+            ([key, value]) => {
+              if (typeof value === "string") {
+                return { key, eq: value };
+              }
+              return { key, eq: String(value) };
+            },
+          );
+        }
 
-            <LowStockProductsDialog
-                open={lowStockDialogOpen}
-                onClose={() => setLowStockDialogOpen(false)}
-                products={dashboardLowStockProducts}
-                loading={dashboardLowStockProductsLoading}
-                columns={dashboardLowStockColumns}
-                onRowClick={handleLowStockProductClick}
-            />
-        </Box>
+        const response = await fetchExpiringProducts(apiParams);
+
+        return {
+          list: response.doc.map(mapExpiringProductVariant),
+          totalCount: response.pagination.totalCount,
+          pageDetails: {
+            pageNumber: response.pagination.pageNumber,
+            pageSize: response.pagination.pageSize,
+            paginationEnabled: true,
+          },
+        };
+      } catch (error) {
+        console.error("Error fetching expiring products:", error);
+        // Return empty response to prevent infinite retries
+        return {
+          list: [],
+          totalCount: 0,
+          pageDetails: {
+            pageNumber: 1,
+            pageSize: params.pageSize ?? 10,
+            paginationEnabled: true,
+          },
+        };
+      }
+    },
+    [vendorId, selectedBranchId],
+  );
+
+  // Build filters for expiring products (vendorId and branchId)
+  const buildExpiringProductsFilters = React.useCallback(() => {
+    const filters: Record<string, any> = {};
+    if (vendorId) {
+      filters.vendorId = vendorId;
+    }
+    if (selectedBranchId) {
+      filters.branchId = selectedBranchId;
+    }
+    return filters;
+  }, [vendorId, selectedBranchId]);
+
+  // Use server pagination for dialog table - following ProductList.tsx pattern
+  const {
+    paginationModel: expiringPaginationModel,
+    setPaginationModel: setExpiringPaginationModel,
+    setFilters: setExpiringFilters,
+    tableState: expiringTableState,
+    tableHandlers: expiringTableHandlers,
+  } = useServerPagination<ExpiringProductVariant>({
+    fetchFunction: fetchExpiringProductsForPagination,
+    initialPageSize: 10,
+    enabled: true,
+    autoFetch: false, // Fetch only when dialog opens
+    filters: buildExpiringProductsFilters(),
+    initialSorting: [
+      {
+        key: "expiry_date",
+        direction: "ASC",
+      },
+    ],
+    searchDebounceMs: 500,
+  });
+
+  // Expiring products state for dashboard table (first 10 items)
+  const [dashboardExpiringProducts, setDashboardExpiringProducts] =
+    React.useState<ExpiringProductVariant[]>([]);
+  const [
+    dashboardExpiringProductsLoading,
+    setDashboardExpiringProductsLoading,
+  ] = React.useState(false);
+  const [expiringProductsTotalCount, setExpiringProductsTotalCount] =
+    React.useState(0);
+
+  // Low stock products state for dashboard table (first 10 items)
+  const [dashboardLowStockProducts, setDashboardLowStockProducts] =
+    React.useState<LowStockProduct[]>([]);
+  const [
+    dashboardLowStockProductsLoading,
+    setDashboardLowStockProductsLoading,
+  ] = React.useState(false);
+  const [lowStockProductsTotalCount, setLowStockProductsTotalCount] =
+    React.useState(0);
+
+  // Fetch top products data
+  React.useEffect(() => {
+    if (!vendorId || !selectedBranchId) return;
+
+    const fetchKey = `topProducts_${vendorId}_${selectedBranchId}_${dateRangeKey}`;
+    if (fetchRefs.current[fetchKey] === true) return;
+    fetchRefs.current[fetchKey] = true;
+
+    const loadTopProducts = async () => {
+      try {
+        setTopProductsLoading(true);
+        const params = buildBaseParams(
+          vendorId,
+          selectedBranchId,
+          true,
+          dateRange,
+        );
+        params.limit = 5;
+        const data = await fetchTopProducts(params);
+        setTopProducts(data);
+      } catch (error) {
+        console.error("Error fetching top products:", error);
+        fetchRefs.current[fetchKey] = null;
+      } finally {
+        setTopProductsLoading(false);
+        fetchRefs.current[fetchKey] = false;
+      }
+    };
+
+    loadTopProducts();
+  }, [dateRangeKey, vendorId, selectedBranchId]);
+
+  // Fetch recent orders data
+  React.useEffect(() => {
+    if (!vendorId || !selectedBranchId) return;
+
+    const fetchKey = `recentOrders_${vendorId}_${selectedBranchId}`;
+    if (fetchRefs.current[fetchKey] === true) return;
+    fetchRefs.current[fetchKey] = true;
+
+    const loadRecentOrders = async () => {
+      try {
+        setRecentOrdersLoading(true);
+        const params = buildBaseParams(vendorId, selectedBranchId);
+        params.limit = 5;
+        const data = await fetchRecentOrders(params);
+        setRecentOrders(data);
+      } catch (error) {
+        console.error("Error fetching recent orders:", error);
+        fetchRefs.current[fetchKey] = null;
+      } finally {
+        setRecentOrdersLoading(false);
+        fetchRefs.current[fetchKey] = false;
+      }
+    };
+
+    loadRecentOrders();
+  }, [vendorId, selectedBranchId]);
+
+  // Fetch expiring products for dashboard (first 10 items)
+  React.useEffect(() => {
+    if (!vendorId || !selectedBranchId) {
+      setDashboardExpiringProducts([]);
+      setExpiringProductsTotalCount(0);
+      return;
+    }
+
+    const fetchKey = `dashboardExpiringProducts_${vendorId}_${selectedBranchId}`;
+    if (fetchRefs.current[fetchKey] === true) return;
+    fetchRefs.current[fetchKey] = true;
+
+    const loadDashboardExpiringProducts = async () => {
+      try {
+        setDashboardExpiringProductsLoading(true);
+        const params: FetchExpiringProductsParams = {
+          pageSize: 10,
+          pageNumber: 1,
+          vendorId: Number(vendorId),
+          branchId: Number(selectedBranchId),
+          daysAhead: 30,
+          sorting: [
+            {
+              key: "expiry_date",
+              direction: "ASC",
+            },
+          ],
+        };
+
+        const response = await fetchExpiringProducts(params);
+        const mappedProducts = response.doc.map(mapExpiringProductVariant);
+        setDashboardExpiringProducts(mappedProducts);
+        // Store total count from API response for "View All" button
+        setExpiringProductsTotalCount(response.pagination.totalCount);
+      } catch (error) {
+        console.error("Error fetching dashboard expiring products:", error);
+        setDashboardExpiringProducts([]);
+        setExpiringProductsTotalCount(0);
+        fetchRefs.current[fetchKey] = null;
+      } finally {
+        setDashboardExpiringProductsLoading(false);
+        fetchRefs.current[fetchKey] = false;
+      }
+    };
+
+    loadDashboardExpiringProducts();
+  }, [vendorId, selectedBranchId]);
+
+  // Fetch low stock products for dashboard (first 10 items)
+  React.useEffect(() => {
+    if (!vendorId || !selectedBranchId) {
+      setDashboardLowStockProducts([]);
+      setLowStockProductsTotalCount(0);
+      return;
+    }
+
+    const fetchKey = `dashboardLowStockProducts_${vendorId}_${selectedBranchId}`;
+    if (fetchRefs.current[fetchKey] === true) return;
+    fetchRefs.current[fetchKey] = true;
+
+    const loadDashboardLowStockProducts = async () => {
+      try {
+        setDashboardLowStockProductsLoading(true);
+        // User requested same request body as expiring products
+        const params: FetchExpiringProductsParams = {
+          pageSize: 10,
+          pageNumber: 1,
+          vendorId: Number(vendorId),
+          branchId: Number(selectedBranchId),
+          daysAhead: 30, // Keeping as is per user request
+          sorting: [
+            {
+              key: "expiry_date", // Keeping as is per user request
+              direction: "ASC",
+            },
+          ],
+        };
+
+        const response = await fetchLowStockProducts(params);
+        const mappedProducts = response.doc.map(mapLowStockProductVariant);
+        setDashboardLowStockProducts(mappedProducts);
+        setLowStockProductsTotalCount(response.pagination.totalCount);
+      } catch (error) {
+        console.error("Error fetching dashboard low stock products:", error);
+        setDashboardLowStockProducts([]);
+        setLowStockProductsTotalCount(0);
+        fetchRefs.current[fetchKey] = null;
+      } finally {
+        setDashboardLowStockProductsLoading(false);
+        fetchRefs.current[fetchKey] = false;
+      }
+    };
+
+    loadDashboardLowStockProducts();
+  }, [vendorId, selectedBranchId]);
+
+  // Ref to track if we've already fetched when dialog opens (prevent infinite retries)
+  const expiringDialogFetchedRef = React.useRef(false);
+
+  // Update filters when vendorId or selectedBranchId changes
+  React.useEffect(() => {
+    if (!vendorId || !selectedBranchId) {
+      return;
+    }
+    setExpiringFilters(buildExpiringProductsFilters());
+    // Reset to first page when filters change
+    setExpiringPaginationModel((prev) => ({ ...prev, page: 0 }));
+    // Reset fetch flag when filters change
+    expiringDialogFetchedRef.current = false;
+  }, [
+    vendorId,
+    selectedBranchId,
+    setExpiringFilters,
+    buildExpiringProductsFilters,
+    setExpiringPaginationModel,
+  ]);
+
+  // Fetch expiring products for dialog when it opens - following ProductList.tsx pattern
+  React.useEffect(() => {
+    if (
+      expiringDialogOpen &&
+      vendorId &&
+      selectedBranchId &&
+      !expiringDialogFetchedRef.current
+    ) {
+      expiringDialogFetchedRef.current = true;
+      expiringTableHandlers.refresh();
+    }
+    // Reset fetch flag when dialog closes
+    if (!expiringDialogOpen) {
+      expiringDialogFetchedRef.current = false;
+    }
+  }, [expiringDialogOpen, vendorId, selectedBranchId]);
+
+  // Derived lists for dashboard tables (limited display - 10 rows, no pagination)
+  const dashboardExpiringTableState: TableState<ExpiringProductVariant> =
+    React.useMemo(
+      () => ({
+        data: dashboardExpiringProducts,
+        total: dashboardExpiringProducts.length,
+        page: 1,
+        rowsPerPage: 10,
+        order: "asc",
+        orderBy: "expiryDate",
+        loading: dashboardExpiringProductsLoading,
+        search: "",
+      }),
+      [dashboardExpiringProducts, dashboardExpiringProductsLoading],
     );
+
+  // Low stock products table state
+  const lowStockTableState: TableState<LowStockProduct> = React.useMemo(
+    () => ({
+      data: dashboardLowStockProducts,
+      total: dashboardLowStockProducts.length,
+      page: 1,
+      rowsPerPage: 10,
+      order: "asc",
+      orderBy: "quantity",
+      loading: dashboardLowStockProductsLoading,
+      search: "",
+    }),
+    [dashboardLowStockProducts, dashboardLowStockProductsLoading],
+  );
+
+  const handleExpiringProductClick = React.useCallback(
+    (row: ExpiringProductVariant) => {
+      navigate(`/products/detail/${row.productId}`);
+    },
+    [navigate],
+  );
+
+  const handleLowStockProductClick = React.useCallback(
+    (row: LowStockProduct) => {
+      navigate(`/products/detail/${row.productId}`);
+    },
+    [navigate],
+  );
+
+  // Columns for expiring products table (dashboard)
+  const dashboardExpiringColumns: Column<ExpiringProductVariant>[] =
+    React.useMemo(
+      () => [
+        {
+          id: "productName",
+          label: "Product Name",
+          minWidth: 130,
+          sortable: true,
+          render: (row) => (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 600, color: "#333", fontSize: "0.8rem" }}
+              >
+                {row.productName}
+              </Typography>
+            </Box>
+          ),
+        },
+        {
+          id: "variantName",
+          label: "Variant",
+          minWidth: 100,
+          sortable: true,
+          render: (row) => (
+            <Chip
+              label={row.variantName}
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: "0.7rem",
+                fontWeight: 500,
+                bgcolor: "primary.light",
+                color: "primary.contrastText",
+              }}
+            />
+          ),
+        },
+        {
+          id: "category",
+          label: "Category",
+          minWidth: 90,
+          sortable: true,
+          render: (row) => (
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                fontWeight: 500,
+                fontSize: "0.8rem",
+              }}
+            >
+              {row.category}
+            </Typography>
+          ),
+        },
+        {
+          id: "quantity",
+          label: "Stock",
+          minWidth: 80,
+          align: "right",
+          sortable: true,
+          render: (row) => {
+            const isLowStock = row.quantity <= LOW_STOCK_THRESHOLD;
+            return (
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 700,
+                  color: isLowStock ? "error.main" : "#333",
+                  fontSize: "0.8rem",
+                }}
+              >
+                {row.quantity}
+              </Typography>
+            );
+          },
+        },
+        {
+          id: "sellingPrice",
+          label: "Price",
+          minWidth: 80,
+          align: "right",
+          sortable: true,
+          render: (row) => (
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: "primary.main",
+                fontSize: "0.8rem",
+              }}
+            >
+              ₹{row.sellingPrice}
+            </Typography>
+          ),
+        },
+        {
+          id: "expiryDate",
+          label: "Expiry Status",
+          minWidth: 160,
+          sortable: true,
+          render: (row) => {
+            const expiryStatus = getExpiryStatus(row.expiryDate);
+            const isExpired = expiryStatus.days < 0;
+            const isExpiringSoon =
+              expiryStatus.days <= 7 && expiryStatus.days >= 0;
+            return (
+              <Box sx={{ py: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 500,
+                    mb: 0.25,
+                    color: "#333",
+                    fontSize: "0.75rem",
+                    display: "block",
+                  }}
+                >
+                  {format(row.expiryDate, "MMM dd, yyyy")}
+                </Typography>
+                <Box
+                  sx={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 0.25,
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 1,
+                    bgcolor: isExpired
+                      ? "error.light"
+                      : isExpiringSoon
+                        ? "warning.light"
+                        : "success.light",
+                    border: "1px solid",
+                    borderColor: expiryStatus.color,
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "white",
+                      fontWeight: 700,
+                      fontSize: "0.7rem",
+                    }}
+                  >
+                    {expiryStatus.text}
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          },
+        },
+      ],
+      [],
+    );
+
+  // Columns for low stock products table (dashboard & dialog)
+  const dashboardLowStockColumns: Column<LowStockProduct>[] = React.useMemo(
+    () => [
+      {
+        id: "productName",
+        label: "Product Name",
+        minWidth: 150,
+        sortable: true,
+        render: (row) => (
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {row.productName}
+            </Typography>
+        ),
+      },
+      {
+        id: "variantName",
+        label: "Variant",
+        minWidth: 100,
+        sortable: true,
+        render: (row) => (
+          <Chip
+            label={row.variantName}
+            size="small"
+            sx={{
+              height: 20,
+              fontSize: "0.7rem",
+              fontWeight: 500,
+              bgcolor: "primary.light",
+              color: "primary.contrastText",
+            }}
+          />
+        ),
+      },
+      {
+        id: "category",
+        label: "Category",
+        minWidth: 100,
+        sortable: true,
+        render: (row) => (
+          <Typography
+            variant="caption"
+            sx={{
+              color: "text.secondary",
+              fontWeight: 500,
+              fontSize: "0.8rem",
+            }}
+          >
+            {row.category}
+          </Typography>
+        ),
+      },
+      {
+        id: "stock",
+        label: "Stock",
+        minWidth: 100,
+        align: "right",
+        sortable: true,
+        render: (row) => (
+          <Box>
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 700,
+                color: "error.main",
+                fontSize: "0.8rem",
+                display: "block",
+              }}
+            >
+              {row.stock}
+            </Typography>
+          </Box>
+        ),
+      },
+      {
+        id: "price",
+        label: "Price",
+        minWidth: 100,
+        align: "right",
+        sortable: true,
+        render: (row) => (
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 600, color: "primary.main", fontSize: "0.8rem" }}
+          >
+            ₹{row.price}
+          </Typography>
+        ),
+      },
+    ],
+    [],
+  );
+
+  // Columns for expiring products table (dialog)
+  const expiringColumns: Column<ExpiringProductVariant>[] = React.useMemo(
+    () => [
+      {
+        id: "productName",
+        label: "Product Name",
+        minWidth: 150,
+        sortable: true,
+        render: (row) => (
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {row.productName}
+          </Typography>
+        ),
+      },
+      {
+        id: "variantName",
+        label: "Variant",
+        minWidth: 120,
+        sortable: true,
+        render: (row) => (
+          <Chip
+            label={row.variantName}
+            size="small"
+            sx={{ height: 24, fontSize: "0.75rem" }}
+          />
+        ),
+      },
+      {
+        id: "category",
+        label: "Category",
+        minWidth: 100,
+        sortable: true,
+        render: (row) => (
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {row.category}
+          </Typography>
+        ),
+      },
+      {
+        id: "quantity",
+        label: "Quantity",
+        minWidth: 100,
+        align: "right",
+        sortable: true,
+        render: (row) => (
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {row.quantity}
+          </Typography>
+        ),
+      },
+      {
+        id: "sellingPrice",
+        label: "Price",
+        minWidth: 100,
+        align: "right",
+        sortable: true,
+        render: (row) => (
+          <Typography
+            variant="body2"
+            sx={{ fontWeight: 600, color: "primary.main" }}
+          >
+            ₹{row.sellingPrice}
+          </Typography>
+        ),
+      },
+      {
+        id: "expiryDate",
+        label: "Expiry Date",
+        minWidth: 150,
+        sortable: true,
+        render: (row) => {
+          const expiryStatus = getExpiryStatus(row.expiryDate);
+          return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
+                {format(row.expiryDate, "MMM dd, yyyy")}
+              </Typography>
+              <Chip
+                label={expiryStatus.text}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: "0.7rem",
+                  bgcolor:
+                    expiryStatus.days < 0
+                      ? "error.light"
+                      : expiryStatus.days <= 7
+                        ? "warning.light"
+                        : "success.light",
+                  color: "white",
+                  fontWeight: 600,
+                }}
+              />
+            </Box>
+          );
+        },
+      },
+    ],
+    [],
+  );
+
+  const handleDatePreset = (presetKey: DatePresetKey) => {
+    setDateRange(getDateRangeFromPreset(presetKey));
+    setDateAnchorEl(null);
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      {/* Header */}
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+          gap: 2,
+          mb: 4,
+        }}
+      >
+        <Box>
+          <Typography
+            variant="h4"
+            sx={{ fontWeight: 700, color: "#333", mb: 0.5 }}
+          >
+            Dashboard
+          </Typography>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Welcome back! Here's what's happening with your store today.
+          </Typography>
+        </Box>
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 2,
+            alignItems: "center",
+          }}
+        >
+          {/* Quick actions */}
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<VisibilityIcon />}
+              sx={{ textTransform: "none" }}
+              onClick={() => navigate("/orders")}
+            >
+              View Orders
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<AddIcon />}
+              sx={{ textTransform: "none" }}
+              onClick={() => navigate("/products/new")}
+            >
+              Add Product
+            </Button>
+          </Stack>
+          {/* Date range with presets */}
+          <Stack
+            direction="row"
+            spacing={1}
+            alignItems="center"
+            sx={{ flexWrap: "wrap" }}
+          >
+            {DATE_PRESETS.map((preset) => (
+              <Chip
+                key={preset.key}
+                label={preset.label}
+                onClick={() => handleDatePreset(preset.key)}
+                size="small"
+                variant="outlined"
+                sx={{
+                  cursor: "pointer",
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              />
+            ))}
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DateRangeIcon />}
+              sx={{ textTransform: "none" }}
+              onClick={(e) => setDateAnchorEl(e.currentTarget)}
+            >
+              {dateRange[0]?.startDate && dateRange[0]?.endDate
+                ? `${format(dateRange[0].startDate, "MMM dd")} - ${format(dateRange[0].endDate, "MMM dd")}`
+                : "Custom"}
+            </Button>
+          </Stack>
+        </Box>
+      </Box>
+
+      {/* Date Range Picker Popover */}
+      <Popover
+        open={Boolean(dateAnchorEl)}
+        anchorEl={dateAnchorEl}
+        onClose={() => setDateAnchorEl(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+        transformOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Box sx={{ p: 1 }}>
+          <DateRangePicker
+            ranges={dateRange}
+            onChange={(ranges: RangeKeyDict) => {
+              if (
+                ranges.selection &&
+                ranges.selection.startDate &&
+                ranges.selection.endDate
+              ) {
+                setDateRange([
+                  {
+                    startDate: ranges.selection.startDate,
+                    endDate: ranges.selection.endDate,
+                    key: ranges.selection.key || "selection",
+                  },
+                ]);
+              }
+            }}
+            moveRangeOnFirstSelection={false}
+          />
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 1,
+              mt: 1,
+              px: 1,
+              pb: 1,
+            }}
+          >
+            <Button
+              size="small"
+              onClick={() => {
+                setDateRange(getLastNDaysRangeForDatePicker(30));
+                setDateAnchorEl(null);
+              }}
+              sx={{ textTransform: "none" }}
+            >
+              Reset
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => setDateAnchorEl(null)}
+              sx={{ textTransform: "none" }}
+            >
+              Apply
+            </Button>
+          </Box>
+        </Box>
+      </Popover>
+
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {kpisLoading
+          ? // Loading state - show skeleton or loading cards
+            Array.from({ length: 4 }).map((_, index) => (
+              <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
+                <Card
+                  sx={{
+                    p: 2.5,
+                    height: "100%",
+                    borderRadius: 3,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <CardContent sx={{ p: 0, "&:last-child": { pb: 0 } }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <Box sx={{ flex: 1 }}>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ color: "text.secondary", mb: 1 }}
+                        >
+                          Loading...
+                        </Typography>
+                        <Typography
+                          variant="h4"
+                          sx={{ fontWeight: 700, mb: 1.5 }}
+                        >
+                          --
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          : kpis
+            ? // Render KPIs from API
+              [
+                {
+                  title: "Total Users",
+                  kpi: kpis.total_users,
+                  icon: PeopleIcon,
+                  color: "#7e57c2",
+                  bgColor: "#ede7f6",
+                  formatValue: (val: number) => val.toLocaleString(),
+                },
+                {
+                  title: "Total Orders",
+                  kpi: kpis.total_orders,
+                  icon: InventoryIcon,
+                  color: "#ffca28",
+                  bgColor: "#fff8e1",
+                  formatValue: (val: number) => val.toLocaleString(),
+                },
+                {
+                  title: "Revenue",
+                  kpi: kpis.revenue,
+                  icon: AttachMoneyIcon,
+                  color: "#66bb6a",
+                  bgColor: "#e8f5e9",
+                  formatValue: (val: number) => `₹${val.toLocaleString()}`,
+                },
+                {
+                  title: "Total Returns",
+                  kpi: kpis.total_returns,
+                  icon: AssignmentReturnIcon,
+                  color: "#ff7043",
+                  bgColor: "#fbe9e7",
+                  formatValue: (val: number) => val.toLocaleString(),
+                },
+              ].map((card, index) => {
+                const IconComponent = card.icon;
+                const isUp = card.kpi.change_type === "up";
+                return (
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
+                    <Card
+                      sx={{
+                        p: 2.5,
+                        height: "100%",
+                        background: `linear-gradient(135deg, ${card.bgColor} 0%, ${card.bgColor}dd 100%)`,
+                        borderRadius: 3,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                        transition: "transform 0.2s, box-shadow 0.2s",
+                        "&:hover": {
+                          transform: "translateY(-4px)",
+                          boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+                        },
+                      }}
+                    >
+                      <CardContent sx={{ p: 0, "&:last-child": { pb: 0 } }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            mb: 2,
+                          }}
+                        >
+                          <Box sx={{ flex: 1 }}>
+                            <Typography
+                              variant="subtitle2"
+                              sx={{
+                                color: "text.secondary",
+                                mb: 1,
+                                fontWeight: 500,
+                              }}
+                            >
+                              {card.title}
+                            </Typography>
+                            <Typography
+                              variant="h4"
+                              sx={{ fontWeight: 700, mb: 1.5, color: "#333" }}
+                            >
+                              {card.formatValue(card.kpi.value)}
+                            </Typography>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 0.5,
+                              }}
+                            >
+                              {isUp ? (
+                                <ArrowUpwardIcon
+                                  sx={{ fontSize: 16, color: "success.main" }}
+                                />
+                              ) : (
+                                <ArrowDownwardIcon
+                                  sx={{ fontSize: 16, color: "error.main" }}
+                                />
+                              )}
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: isUp ? "success.main" : "error.main",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {Math.abs(card.kpi.change)}%
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                sx={{ color: "text.secondary", ml: 0.5 }}
+                              >
+                                {isUp ? "Up" : "Down"} from {card.kpi.period}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Avatar
+                            sx={{
+                              bgcolor: card.color,
+                              width: 56,
+                              height: 56,
+                              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                            }}
+                          >
+                            <IconComponent sx={{ fontSize: 28 }} />
+                          </Avatar>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })
+            : // No data available
+              Array.from({ length: 4 }).map((_, index) => (
+                <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
+                  <Card
+                    sx={{
+                      p: 2.5,
+                      height: "100%",
+                      borderRadius: 3,
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                    }}
+                  >
+                    <CardContent sx={{ p: 0, "&:last-child": { pb: 0 } }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "flex-start",
+                        }}
+                      >
+                        <Box sx={{ flex: 1 }}>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ color: "text.secondary", mb: 1 }}
+                          >
+                            No data available
+                          </Typography>
+                          <Typography
+                            variant="h4"
+                            sx={{ fontWeight: 700, mb: 1.5 }}
+                          >
+                            --
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+      </Grid>
+
+      {/* Bottom Row - Top Products and Recent Orders */}
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 3,
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 600, color: "#333" }}>
+                Top Products
+              </Typography>
+              <Button
+                size="small"
+                sx={{ textTransform: "none" }}
+                onClick={() => navigate("/products")}
+              >
+                View All
+              </Button>
+            </Box>
+            {topProductsLoading ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  py: 4,
+                }}
+              >
+                <Typography color="text.secondary">
+                  Loading top products...
+                </Typography>
+              </Box>
+            ) : topProducts.length > 0 ? (
+              <Stack spacing={2}>
+                {topProducts.map((product, index) => (
+                  <Box
+                    key={product.product_id}
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      p: 2,
+                      borderRadius: 2,
+                      bgcolor:
+                        index % 2 === 0 ? "background.default" : "transparent",
+                      transition: "background-color 0.2s, cursor 0.2s",
+                      cursor: "pointer",
+                      "&:hover": {
+                        bgcolor: "action.hover",
+                      },
+                    }}
+                    onClick={() =>
+                      navigate(`/products/detail/${product.product_id}`)
+                    }
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <Avatar
+                        sx={{
+                          bgcolor: "primary.main",
+                          width: 40,
+                          height: 40,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {product.rank}
+                      </Avatar>
+                      <Box>
+                        <Typography
+                          variant="body1"
+                          sx={{ fontWeight: 500, color: "primary.main" }}
+                        >
+                          {product.product_name}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: "text.secondary" }}
+                        >
+                          ₹{product.revenue.toLocaleString()} • {product.orders}{" "}
+                          orders
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      {product.trend_type === "up" ? (
+                        <TrendingUpIcon
+                          sx={{ fontSize: 18, color: "success.main" }}
+                        />
+                      ) : (
+                        <TrendingDownIcon
+                          sx={{ fontSize: 18, color: "error.main" }}
+                        />
+                      )}
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color:
+                            product.trend_type === "up"
+                              ? "success.main"
+                              : "error.main",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {product.trend_type === "up" ? "+" : ""}
+                        {product.trend}%
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
+              </Stack>
+            ) : (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  py: 4,
+                }}
+              >
+                <Typography color="text.secondary">
+                  No top products data available
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 3,
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 600, color: "#333" }}>
+                Recent Orders
+              </Typography>
+              <Button
+                size="small"
+                sx={{ textTransform: "none" }}
+                onClick={() => navigate("/orders")}
+              >
+                View All
+              </Button>
+            </Box>
+            {recentOrdersLoading ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  py: 4,
+                }}
+              >
+                <Typography color="text.secondary">
+                  Loading recent orders...
+                </Typography>
+              </Box>
+            ) : recentOrders.length > 0 ? (
+              <Stack spacing={2}>
+                {recentOrders.map((order) => {
+                  const getStatusColor = (status: string) => {
+                    const upperStatus = status.toUpperCase();
+                    if (
+                      upperStatus === "DELIVERED" ||
+                      upperStatus === "COMPLETED"
+                    )
+                      return "success";
+                    if (upperStatus === "PENDING") return "warning";
+                    if (
+                      upperStatus === "ACCEPTED" ||
+                      upperStatus === "PROCESSING"
+                    )
+                      return "info";
+                    return "default";
+                  };
+
+                  return (
+                    <Box
+                      key={order.order_id}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        p: 2,
+                        borderRadius: 2,
+                        border: "1px solid",
+                        borderColor: "divider",
+                        transition: "box-shadow 0.2s, cursor 0.2s",
+                        cursor: "pointer",
+                        "&:hover": {
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                          borderColor: "primary.main",
+                        },
+                      }}
+                      onClick={() =>
+                        navigate(`/orders/detail/${order.order_id}`)
+                      }
+                    >
+                      <Box sx={{ flex: 1 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            mb: 0.5,
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontWeight: 600,
+                              color: "primary.main",
+                              "&:hover": {
+                                textDecoration: "underline",
+                              },
+                            }}
+                          >
+                            {order.order_number}
+                          </Typography>
+                          <Chip
+                            label={order.status}
+                            size="small"
+                            color={getStatusColor(order.status)}
+                            sx={{ height: 20, fontSize: "0.7rem" }}
+                          />
+                        </Box>
+                        <Typography
+                          variant="caption"
+                          sx={{ color: "text.secondary" }}
+                        >
+                          {order.customer_name != "N/A"
+                            ? order.customer_name
+                            : ""}{" "}
+                          • {order.time_ago}
+                        </Typography>
+                      </Box>
+                      <Typography
+                        variant="h6"
+                        sx={{ fontWeight: 600, color: "primary.main" }}
+                      >
+                        ₹{order.price.toLocaleString()}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            ) : (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  py: 4,
+                }}
+              >
+                <Typography color="text.secondary">
+                  No recent orders data available
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Inventory Alerts Section (Expiring vs Low Stock with Tabs) */}
+      <Grid container spacing={3} sx={{ mt: 3 }}>
+        <Grid size={{ xs: 12 }}>
+          <Paper
+            sx={{
+              p: 3,
+              borderRadius: 3,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              background: "linear-gradient(135deg, #fff9e6 0%, #ffffff 100%)",
+              border: "1px solid",
+              borderColor: "warning.light",
+            }}
+          >
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+                flexWrap: "wrap",
+                gap: 2,
+              }}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 1.5,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Avatar
+                  sx={{
+                    bgcolor: "warning.main",
+                    width: 40,
+                    height: 40,
+                    boxShadow: "0 2px 8px rgba(237, 108, 2, 0.3)",
+                  }}
+                >
+                  <WarningIcon sx={{ fontSize: 24 }} />
+                </Avatar>
+                <Box>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 700, color: "#333", mb: 0.25 }}
+                  >
+                    Inventory Alerts
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "text.secondary" }}
+                  >
+                    Monitor products that are expiring soon or running low on
+                    stock
+                  </Typography>
+                </Box>
+                {inventoryAlertTab === "expiring" ? (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      textTransform: "none",
+                      borderColor: "warning.main",
+                      color: "warning.main",
+                      "&:hover": {
+                        borderColor: "warning.dark",
+                        bgcolor: "warning.light",
+                        color: "white",
+                      },
+                    }}
+                    onClick={() => setExpiringDialogOpen(true)}
+                  >
+                    View All
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    sx={{
+                      textTransform: "none",
+                      borderColor: "error.main",
+                      color: "error.main",
+                      "&:hover": {
+                        borderColor: "error.dark",
+                        bgcolor: "error.light",
+                        color: "white",
+                      },
+                    }}
+                    onClick={() => setLowStockDialogOpen(true)}
+                  >
+                    View All
+                  </Button>
+                )}
+              </Box>
+              <Box
+                sx={{ display: "flex", alignItems: "center", flexWrap: "wrap" }}
+              >
+                <CustomTabs<"expiring" | "low_stock">
+                  tabs={[
+                    {
+                      value: "expiring",
+                      label: `Expiring (${expiringProductsTotalCount})`,
+                    },
+                    {
+                      value: "low_stock",
+                      label: `Low Stock (${lowStockProductsTotalCount})`,
+                    },
+                  ]}
+                  value={inventoryAlertTab}
+                  onChange={(val) => setInventoryAlertTab(val)}
+                />
+              </Box>
+            </Box>
+            <Box
+              sx={{
+                borderRadius: 2,
+                overflow: "hidden",
+                border: "1px solid",
+                borderColor: "divider",
+                bgcolor: "background.paper",
+                mt: 1,
+              }}
+            >
+              {dashboardExpiringProductsLoading ? (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    py: 4,
+                  }}
+                >
+                  <Typography color="text.secondary">
+                    {inventoryAlertTab === "expiring"
+                      ? "Loading expiring products..."
+                      : "Loading low stock products..."}
+                  </Typography>
+                </Box>
+              ) : inventoryAlertTab === "expiring" ? (
+                dashboardExpiringProducts.length > 0 ? (
+                  <DataTable
+                    key="inventory-alerts-expiring"
+                    columns={dashboardExpiringColumns}
+                    state={dashboardExpiringTableState}
+                    hidePagination={true}
+                    compact={true}
+                    rowHeight={"auto"}
+                    onRowClick={handleExpiringProductClick}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      py: 4,
+                    }}
+                  >
+                    <Typography color="text.secondary">
+                      No expiring products found
+                    </Typography>
+                  </Box>
+                )
+              ) : dashboardLowStockProducts.length > 0 ? (
+                <DataTable
+                  key="inventory-alerts-low-stock"
+                  columns={dashboardLowStockColumns}
+                  state={lowStockTableState}
+                  hidePagination={true}
+                  compact={true}
+                  rowHeight={60}
+                  onRowClick={handleLowStockProductClick}
+                />
+              ) : (
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    py: 4,
+                  }}
+                >
+                  <Typography color="text.secondary">
+                    No low stock products found
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      <ExpiringProductsDialog
+        open={expiringDialogOpen}
+        onClose={() => setExpiringDialogOpen(false)}
+        tableState={expiringTableState}
+        paginationModel={expiringPaginationModel}
+        onPaginationModelChange={setExpiringPaginationModel}
+        columns={expiringColumns}
+        onRowClick={handleExpiringProductClick}
+      />
+
+      <LowStockProductsDialog
+        open={lowStockDialogOpen}
+        onClose={() => setLowStockDialogOpen(false)}
+        products={dashboardLowStockProducts}
+        loading={dashboardLowStockProductsLoading}
+        columns={dashboardLowStockColumns}
+        onRowClick={handleLowStockProductClick}
+      />
+    </Box>
+  );
 }

@@ -384,7 +384,7 @@ export default function OrderList() {
                 </>
             }
         >
-            <DataTable key={`order-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} handlers={tableHandlers} />
+            <DataTable key={`order-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
         </ListPageLayout>
     );
 }
