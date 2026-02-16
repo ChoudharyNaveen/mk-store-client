@@ -24,6 +24,11 @@ export const API_URLS = {
     DELETE: (id: string | number) => `${API_PREFIX}/users/${id}`,
     CONVERT_TO_RIDER: `${API_PREFIX}/convert-user-to-rider`,
   },
+
+  // Rider endpoints
+  RIDERS: {
+    STATS: `${API_PREFIX}/rider-stats`,
+  },
   
   // Category endpoints
   CATEGORIES: {

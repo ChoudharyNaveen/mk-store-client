@@ -26,6 +26,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { fetchUsers, deleteUser, convertUserToRider, convertRiderToUser } from '../../services/user.service';
 import { fetchOrders, fetchOrderStats } from '../../services/order.service';
 import { fetchAddresses } from '../../services/address.service';
+import { fetchRiderStats, type RiderStats } from '../../services/rider.service';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { User } from '../../types/user';
 import type { Order } from '../../types/order';
@@ -422,6 +423,8 @@ export default function UserDetail() {
         count_by_status: Record<string, number>;
     } | null>(null);
     const [orderStatsLoading, setOrderStatsLoading] = React.useState(false);
+    const [riderStats, setRiderStats] = React.useState<RiderStats | null>(null);
+    const [riderStatsLoading, setRiderStatsLoading] = React.useState(false);
 
     React.useEffect(() => {
         if (!id) {
@@ -480,6 +483,26 @@ export default function UserDetail() {
 
         checkRiderOrders();
     }, [id, user]);
+
+    // Fetch rider stats when Rider Stats tab is active and rider orders exist
+    React.useEffect(() => {
+        if (!id || hasRiderOrders !== true || tabValue !== 4) return;
+
+        const loadRiderStats = async () => {
+            try {
+                setRiderStatsLoading(true);
+                const stats = await fetchRiderStats(id);
+                setRiderStats(stats);
+            } catch (error) {
+                console.error('Error fetching rider stats:', error);
+                setRiderStats(null);
+            } finally {
+                setRiderStatsLoading(false);
+            }
+        };
+
+        loadRiderStats();
+    }, [id, hasRiderOrders, tabValue]);
 
     // Fetch order stats when Activity tab is active (GET get-order-stats?createdBy=)
     React.useEffect(() => {
@@ -881,6 +904,70 @@ export default function UserDetail() {
                         {/* Rider Stats Tab - orders where this user is the rider (shown when any such orders exist) */}
                         {hasRiderOrders === true && (
                             <TabPanel value={tabValue} index={4}>
+                                {riderStats && (
+                                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                                            <Card>
+                                                <CardContent>
+                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                        Rider Total Orders
+                                                    </Typography>
+                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                                                        {riderStatsLoading ? '...' : riderStats.total_orders}
+                                                    </Typography>
+                                                </CardContent>
+                                            </Card>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                                            <Card>
+                                                <CardContent>
+                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                        Total Deliveries
+                                                    </Typography>
+                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                                                        {riderStatsLoading ? '...' : riderStats.total_deliveries}
+                                                    </Typography>
+                                                </CardContent>
+                                            </Card>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                                            <Card>
+                                                <CardContent>
+                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                        Completed Orders
+                                                    </Typography>
+                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                                                        {riderStatsLoading ? '...' : riderStats.completed_orders}
+                                                    </Typography>
+                                                </CardContent>
+                                            </Card>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                                            <Card>
+                                                <CardContent>
+                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                        Cancelled Orders
+                                                    </Typography>
+                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                                                        {riderStatsLoading ? '...' : riderStats.cancelled_orders}
+                                                    </Typography>
+                                                </CardContent>
+                                            </Card>
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                                            <Card>
+                                                <CardContent>
+                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                        Rating
+                                                    </Typography>
+                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
+                                                        {riderStatsLoading ? '...' : riderStats.rating?.toFixed(1) ?? '0.0'}
+                                                    </Typography>
+                                                </CardContent>
+                                            </Card>
+                                        </Grid>
+                                    </Grid>
+                                )}
                                 {id && <RiderStatsTable userId={id} />}
                             </TabPanel>
                         )}
