@@ -77,12 +77,18 @@ export const API_URLS = {
     GET_OFFER_SUMMARY: `${API_PREFIX}/get-offer-summary`,
   },
   
+  // Address endpoints
+  ADDRESSES: {
+    LIST: `${API_PREFIX}/get-address`,
+  },
+
   // Order endpoints
   ORDERS: {
     LIST: `${API_PREFIX}/get-order`,
     CREATE: `${API_PREFIX}/orders`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/orders/${id}`,
     GET_DETAILS: `${API_PREFIX}/get-order-details`,
+    GET_STATS: `${API_PREFIX}/get-order-stats`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-order/${id}`,
     DELETE: (id: string | number) => `${API_PREFIX}/orders/${id}`,
   },

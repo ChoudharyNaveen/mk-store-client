@@ -209,6 +209,46 @@ export interface OrderDetailsResponse {
 }
 
 /**
+ * Order stats response (GET get-order-stats?createdBy=)
+ */
+export interface OrderStatsResponse {
+  success: boolean;
+  data: {
+    total_orders: number;
+    total_amount: number;
+    last_order_date: string | null;
+    count_by_status: Record<string, number>;
+  };
+}
+
+/**
+ * Fetch order stats by createdBy (user id)
+ */
+export const fetchOrderStats = async (createdBy: string | number): Promise<OrderStatsResponse['data']> => {
+  try {
+    const url = `${API_URLS.ORDERS.GET_STATS}?createdBy=${encodeURIComponent(String(createdBy))}`;
+    const response = await http.get<OrderStatsResponse>(url);
+    if (response.success && response.data) {
+      return response.data;
+    }
+    return {
+      total_orders: 0,
+      total_amount: 0,
+      last_order_date: null,
+      count_by_status: {},
+    };
+  } catch (error) {
+    console.error('Error fetching order stats:', error);
+    return {
+      total_orders: 0,
+      total_amount: 0,
+      last_order_date: null,
+      count_by_status: {},
+    };
+  }
+};
+
+/**
  * Fetch order details by ID
  */
 export const fetchOrderDetails = async (id: string | number): Promise<OrderDetailsResponse['data']> => {
@@ -295,6 +335,7 @@ export const updateOrder = async (
 
 const orderService = {
   fetchOrders,
+  fetchOrderStats,
   fetchOrderDetails,
   updateOrder,
 };
