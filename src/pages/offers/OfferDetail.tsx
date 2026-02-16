@@ -24,6 +24,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchOfferById, fetchOfferSummary } from '../../services/offer.service';
 import type { Offer, OfferSummary } from '../../types/offer';
+import KPICard from '../../components/KPICard';
 import { useDetailWithSummary } from '../../hooks/useDetailWithSummary';
 import { format } from 'date-fns';
 
@@ -185,29 +186,36 @@ export default function OfferDetail() {
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                 Quick stats
               </Typography>
-              <Grid container spacing={3}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <LocalOfferOutlinedIcon sx={{ color: 'text.secondary', fontSize: 28 }} />
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" display="block">Total redemptions</Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        {summaryLoading ? '—' : summary != null ? summary.totalRedemptions : '—'}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <ShoppingCartOutlinedIcon sx={{ color: 'text.secondary', fontSize: 28 }} />
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" display="block">Total discounts given</Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        {summaryLoading ? '—' : summary != null ? `₹${Number(summary.totalDiscountsGiven).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Grid>
+              <Grid container spacing={2}>
+                {[
+                  {
+                    label: 'Total redemptions',
+                    value: summary != null ? summary.totalRedemptions : '—',
+                    icon: <LocalOfferOutlinedIcon />,
+                    iconBgColor: '#1976d2',
+                    bgColor: '#e3f2fd',
+                  },
+                  {
+                    label: 'Total discounts given',
+                    value: summary != null ? `₹${Number(summary.totalDiscountsGiven).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—',
+                    icon: <ShoppingCartOutlinedIcon />,
+                    iconBgColor: '#2e7d32',
+                    bgColor: '#e8f5e9',
+                    valueColor: '#2e7d32',
+                  },
+                ].map((kpi, index) => (
+                  <Grid key={index} size={{ xs: 12, sm: 6 }}>
+                    <KPICard
+                      label={kpi.label}
+                      value={kpi.value}
+                      icon={kpi.icon}
+                      iconBgColor={kpi.iconBgColor}
+                      bgColor={kpi.bgColor}
+                      valueColor={kpi.valueColor}
+                      loading={summaryLoading}
+                    />
+                  </Grid>
+                ))}
               </Grid>
             </CardContent>
           </Card>

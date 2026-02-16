@@ -26,6 +26,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchBrandById, fetchBrandSummary } from '../../services/brand.service';
 import type { Brand, BrandSummary } from '../../types/brand';
+import KPICard from '../../components/KPICard';
 import { useDetailWithSummary } from '../../hooks/useDetailWithSummary';
 import { format } from 'date-fns';
 
@@ -150,63 +151,42 @@ export default function BrandDetail() {
 
               {/* Stat cards - match SubCategoryDetail Reports cards */}
               <Grid container spacing={2} sx={{ mb: 4 }}>
-                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar sx={{ bgcolor: 'primary.main' }}>
-                          <Inventory2OutlinedIcon />
-                        </Avatar>
-                        <Box>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Products using this brand
-                          </Typography>
-                          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                            {summaryLoading ? '—' : summary != null ? summary.totalProducts : '—'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar sx={{ bgcolor: 'success.main' }}>
-                          <CheckCircleOutlinedIcon />
-                        </Avatar>
-                        <Box>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Active products
-                          </Typography>
-                          <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                            {summaryLoading ? '—' : summary != null ? summary.activeProducts : '—'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                  <Card>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar sx={{ bgcolor: 'grey.600' }}>
-                          <EventOutlinedIcon />
-                        </Avatar>
-                        <Box>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Created
-                          </Typography>
-                          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                            {createdAt ? format(new Date(createdAt), 'MMM dd, yyyy') : '—'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
+                {[
+                  {
+                    label: 'Products using this brand',
+                    value: summary != null ? summary.totalProducts : '—',
+                    icon: <Inventory2OutlinedIcon />,
+                    iconBgColor: '#1976d2',
+                    bgColor: '#e3f2fd',
+                  },
+                  {
+                    label: 'Active products',
+                    value: summary != null ? summary.activeProducts : '—',
+                    icon: <CheckCircleOutlinedIcon />,
+                    iconBgColor: '#2e7d32',
+                    bgColor: '#e8f5e9',
+                    valueColor: '#2e7d32',
+                  },
+                  {
+                    label: 'Created',
+                    value: createdAt ? format(new Date(createdAt), 'MMM dd, yyyy') : '—',
+                    icon: <EventOutlinedIcon />,
+                    iconBgColor: '#616161',
+                    bgColor: '#f5f5f5',
+                  },
+                ].map((kpi, index) => (
+                  <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
+                    <KPICard
+                      label={kpi.label}
+                      value={kpi.value}
+                      icon={kpi.icon}
+                      iconBgColor={kpi.iconBgColor}
+                      bgColor={kpi.bgColor}
+                      valueColor={kpi.valueColor}
+                      loading={summaryLoading}
+                    />
+                  </Grid>
+                ))}
               </Grid>
 
               {/* Single section: Basic info + Description + Created + Where used */}

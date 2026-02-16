@@ -8,8 +8,6 @@ import {
     Avatar,
     Chip,
     CircularProgress,
-    Card,
-    CardContent,
     Tabs,
     Tab,
     Stack,
@@ -22,6 +20,11 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PersonIcon from '@mui/icons-material/Person';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import StarIcon from '@mui/icons-material/Star';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchUsers, deleteUser, convertUserToRider, convertRiderToUser } from '../../services/user.service';
 import { fetchOrders, fetchOrderStats } from '../../services/order.service';
@@ -35,6 +38,7 @@ import type { Column } from '../../types/table';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
 import { useServerPagination } from '../../hooks/useServerPagination';
+import KPICard from '../../components/KPICard';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -818,53 +822,42 @@ export default function UserDetail() {
                         {/* Activity Tab - stats from GET get-order-stats?createdBy= */}
                         <TabPanel value={tabValue} index={3}>
                             <Grid container spacing={2} sx={{ mb: 4 }}>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'primary.main' }}>
-                                                    <ShoppingCartIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>Total Orders</Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>{orderStatsLoading ? '...' : (orderStats?.total_orders ?? 0)}</Typography>
-                                                </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'success.main' }}>
-                                                    <AccountBalanceWalletIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>Total Spent</Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>{orderStatsLoading ? '...' : `₹${(orderStats?.total_amount ?? 0).toLocaleString()}`}</Typography>
-                                                </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <Card>
-                                        <CardContent>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Avatar sx={{ bgcolor: 'warning.main' }}>
-                                                    <CalendarTodayIcon />
-                                                </Avatar>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>Last Order Date</Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                                        {orderStatsLoading ? '...' : orderStats?.last_order_date ? format(new Date(orderStats.last_order_date), 'MMM dd, yyyy') : 'N/A'}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-                                        </CardContent>
-                                    </Card>
-                                </Grid>
+                                {[
+                                    {
+                                        label: 'Total Orders',
+                                        value: orderStats?.total_orders ?? 0,
+                                        icon: <ShoppingCartIcon />,
+                                        iconBgColor: '#1976d2',
+                                        bgColor: '#e3f2fd',
+                                    },
+                                    {
+                                        label: 'Total Spent',
+                                        value: `₹${(orderStats?.total_amount ?? 0).toLocaleString()}`,
+                                        icon: <AccountBalanceWalletIcon />,
+                                        iconBgColor: '#2e7d32',
+                                        bgColor: '#e8f5e9',
+                                        valueColor: '#2e7d32',
+                                    },
+                                    {
+                                        label: 'Last Order Date',
+                                        value: orderStats?.last_order_date ? format(new Date(orderStats.last_order_date), 'MMM dd, yyyy') : 'N/A',
+                                        icon: <CalendarTodayIcon />,
+                                        iconBgColor: '#ed6c02',
+                                        bgColor: '#fff3e0',
+                                    },
+                                ].map((kpi, index) => (
+                                    <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+                                        <KPICard
+                                            label={kpi.label}
+                                            value={kpi.value}
+                                            icon={kpi.icon}
+                                            iconBgColor={kpi.iconBgColor}
+                                            bgColor={kpi.bgColor}
+                                            valueColor={kpi.valueColor}
+                                            loading={orderStatsLoading}
+                                        />
+                                    </Grid>
+                                ))}
                             </Grid>
                             {orderStats?.count_by_status && Object.keys(orderStats.count_by_status).length > 0 && (
                                 <Box sx={{ mb: 3 }}>
@@ -906,66 +899,58 @@ export default function UserDetail() {
                             <TabPanel value={tabValue} index={4}>
                                 {riderStats && (
                                     <Grid container spacing={2} sx={{ mb: 3 }}>
-                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-                                            <Card>
-                                                <CardContent>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Rider Total Orders
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                                        {riderStatsLoading ? '...' : riderStats.total_orders}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-                                            <Card>
-                                                <CardContent>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Total Deliveries
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                                        {riderStatsLoading ? '...' : riderStats.total_deliveries}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-                                            <Card>
-                                                <CardContent>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Completed Orders
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                                        {riderStatsLoading ? '...' : riderStats.completed_orders}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-                                            <Card>
-                                                <CardContent>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Cancelled Orders
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                                        {riderStatsLoading ? '...' : riderStats.cancelled_orders}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-                                            <Card>
-                                                <CardContent>
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        Rating
-                                                    </Typography>
-                                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                                        {riderStatsLoading ? '...' : riderStats.rating?.toFixed(1) ?? '0.0'}
-                                                    </Typography>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
+                                        {[
+                                            {
+                                                label: 'Rider Total Orders',
+                                                value: riderStats.total_orders,
+                                                icon: <AssignmentIcon />,
+                                                iconBgColor: '#1976d2',
+                                                bgColor: '#e3f2fd',
+                                            },
+                                            {
+                                                label: 'Total Deliveries',
+                                                value: riderStats.total_deliveries,
+                                                icon: <LocalShippingIcon />,
+                                                iconBgColor: '#0288d1',
+                                                bgColor: '#e1f5fe',
+                                            },
+                                            {
+                                                label: 'Completed Orders',
+                                                value: riderStats.completed_orders,
+                                                icon: <CheckCircleIcon />,
+                                                iconBgColor: '#2e7d32',
+                                                bgColor: '#e8f5e9',
+                                                valueColor: '#2e7d32',
+                                            },
+                                            {
+                                                label: 'Cancelled Orders',
+                                                value: riderStats.cancelled_orders,
+                                                icon: <CancelIcon />,
+                                                iconBgColor: '#d32f2f',
+                                                bgColor: '#ffebee',
+                                                valueColor: '#d32f2f',
+                                            },
+                                            {
+                                                label: 'Rating',
+                                                value: riderStats.rating?.toFixed(1) ?? '0.0',
+                                                icon: <StarIcon />,
+                                                iconBgColor: '#ed6c02',
+                                                bgColor: '#fff3e0',
+                                                valueColor: '#ed6c02',
+                                            },
+                                        ].map((kpi, index) => (
+                                            <Grid key={index} size={{ xs: 12, sm: 6, md: 2 }}>
+                                                <KPICard
+                                                    label={kpi.label}
+                                                    value={kpi.value}
+                                                    icon={kpi.icon}
+                                                    iconBgColor={kpi.iconBgColor}
+                                                    bgColor={kpi.bgColor}
+                                                    valueColor={kpi.valueColor}
+                                                    loading={riderStatsLoading}
+                                                />
+                                            </Grid>
+                                        ))}
                                     </Grid>
                                 )}
                                 {id && <RiderStatsTable userId={id} />}

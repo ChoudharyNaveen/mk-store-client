@@ -8,8 +8,6 @@ import {
     Avatar,
     Chip,
     CircularProgress,
-    Card,
-    CardContent,
     Tabs,
     Tab,
     Stack,
@@ -32,6 +30,7 @@ import { showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { Product, ProductVariant } from '../../types/product';
 import type { ProductStats, InventoryMovement } from '../../types/product';
 import DataTable from '../../components/DataTable';
+import KPICard from '../../components/KPICard';
 import { useRecentlyViewed } from '../../contexts/RecentlyViewedContext';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import type { Column, TableState } from '../../types/table';
@@ -220,82 +219,50 @@ export default function ProductDetail() {
 
             {/* Summary Cards */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Avatar sx={{ bgcolor: 'primary.main' }}>
-                                    <ShoppingCartIcon />
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                        Total Orders
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                        {productStats?.total_orders ?? 0}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Avatar sx={{ bgcolor: 'success.main' }}>
-                                    <TrendingUpIcon />
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                        Units Sold
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                        {productStats?.units_sold ?? 0}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Avatar sx={{ bgcolor: 'info.main' }}>
-                                    <InventoryIcon />
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                        Revenue Generated
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'info.main' }}>
-                                        ₹{productStats?.revenue_generated ? (productStats.revenue_generated / 1000000).toFixed(1) + 'M' : '0'}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <Card>
-                        <CardContent>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <Avatar sx={{ bgcolor: 'warning.main' }}>
-                                    <WarehouseIcon />
-                                </Avatar>
-                                <Box>
-                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                        Current Stock
-                                    </Typography>
-                                    <Typography variant="h5" sx={{ fontWeight: 600, color: 'warning.main' }}>
-                                        {productStats?.current_stock?.toLocaleString() ?? product.quantity?.toLocaleString() ?? 0}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </CardContent>
-                    </Card>
-                </Grid>
+                {[
+                    {
+                        label: 'Total Orders',
+                        value: productStats?.total_orders ?? 0,
+                        icon: <ShoppingCartIcon />,
+                        iconBgColor: '#1976d2',
+                        bgColor: '#e3f2fd',
+                    },
+                    {
+                        label: 'Units Sold',
+                        value: productStats?.units_sold ?? 0,
+                        icon: <TrendingUpIcon />,
+                        iconBgColor: '#2e7d32',
+                        bgColor: '#e8f5e9',
+                        valueColor: '#2e7d32',
+                    },
+                    {
+                        label: 'Revenue Generated',
+                        value: productStats?.revenue_generated ? `₹${(productStats.revenue_generated / 1000000).toFixed(1)}M` : '₹0',
+                        icon: <InventoryIcon />,
+                        iconBgColor: '#0288d1',
+                        bgColor: '#e1f5fe',
+                        valueColor: '#0288d1',
+                    },
+                    {
+                        label: 'Current Stock',
+                        value: productStats?.current_stock?.toLocaleString() ?? product.quantity?.toLocaleString() ?? 0,
+                        icon: <WarehouseIcon />,
+                        iconBgColor: '#ed6c02',
+                        bgColor: '#fff3e0',
+                        valueColor: '#ed6c02',
+                    },
+                ].map((kpi, index) => (
+                    <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+                        <KPICard
+                            label={kpi.label}
+                            value={kpi.value}
+                            icon={kpi.icon}
+                            iconBgColor={kpi.iconBgColor}
+                            bgColor={kpi.bgColor}
+                            valueColor={kpi.valueColor}
+                        />
+                    </Grid>
+                ))}
             </Grid>
 
             <Grid container spacing={3}>

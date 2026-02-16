@@ -8,8 +8,6 @@ import {
     Avatar,
     Chip,
     CircularProgress,
-    Card,
-    CardContent,
     Tabs,
     Tab,
     IconButton,
@@ -46,6 +44,7 @@ import HighchartsReact from 'highcharts-react-official';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { setDateRange } from '../../store/dateRangeSlice';
 import DataTable from '../../components/DataTable';
+import KPICard from '../../components/KPICard';
 import { useServerPagination } from '../../hooks/useServerPagination';
 
 interface TabPanelProps {
@@ -427,7 +426,7 @@ function ProductsTable({ subCategoryId }: ProductsTableProps) {
         [subCategoryId]
     );
 
-    const { paginationModel, setPaginationModel, tableState, tableHandlers } = useServerPagination<Product>({
+    const { paginationModel, setPaginationModel, tableState } = useServerPagination<Product>({
         fetchFunction: fetchProductsBySubCategory,
         initialPageSize: 20,
         enabled: true,
@@ -1054,82 +1053,50 @@ export default function SubCategoryDetail() {
                                 </Box>
                             ) : stats ? (
                                 <Grid container spacing={2} sx={{ mb: 4 }}>
-                                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                        <Card>
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                    <Avatar sx={{ bgcolor: 'success.main' }}>
-                                                        <InventoryIcon />
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                            Total Products
-                                                        </Typography>
-                                                        <Typography variant="h5" sx={{ fontWeight: 600 }}>
-                                                            {stats.total_products}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                        <Card>
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                    <Avatar sx={{ bgcolor: 'info.main' }}>
-                                                        <ShoppingCartIcon />
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                            Active Products
-                                                        </Typography>
-                                                        <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                            {stats.active_products}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                        <Card>
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                    <Avatar sx={{ bgcolor: 'success.dark' }}>
-                                                        <AttachMoneyIcon />
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                            Total Revenue
-                                                        </Typography>
-                                                        <Typography variant="h5" sx={{ fontWeight: 600, color: 'success.main' }}>
-                                                            ₹{stats.total_revenue.toLocaleString()}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                        <Card>
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                    <Avatar sx={{ bgcolor: 'error.main' }}>
-                                                        <CancelIcon />
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                            Out of Stock
-                                                        </Typography>
-                                                        <Typography variant="h5" sx={{ fontWeight: 600, color: 'error.main' }}>
-                                                            {stats.out_of_stock}
-                                                        </Typography>
-                                                    </Box>
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
+                                    {[
+                                        {
+                                            label: 'Total Products',
+                                            value: stats.total_products,
+                                            icon: <InventoryIcon />,
+                                            iconBgColor: '#2e7d32',
+                                            bgColor: '#e8f5e9',
+                                        },
+                                        {
+                                            label: 'Active Products',
+                                            value: stats.active_products,
+                                            icon: <ShoppingCartIcon />,
+                                            iconBgColor: '#0288d1',
+                                            bgColor: '#e1f5fe',
+                                            valueColor: '#2e7d32',
+                                        },
+                                        {
+                                            label: 'Total Revenue',
+                                            value: `₹${stats.total_revenue.toLocaleString()}`,
+                                            icon: <AttachMoneyIcon />,
+                                            iconBgColor: '#1b5e20',
+                                            bgColor: '#e8f5e9',
+                                            valueColor: '#2e7d32',
+                                        },
+                                        {
+                                            label: 'Out of Stock',
+                                            value: stats.out_of_stock,
+                                            icon: <CancelIcon />,
+                                            iconBgColor: '#d32f2f',
+                                            bgColor: '#ffebee',
+                                            valueColor: '#d32f2f',
+                                        },
+                                    ].map((kpi, index) => (
+                                        <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+                                            <KPICard
+                                                label={kpi.label}
+                                                value={kpi.value}
+                                                icon={kpi.icon}
+                                                iconBgColor={kpi.iconBgColor}
+                                                bgColor={kpi.bgColor}
+                                                valueColor={kpi.valueColor}
+                                            />
+                                        </Grid>
+                                    ))}
                                 </Grid>
                             ) : (
                                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
