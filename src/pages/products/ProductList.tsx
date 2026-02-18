@@ -118,6 +118,9 @@ export default function ProductList() {
 
     // Variants popover state
     const [variantsAnchorEl, setVariantsAnchorEl] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
+    // Variants hover preview
+    const [variantsPreviewAnchor, setVariantsPreviewAnchor] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
+    const variantsPreviewCloseTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     // Image hover preview
     const [imagePreviewAnchor, setImagePreviewAnchor] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
     const imagePreviewCloseTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -298,19 +301,100 @@ export default function ProductList() {
         {
             id: 'variants' as keyof Product,
             label: 'Variants',
-            minWidth: 100,
+            minWidth: 120,
             align: 'center' as const,
             render: (row: Product) => {
                 const variantCount = row.variants?.length || 0;
+                const variants = row.variants || [];
+                const previewLimit = 5;
+                const hasMore = variantCount > previewLimit;
                 return (
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}
-                    onClick={(e) => setVariantsAnchorEl({ el: e.currentTarget, product: row })}>
+                    <Box
+                        onMouseEnter={(e) => {
+                            if (variantsPreviewCloseTimeoutRef.current) {
+                                clearTimeout(variantsPreviewCloseTimeoutRef.current);
+                                variantsPreviewCloseTimeoutRef.current = null;
+                            }
+                            if (variantCount > 0) setVariantsPreviewAnchor({ el: e.currentTarget, product: row });
+                        }}
+                        onMouseLeave={() => {
+                            variantsPreviewCloseTimeoutRef.current = setTimeout(() => setVariantsPreviewAnchor(null), 150);
+                        }}
+                        onClick={(e) => { e.stopPropagation(); setVariantsAnchorEl({ el: e.currentTarget, product: row }); }}
+                        sx={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
                         <Chip
-                            label={`${variantCount} variant${variantCount !== 1 ? 's' : ''}`}
+                            label={variantCount > 0 ? `${variantCount} variant${variantCount !== 1 ? 's' : ''}` : '—'}
                             size="small"
-                            sx={{ fontWeight: 500, '&:hover': { cursor: 'pointer', bgcolor: 'primary.main', color: 'white' } }}
-                            
+                            sx={{
+                                fontWeight: 500,
+                                cursor: variantCount > 0 ? 'pointer' : 'default',
+                                '&:hover': variantCount > 0 ? { bgcolor: 'primary.main', color: 'white' } : {},
+                            }}
                         />
+                        {variantCount > 0 && (
+                            <Popover
+                                open={variantsPreviewAnchor?.product?.id === row.id}
+                                anchorEl={variantsPreviewAnchor?.el}
+                                onClose={() => setVariantsPreviewAnchor(null)}
+                                anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
+                                transformOrigin={{ vertical: 'center', horizontal: 'left' }}
+                                disableRestoreFocus
+                                slotProps={{ root: { sx: { pointerEvents: 'none' } } } as object}
+                                PaperProps={{
+                                    onMouseEnter: () => {
+                                        if (variantsPreviewCloseTimeoutRef.current) {
+                                            clearTimeout(variantsPreviewCloseTimeoutRef.current);
+                                            variantsPreviewCloseTimeoutRef.current = null;
+                                        }
+                                    },
+                                    onMouseLeave: () => setVariantsPreviewAnchor(null),
+                                    sx: { pointerEvents: 'auto', minWidth: 260, maxWidth: 340, p: 2, borderRadius: 2, boxShadow: 3, ml: 0.5 },
+                                }}
+                            >
+                                <Box>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: 'text.primary' }}>
+                                        Variants
+                                    </Typography>
+                                    <Box component="ul" sx={{ m: 0, p: 0, listStyle: 'none' }}>
+                                        {variants.slice(0, previewLimit).map((v) => (
+                                            <Box
+                                                key={v.id}
+                                                component="li"
+                                                sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    gap: 1,
+                                                    py: 0.75,
+                                                    px: 1,
+                                                    borderRadius: 1,
+                                                    '&:hover': { bgcolor: 'action.hover' },
+                                                }}
+                                            >
+                                                <Typography variant="body2" sx={{ fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {v.variant_name || 'Unnamed'}
+                                                </Typography>
+                                                <Typography variant="body2" color="primary" sx={{ fontWeight: 600, flexShrink: 0 }}>
+                                                    ₹{v.selling_price?.toLocaleString() ?? v.price?.toLocaleString() ?? '—'}
+                                                </Typography>
+                                                <Chip
+                                                    label={v.product_status === 'INSTOCK' ? 'In' : 'Out'}
+                                                    size="small"
+                                                    color={v.product_status === 'INSTOCK' ? 'success' : 'error'}
+                                                    sx={{ height: 20, fontSize: '0.7rem', flexShrink: 0 }}
+                                                />
+                                            </Box>
+                                        ))}
+                                    </Box>
+                                    {hasMore && (
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                            +{variantCount - previewLimit} more — click for full details
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </Popover>
+                        )}
                     </Box>
                 );
             }
