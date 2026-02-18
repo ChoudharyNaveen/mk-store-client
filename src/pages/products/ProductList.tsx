@@ -389,9 +389,12 @@ export default function ProductList() {
                                     </Box>
                                     {hasMore && (
                                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                                            +{variantCount - previewLimit} more — click for full details
+                                            +{variantCount - previewLimit} more
                                         </Typography>
                                     )}
+                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                        Click to see full details
+                                    </Typography>
                                 </Box>
                             </Popover>
                         )}
