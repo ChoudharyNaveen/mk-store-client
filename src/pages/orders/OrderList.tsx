@@ -17,6 +17,8 @@ import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '.
 import { useAppSelector } from '../../store/hooks';
 import { ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '../../constants/statusOptions';
 import { exportToCSV } from '../../utils/exportCsv';
+import { getOrderStatusSx, getPaymentStatusColor } from '../../utils/statusColors';
+import { concatProductAndVariant } from '../../utils/orderHelpers';
 
 export default function OrderList() {
     const navigate = useNavigate();
@@ -147,6 +149,16 @@ export default function OrderList() {
                                 }}
                             >
                                 <Box sx={{ p: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                            {row.order_number}
+                                        </Typography>
+                                        <Chip label={row.status} size="small" sx={{ ...getOrderStatusSx(row.status), fontWeight: 500 }} />
+                                    </Box>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                                        <Typography variant="body2" color="text.secondary">₹{row.final_amount?.toLocaleString() || '0.00'}</Typography>
+                                        <Typography variant="caption" color="text.secondary">{row.user?.name || 'N/A'}</Typography>
+                                    </Box>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                                         <ShoppingCartIcon color="primary" sx={{ fontSize: 20 }} />
                                         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
@@ -168,17 +180,45 @@ export default function OrderList() {
                                                 >
                                                     <ListItemText
                                                         primary={
-                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                <Typography variant="body2" sx={{ fontWeight: 500, flex: 1 }}>
-                                                                    {item.product?.title || `Product #${item.product_id}`}
-                                                                </Typography>
+                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                                                                <Box
+                                                                    sx={{
+                                                                        flex: 1,
+                                                                        minWidth: 0,
+                                                                        maxHeight: '2.8em',
+                                                                        overflow: 'hidden',
+                                                                        display: 'block',
+                                                                        lineHeight: 1.4,
+                                                                    }}
+                                                                >
+                                                                    <Typography
+                                                                        variant="body2"
+                                                                        sx={{
+                                                                            fontWeight: 500,
+                                                                            color: '#204564',
+                                                                            fontSize: '14px',
+                                                                            overflow: 'hidden',
+                                                                            whiteSpace: 'normal',
+                                                                            wordBreak: 'break-word',
+                                                                            display: '-webkit-box',
+                                                                            WebkitLineClamp: 2,
+                                                                            WebkitBoxOrient: 'vertical',
+                                                                        }}
+                                                                    >
+                                                                        {concatProductAndVariant(
+                                                                            item.product?.title || `Product #${item.product_id}`,
+                                                                            (item as { variant?: { name?: string }; variant_name?: string }).variant?.name ??
+                                                                                (item as { variant_name?: string }).variant_name
+                                                                        )}
+                                                                    </Typography>
+                                                                </Box>
                                                                 <Chip
                                                                     label={`Qty: ${item.quantity}`}
                                                                     size="small"
                                                                     color="primary"
                                                                     variant="outlined"
                                                                     sx={{
-                                                                        ml: 1,
+                                                                        flexShrink: 0,
                                                                         height: 24,
                                                                         fontSize: '0.75rem',
                                                                     }}
@@ -203,31 +243,17 @@ export default function OrderList() {
             label: 'Status',
             minWidth: 120,
             render: (row: Order) => {
-                const getStatusSx = (status: string) => {
-                    const styles: Record<string, { bgcolor: string; color: string }> = {
-                        DELIVERED: { bgcolor: '#a5d6a7', color: '#1b5e20' },
-                        PENDING: { bgcolor: '#ffcc80', color: '#e65100' },
-                        CANCELLED: { bgcolor: '#ef9a9a', color: '#b71c1c' },
-                        REJECTED: { bgcolor: '#bcaaa4', color: '#3e2723' },
-                        FAILED: { bgcolor: '#e57373', color: '#b71c1c' },
-                        RETURN: { bgcolor: '#ffb74d', color: '#e65100' },
-                        RETURNED: { bgcolor: '#ffa726', color: '#ef6c00' },
-                        ACCEPTED: { bgcolor: '#90caf9', color: '#0d47a1' },
-                        CONFIRMED: { bgcolor: '#4fc3f7', color: '#01579b' },
-                        PROCESSING: { bgcolor: '#9fa8da', color: '#283593' },
-                        SHIPPED: { bgcolor: '#80cbc4', color: '#004d40' },
-                        READY_FOR_PICKUP: { bgcolor: '#ce93d8', color: '#4a148c' },
-                        PICKED_UP: { bgcolor: '#b39ddb', color: '#311b92' },
-                        ARRIVED: { bgcolor: '#b0bec5', color: '#263238' },
-                    };
-                    return styles[status] ?? { bgcolor: '#bdbdbd', color: '#212121' };
-                };
-                const sx = getStatusSx(row.status);
+                const sx = getOrderStatusSx(row.status);
                 return (
                     <Chip
                         label={row.status}
                         size="small"
-                        sx={{ ...sx, fontWeight: 500 }}
+                        sx={{
+                            ...sx,
+                            fontWeight: 500,
+                            transition: 'transform 0.2s ease',
+                            '&:hover': { transform: 'scale(1.05)' },
+                        }}
                     />
                 );
             }
@@ -236,29 +262,13 @@ export default function OrderList() {
             id: 'payment_status' as keyof Order,
             label: 'Payment Status',
             minWidth: 130,
-            render: (row: Order) => {
-                const getPaymentColor = (status: string) => {
-                    switch (status) {
-                        case 'PAID':
-                            return 'success';
-                        case 'UNPAID':
-                            return 'error';
-                        case 'PARTIAL':
-                            return 'warning';
-                        case 'REFUNDED':
-                            return 'default';
-                        default:
-                            return 'default';
-                    }
-                };
-                return (
-                    <Chip
-                        label={row.payment_status}
-                        color={getPaymentColor(row.payment_status)}
-                        size="small"
-                    />
-                );
-            }
+            render: (row: Order) => (
+                <Chip
+                    label={row.payment_status}
+                    color={getPaymentStatusColor(row.payment_status)}
+                    size="small"
+                />
+            )
         },
         {
             id: 'action' as keyof Order,

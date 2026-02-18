@@ -152,7 +152,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
             if (notif.type === 'ORDER_PLACED' && notif.entity_id && typeof notif.entity_id === 'number') {
               // Play notification sound for order alerts
               playNotificationSound();
-              
+
               requestAnimationFrame(() => {
                 if (!isMountedRef.current) {
                   return;

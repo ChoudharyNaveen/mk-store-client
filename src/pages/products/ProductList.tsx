@@ -118,6 +118,9 @@ export default function ProductList() {
 
     // Variants popover state
     const [variantsAnchorEl, setVariantsAnchorEl] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
+    // Image hover preview
+    const [imagePreviewAnchor, setImagePreviewAnchor] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
+    const imagePreviewCloseTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     // Stock update dialog
     const [stockUpdateProduct, setStockUpdateProduct] = React.useState<Product | null>(null);
 
@@ -159,13 +162,50 @@ export default function ProductList() {
             render: (row: Product) => {
                 const imageUrl = getDefaultImage(row);
                 return (
-                    <Avatar
-                        src={imageUrl}
-                        alt={row.title}
-                        variant="rounded"
-                        sx={{ width: 50, height: 50, py: 1 }}
-                        onClick={() => navigate(`/products/detail/${row.id}`, { state: { productIds: tableState.data.map((p) => p.id) } })}
-                    />  
+                    <Box
+                        onMouseEnter={(e) => {
+                            if (imagePreviewCloseTimeoutRef.current) {
+                                clearTimeout(imagePreviewCloseTimeoutRef.current);
+                                imagePreviewCloseTimeoutRef.current = null;
+                            }
+                            setImagePreviewAnchor({ el: e.currentTarget, product: row });
+                        }}
+                        onMouseLeave={() => {
+                            imagePreviewCloseTimeoutRef.current = setTimeout(() => setImagePreviewAnchor(null), 150);
+                        }}
+                        sx={{ display: 'inline-flex' }}
+                    >
+                        <Avatar
+                            src={imageUrl}
+                            alt={row.title}
+                            variant="rounded"
+                            sx={{ width: 50, height: 50, py: 1, cursor: 'pointer' }}
+                            onClick={() => navigate(`/products/detail/${row.id}`, { state: { productIds: tableState.data.map((p) => p.id) } })}
+                        />
+                        <Popover
+                            open={imagePreviewAnchor?.product?.id === row.id}
+                            anchorEl={imagePreviewAnchor?.el}
+                            onClose={() => setImagePreviewAnchor(null)}
+                            anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
+                            transformOrigin={{ vertical: 'center', horizontal: 'left' }}
+                            disableRestoreFocus
+                            slotProps={{ root: { sx: { pointerEvents: 'none' } } } as object}
+                            PaperProps={{
+                                onMouseEnter: () => {
+                                    if (imagePreviewCloseTimeoutRef.current) {
+                                        clearTimeout(imagePreviewCloseTimeoutRef.current);
+                                        imagePreviewCloseTimeoutRef.current = null;
+                                    }
+                                },
+                                onMouseLeave: () => setImagePreviewAnchor(null),
+                                sx: { pointerEvents: 'auto', minWidth: 200, maxWidth: 280, p: 2, borderRadius: 2, boxShadow: 3, ml: 0.5 },
+                            }}
+                        >
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                <Box component="img" src={imageUrl} alt={row.title} sx={{ width: '100%', maxHeight: 200, objectFit: 'contain', borderRadius: 1 }} />
+                            </Box>
+                        </Popover>
+                    </Box>
                 );
             }
         },

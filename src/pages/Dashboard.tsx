@@ -25,6 +25,7 @@ import WarningIcon from "@mui/icons-material/Warning";
 import AddIcon from "@mui/icons-material/Add";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { format, differenceInDays } from "date-fns";
+import { getOrderStatusColor } from "../utils/statusColors";
 import { useNavigate } from "react-router-dom";
 import { DateRangePicker, RangeKeyDict } from "react-date-range";
 import "react-date-range/dist/styles.css";
@@ -1489,24 +1490,7 @@ export default function Dashboard() {
               </Box>
             ) : recentOrders.length > 0 ? (
               <Stack spacing={2}>
-                {recentOrders.map((order) => {
-                  const getStatusColor = (status: string) => {
-                    const upperStatus = status.toUpperCase();
-                    if (
-                      upperStatus === "DELIVERED" ||
-                      upperStatus === "COMPLETED"
-                    )
-                      return "success";
-                    if (upperStatus === "PENDING") return "warning";
-                    if (
-                      upperStatus === "ACCEPTED" ||
-                      upperStatus === "PROCESSING"
-                    )
-                      return "info";
-                    return "default";
-                  };
-
-                  return (
+                {recentOrders.map((order) => (
                     <Box
                       key={order.order_id}
                       sx={{
@@ -1552,7 +1536,7 @@ export default function Dashboard() {
                           <Chip
                             label={order.status}
                             size="small"
-                            color={getStatusColor(order.status)}
+                            color={getOrderStatusColor(order.status)}
                             sx={{ height: 20, fontSize: "0.7rem" }}
                           />
                         </Box>
@@ -1573,8 +1557,7 @@ export default function Dashboard() {
                         ₹{order.price.toLocaleString()}
                       </Typography>
                     </Box>
-                  );
-                })}
+                ))}
               </Stack>
             ) : (
               <Box

@@ -28,6 +28,7 @@ import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import { format, isValid } from 'date-fns';
 import type { Notification } from '../types/notification';
 import { fetchOrderDetails } from '../services/order.service';
+import { getOrderStatusColor, getPaymentStatusColor } from '../utils/statusColors';
 import type { OrderDetailsResponse } from '../services/order.service';
 
 interface NewOrderDialogProps {
@@ -92,40 +93,6 @@ const NewOrderDialog: React.FC<NewOrderDialogProps> = ({
     if (notification?.entity_id) {
       onViewOrder(notification.entity_id);
       onClose();
-    }
-  };
-
-  const getStatusColor = (status: string): 'default' | 'primary' | 'success' | 'warning' | 'error' => {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return 'warning';
-      case 'CONFIRMED':
-        return 'primary';
-      case 'PROCESSING':
-        return 'primary';
-      case 'SHIPPED':
-        return 'primary';
-      case 'DELIVERED':
-        return 'success';
-      case 'CANCELLED':
-        return 'error';
-      default:
-        return 'default';
-    }
-  };
-
-  const getPaymentStatusColor = (status: string): 'default' | 'success' | 'warning' | 'error' => {
-    switch (status.toUpperCase()) {
-      case 'PAID':
-        return 'success';
-      case 'UNPAID':
-        return 'error';
-      case 'PARTIAL':
-        return 'warning';
-      case 'REFUNDED':
-        return 'default';
-      default:
-        return 'default';
     }
   };
 
@@ -229,7 +196,7 @@ const NewOrderDialog: React.FC<NewOrderDialogProps> = ({
                       </Typography>
                       <Chip
                         label={orderDetails.order_information.order_status}
-                        color={getStatusColor(orderDetails.order_information.order_status)}
+                        color={getOrderStatusColor(orderDetails.order_information.order_status)}
                         size="small"
                       />
                     </Stack>

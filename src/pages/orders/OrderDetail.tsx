@@ -47,6 +47,8 @@ import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import { fetchOrderDetails, fetchOrders, updateOrder } from '../../services/order.service';
 import { ORDER_STATUS_API } from '../../constants/orderStatuses';
 import { useAppSelector } from '../../store/hooks';
+import { getOrderStatusColor, getPaymentStatusColor } from '../../utils/statusColors';
+import { concatProductAndVariant } from '../../utils/orderHelpers';
 import { mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useRecentlyViewed } from '../../contexts/RecentlyViewedContext';
 import DataTable from '../../components/DataTable';
@@ -103,38 +105,6 @@ interface OrderDetailData extends Order {
         status: string;
     }>;
 }
-
-// Helper to concatenate product name and variant name without repeating words
-const concatProductAndVariant = (productName: string, variantName?: string): string => {
-    const p = (productName || '').trim();
-    const v = (variantName || '').trim();
-    if (!v) return p;
-    if (!p) return v;
-    // If variant already contains product name, use variant
-    if (v.toLowerCase().includes(p.toLowerCase())) return v;
-    // If product already contains variant, use product
-    if (p.toLowerCase().includes(v.toLowerCase())) return p;
-    // Concatenate without repeating words (case-insensitive)
-    const pWords = p.split(/\s+/).filter(Boolean);
-    const vWords = v.split(/\s+/).filter(Boolean);
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const w of pWords) {
-        const key = w.toLowerCase();
-        if (!seen.has(key)) {
-            seen.add(key);
-            result.push(w);
-        }
-    }
-    for (const w of vWords) {
-        const key = w.toLowerCase();
-        if (!seen.has(key)) {
-            seen.add(key);
-            result.push(w);
-        }
-    }
-    return result.join(' ');
-};
 
 // Helper function to map API response to component data structure
 const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDetails>>): OrderDetailData => ({
@@ -416,38 +386,6 @@ export default function OrderDetail() {
 
     const handleNavigateToOrder = (orderId: number) => {
         navigate(`/orders/detail/${orderId}`, { state: { orderIds } });
-    };
-
-    const getStatusColor = (status: OrderStatus) => {
-        switch (status) {
-            case ORDER_STATUS_API.DELIVERED:
-                return 'success';
-            case ORDER_STATUS_API.PENDING:
-                return 'warning';
-            case ORDER_STATUS_API.CANCELLED:
-                return 'error';
-            case ORDER_STATUS_API.CONFIRMED:
-            case ORDER_STATUS_API.PROCESSING:
-            case ORDER_STATUS_API.SHIPPED:
-                return 'info';
-            default:
-                return 'default';
-        }
-    };
-
-    const getPaymentStatusColor = (status: PaymentStatus) => {
-        switch (status) {
-            case 'PAID':
-                return 'success';
-            case 'UNPAID':
-                return 'error';
-            case 'PARTIAL':
-                return 'warning';
-            case 'REFUNDED':
-                return 'default';
-            default:
-                return 'default';
-        }
     };
 
     // Get status icon
@@ -929,7 +867,7 @@ export default function OrderDetail() {
                     )}
                     <Chip
                         label={order.status}
-                        color={getStatusColor(order.status)}
+                        color={getOrderStatusColor(order.status)}
                         size="medium"
                     />
                     <Chip
