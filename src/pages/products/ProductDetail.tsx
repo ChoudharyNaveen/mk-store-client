@@ -17,6 +17,8 @@ import {
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import FileCopyIcon from '@mui/icons-material/FileCopy';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
@@ -24,8 +26,8 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
-import { useNavigate, useParams } from 'react-router-dom';
-import { fetchProductDetails, fetchProductStats, fetchInventoryMovements } from '../../services/product.service';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { fetchProductDetails, fetchProductStats, fetchInventoryMovements, fetchProducts } from '../../services/product.service';
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { Product, ProductVariant } from '../../types/product';
 import type { ProductStats, InventoryMovement } from '../../types/product';
@@ -36,6 +38,8 @@ import { useServerPagination } from '../../hooks/useServerPagination';
 import type { Column, TableState } from '../../types/table';
 import { formatExpiryDate, getExpiryDateColor } from '../../utils/productHelpers';
 import { format } from 'date-fns';
+import { useAppSelector } from '../../store/hooks';
+import { mergeWithDefaultFilters } from '../../utils/filterBuilder';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -63,9 +67,14 @@ const getDefaultImage = (product: Product): string | undefined => {
 
 export default function ProductDetail() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams<{ id: string }>();
+    const { user } = useAppSelector((state) => state.auth);
+    const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
+    const vendorId = user?.vendorId;
     const { addProduct } = useRecentlyViewed();
     const [product, setProduct] = React.useState<Product | null>(null);
+    const [productIds, setProductIds] = React.useState<number[]>([]);
     const [productStats, setProductStats] = React.useState<ProductStats | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [tabValue, setTabValue] = React.useState(0);
@@ -84,6 +93,47 @@ export default function ProductDetail() {
         initialPageSize: 10,
     });
 
+    // Get productIds from location state (passed from ProductList) or fetch for prev/next fallback
+    React.useEffect(() => {
+        const state = location.state as { productIds?: number[] } | null;
+        if (state?.productIds && Array.isArray(state.productIds)) {
+            setProductIds(state.productIds);
+        } else {
+            setProductIds([]);
+        }
+    }, [location.state]);
+
+    const fetchAdjacentProductIds = React.useCallback(async () => {
+        if (!id) return;
+        const currentId = Number(id);
+        const baseFilters = mergeWithDefaultFilters([], vendorId, selectedBranchId);
+        try {
+            const [prevRes, nextRes] = await Promise.all([
+                fetchProducts({
+                    page: 0,
+                    pageSize: 1,
+                    filters: [...baseFilters, { key: 'id', lt: String(currentId) }],
+                    sorting: [{ key: 'id', direction: 'DESC' }],
+                }),
+                fetchProducts({
+                    page: 0,
+                    pageSize: 1,
+                    filters: [...baseFilters, { key: 'id', gt: String(currentId) }],
+                    sorting: [{ key: 'id', direction: 'ASC' }],
+                }),
+            ]);
+            const prevId = prevRes.list?.[0]?.id;
+            const nextId = nextRes.list?.[0]?.id;
+            const ids: number[] = [];
+            if (prevId != null) ids.push(prevId);
+            ids.push(currentId);
+            if (nextId != null) ids.push(nextId);
+            setProductIds(ids);
+        } catch (err) {
+            console.error('Error fetching adjacent products:', err);
+        }
+    }, [id, vendorId, selectedBranchId]);
+
     React.useEffect(() => {
         const loadProduct = async () => {
             if (!id) {
@@ -91,8 +141,12 @@ export default function ProductDetail() {
                 return;
             }
 
+            // Clear old data immediately when id changes so we don't show stale product
+            setProduct(null);
+            setProductStats(null);
+            setLoading(true);
+
             try {
-                setLoading(true);
                 const [productData, statsData] = await Promise.all([
                     fetchProductDetails(id),
                     fetchProductStats(id).catch((error) => {
@@ -113,6 +167,30 @@ export default function ProductDetail() {
 
         loadProduct();
     }, [id, navigate]);
+
+    // Fetch adjacent product IDs when no productIds from location (e.g. direct URL, bookmark)
+    React.useEffect(() => {
+        if (product && productIds.length === 0) {
+            fetchAdjacentProductIds();
+        }
+    }, [product, productIds.length, fetchAdjacentProductIds]);
+
+    // Refresh inventory/audit tab data when product id changes (prevents stale data when navigating)
+    const prevIdRef = React.useRef<string | undefined>(id);
+    React.useEffect(() => {
+        if (prevIdRef.current !== id) {
+            prevIdRef.current = id;
+            if (id) {
+                tableHandlers.refresh();
+            }
+        }
+    }, [id, tableHandlers]);
+
+    // Reset tabs when switching products so we show Overview first
+    React.useEffect(() => {
+        setTabValue(0);
+        setOverviewTabValue(0);
+    }, [id]);
 
     React.useEffect(() => {
         if (product?.id != null && product?.title) {
@@ -148,27 +226,35 @@ export default function ProductDetail() {
         setOverviewTabValue(newValue);
     };
 
+    const currentIndex = productIds.length > 0 ? productIds.indexOf(Number(id)) : -1;
+    const prevProductId = currentIndex > 0 ? productIds[currentIndex - 1] : null;
+    const nextProductId = currentIndex >= 0 && currentIndex < productIds.length - 1 ? productIds[currentIndex + 1] : null;
+
+    const handleNavigateToProduct = (productId: number) => {
+        navigate(`/products/detail/${productId}`, { state: { productIds } });
+    };
+
     const imageUrl = getDefaultImage(product);
 
     return (
         <Box>
-            {/* Header */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Button
-                        startIcon={<ArrowBackIcon />}
-                        onClick={() => navigate(-1)}
-                        sx={{
-                            color: 'text.secondary',
-                            textTransform: 'none',
-                            '&:hover': { bgcolor: 'transparent' }
-                        }}
-                    >
-                        Back
-                    </Button>
-                    <Typography variant="h4" sx={{ fontWeight: 600, color: '#333' }}>
-                        Product Details
-                    </Typography>
+            <Paper sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Button
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => navigate(-1)}
+                            sx={{
+                                color: 'text.secondary',
+                                textTransform: 'none',
+                                '&:hover': { bgcolor: 'transparent' }
+                            }}
+                        >
+                            Back
+                        </Button>
+                        <Typography variant="h4" sx={{ fontWeight: 600, color: '#333' }}>
+                            {product.title || 'Product'}
+                        </Typography>
                     {id && (
                         <Tooltip title="Copy product ID">
                             <IconButton
@@ -186,7 +272,35 @@ export default function ProductDetail() {
                         </Tooltip>
                     )}
                 </Box>
-                <Stack direction="row" spacing={1}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                    {(prevProductId != null || nextProductId != null) && (
+                        <Stack direction="row" spacing={0.5}>
+                            <Tooltip title={prevProductId != null ? 'Previous product' : 'No previous product'}>
+                                <span>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => prevProductId != null && handleNavigateToProduct(prevProductId)}
+                                        disabled={prevProductId == null}
+                                        sx={{ border: '1px solid', borderColor: 'divider' }}
+                                    >
+                                        <ChevronLeftIcon />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                            <Tooltip title={nextProductId != null ? 'Next product' : 'No next product'}>
+                                <span>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => nextProductId != null && handleNavigateToProduct(nextProductId)}
+                                        disabled={nextProductId == null}
+                                        sx={{ border: '1px solid', borderColor: 'divider' }}
+                                    >
+                                        <ChevronRightIcon />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                        </Stack>
+                    )}
                     <Button
                         variant="outlined"
                         startIcon={<FileCopyIcon />}
@@ -215,10 +329,10 @@ export default function ProductDetail() {
                         Delete
                     </Button>
                 </Stack>
-            </Box>
+                </Box>
 
             {/* Summary Cards */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid container spacing={2} sx={{ mb: 3, mt: 3 }}>
                 {[
                     {
                         label: 'Total Orders',
@@ -265,9 +379,9 @@ export default function ProductDetail() {
                 ))}
             </Grid>
 
-            <Grid container spacing={3}>
+            <Grid container spacing={3} sx={{ mt: 2 }}>
                 <Grid size={{ xs: 12 }}>
-                    <Paper sx={{ p: 3 }}>
+                    <Box sx={{ pt: 2 }}>
                         <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider' }}>
                             <Tab label="Overview" />
                             <Tab label="Media" />
@@ -279,10 +393,6 @@ export default function ProductDetail() {
                         {/* Overview Tab */}
                         <TabPanel value={tabValue} index={0}>
                             <Box sx={{ mb: 3 }}>
-                                <Typography variant="h5" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                                    {product.title}
-                                </Typography>
-
                                 {/* Image Section */}
                                 <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
                                     {imageUrl ? (
@@ -694,12 +804,8 @@ export default function ProductDetail() {
                                         minWidth: 120,
                                         render: (row: InventoryMovement) => (
                                             <Box>
-                                                <Typography variant="body2">{row.referenceType}</Typography>
-                                                {row.referenceId && (
-                                                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                        ID: {row.referenceId}
-                                                    </Typography>
-                                                )}
+                                                <Typography variant="body2">{row.referenceType} {row.referenceId ? `#${row.referenceId}` : ''}</Typography>
+                             
                                             </Box>
                                         ),
                                     },
@@ -879,9 +985,10 @@ export default function ProductDetail() {
                                 );
                             })()}
                         </TabPanel>
-                    </Paper>
+                    </Box>
                 </Grid>
             </Grid>
+            </Paper>
         </Box>
     );
 }

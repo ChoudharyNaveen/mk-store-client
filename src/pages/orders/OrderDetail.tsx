@@ -23,6 +23,8 @@ import {
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -38,13 +40,14 @@ import BuildIcon from '@mui/icons-material/Build';
 import HistoryIcon from '@mui/icons-material/History';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import type { Order, OrderStatus, PaymentStatus, OrderPriority } from '../../types/order';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
-import { fetchOrderDetails, updateOrder } from '../../services/order.service';
+import { fetchOrderDetails, fetchOrders, updateOrder } from '../../services/order.service';
 import { ORDER_STATUS_API } from '../../constants/orderStatuses';
 import { useAppSelector } from '../../store/hooks';
+import { mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useRecentlyViewed } from '../../contexts/RecentlyViewedContext';
 import DataTable from '../../components/DataTable';
 import type { Column, TableState } from '../../types/table';
@@ -99,6 +102,38 @@ interface OrderDetailData extends Order {
         status: string;
     }>;
 }
+
+// Helper to concatenate product name and variant name without repeating words
+const concatProductAndVariant = (productName: string, variantName?: string): string => {
+    const p = (productName || '').trim();
+    const v = (variantName || '').trim();
+    if (!v) return p;
+    if (!p) return v;
+    // If variant already contains product name, use variant
+    if (v.toLowerCase().includes(p.toLowerCase())) return v;
+    // If product already contains variant, use product
+    if (p.toLowerCase().includes(v.toLowerCase())) return p;
+    // Concatenate without repeating words (case-insensitive)
+    const pWords = p.split(/\s+/).filter(Boolean);
+    const vWords = v.split(/\s+/).filter(Boolean);
+    const seen = new Set<string>();
+    const result: string[] = [];
+    for (const w of pWords) {
+        const key = w.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            result.push(w);
+        }
+    }
+    for (const w of vWords) {
+        const key = w.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            result.push(w);
+        }
+    }
+    return result.join(' ');
+};
 
 // Helper function to map API response to component data structure
 const mapApiDataToOrderDetail = (apiData: Awaited<ReturnType<typeof fetchOrderDetails>>): OrderDetailData => ({
@@ -238,10 +273,14 @@ const InfoField: React.FC<InfoFieldProps> = ({ label, value, icon }) => (
 
 export default function OrderDetail() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams<{ id: string }>();
     const { user } = useAppSelector((state) => state.auth);
+    const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
+    const vendorId = user?.vendorId;
     const { addOrder } = useRecentlyViewed();
     const [order, setOrder] = React.useState<OrderDetailData | null>(null);
+    const [orderIds, setOrderIds] = React.useState<number[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [updating, setUpdating] = React.useState(false);
     const [actionDialog, setActionDialog] = React.useState<{
@@ -264,6 +303,47 @@ export default function OrderDetail() {
         loading: false,
         search: '',
     });
+
+    // Get orderIds from location state (passed from OrderList) or fetch for prev/next fallback
+    React.useEffect(() => {
+        const state = location.state as { orderIds?: number[] } | null;
+        if (state?.orderIds && Array.isArray(state.orderIds)) {
+            setOrderIds(state.orderIds);
+        } else {
+            setOrderIds([]);
+        }
+    }, [location.state]);
+
+    const fetchAdjacentOrderIds = React.useCallback(async () => {
+        if (!id) return;
+        const currentId = Number(id);
+        const baseFilters = mergeWithDefaultFilters([], vendorId, selectedBranchId);
+        try {
+            const [prevRes, nextRes] = await Promise.all([
+                fetchOrders({
+                    page: 0,
+                    pageSize: 1,
+                    filters: [...baseFilters, { key: 'id', lt: String(currentId) }],
+                    sorting: [{ key: 'id', direction: 'DESC' }],
+                }),
+                fetchOrders({
+                    page: 0,
+                    pageSize: 1,
+                    filters: [...baseFilters, { key: 'id', gt: String(currentId) }],
+                    sorting: [{ key: 'id', direction: 'ASC' }],
+                }),
+            ]);
+            const prevId = prevRes.list?.[0]?.id;
+            const nextId = nextRes.list?.[0]?.id;
+            const ids: number[] = [];
+            if (prevId != null) ids.push(prevId);
+            ids.push(currentId);
+            if (nextId != null) ids.push(nextId);
+            setOrderIds(ids);
+        } catch (err) {
+            console.error('Error fetching adjacent orders:', err);
+        }
+    }, [id, vendorId, selectedBranchId]);
 
     React.useEffect(() => {
         if (!id) {
@@ -321,6 +401,21 @@ export default function OrderDetail() {
             addOrder(order.id, order.order_number);
         }
     }, [order?.id, order?.order_number, addOrder]);
+
+    // Fetch adjacent order IDs when no orderIds from location (e.g. direct URL, bookmark)
+    React.useEffect(() => {
+        if (order && orderIds.length === 0) {
+            fetchAdjacentOrderIds();
+        }
+    }, [order, orderIds.length, fetchAdjacentOrderIds]);
+
+    const currentIndex = orderIds.length > 0 ? orderIds.indexOf(Number(id)) : -1;
+    const prevOrderId = currentIndex > 0 ? orderIds[currentIndex - 1] : null;
+    const nextOrderId = currentIndex >= 0 && currentIndex < orderIds.length - 1 ? orderIds[currentIndex + 1] : null;
+
+    const handleNavigateToOrder = (orderId: number) => {
+        navigate(`/orders/detail/${orderId}`, { state: { orderIds } });
+    };
 
     const getStatusColor = (status: OrderStatus) => {
         switch (status) {
@@ -627,26 +722,33 @@ export default function OrderDetail() {
                     />
                     <Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1, flexWrap: 'wrap' }}>
-                            <Typography
+                            <Box
                                 component="button"
                                 onClick={() => navigate(`/products/detail/${row.product_id}`)}
-                                variant="body1"
                                 sx={{
-                                    fontWeight: 500,
+                                    width: '100%',
+                                    minWidth: 0,
+                                    maxHeight: '2.8em',
+                                    margin: 0,
+                                    padding: 0,
                                     background: 'none',
                                     border: 'none',
-                                    color: '#204564',
-                                    cursor: 'pointer',
                                     textAlign: 'left',
-                                    padding: 0,
+                                    cursor: 'pointer',
                                     display: 'block',
-                                    '&:hover': {
-                                        textDecoration: 'underline',
-                                    },
+                                    overflow: 'hidden',
+                                    whiteSpace: 'normal',
+                                    wordBreak: 'break-word',
+                                    color: '#204564',
+                                    fontSize: '14px',
+                                    lineHeight: 1.4,
+                                    fontWeight: 500,
+                                    textDecoration: 'none',
+                                    '&:hover': { textDecoration: 'underline' },
                                 }}
                             >
-                                {row.variant_name}
-                            </Typography>
+                                {concatProductAndVariant(row.product_name, row.variant_name)}
+                            </Box>
                             {row.combo_id && row.combo_quantity > 0 && (
                                 <Chip
                                     label={`Combo Discount (Pack of ${row.combo_quantity})`}
@@ -791,10 +893,7 @@ export default function OrderDetail() {
                     </Button>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Typography variant="h5" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                            Order Details
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mr: 0.5 }}>
-                            {order.order_number}
+                            {order.order_number || 'Order'}
                         </Typography>
                         <Tooltip title="Copy order number">
                             <IconButton
@@ -812,7 +911,35 @@ export default function OrderDetail() {
                         </Tooltip>
                     </Box>
                 </Box>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                    {(prevOrderId != null || nextOrderId != null) && (
+                        <Stack direction="row" spacing={0.5}>
+                            <Tooltip title={prevOrderId != null ? 'Previous order' : 'No previous order'}>
+                                <span>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => prevOrderId != null && handleNavigateToOrder(prevOrderId)}
+                                        disabled={prevOrderId == null}
+                                        sx={{ border: '1px solid', borderColor: 'divider' }}
+                                    >
+                                        <ChevronLeftIcon />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                            <Tooltip title={nextOrderId != null ? 'Next order' : 'No next order'}>
+                                <span>
+                                    <IconButton
+                                        size="small"
+                                        onClick={() => nextOrderId != null && handleNavigateToOrder(nextOrderId)}
+                                        disabled={nextOrderId == null}
+                                        sx={{ border: '1px solid', borderColor: 'divider' }}
+                                    >
+                                        <ChevronRightIcon />
+                                    </IconButton>
+                                </span>
+                            </Tooltip>
+                        </Stack>
+                    )}
                     <Chip
                         label={order.status}
                         color={getStatusColor(order.status)}

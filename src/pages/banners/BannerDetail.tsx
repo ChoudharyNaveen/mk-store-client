@@ -12,7 +12,6 @@ import {
     Card,
     CardContent,
     Stack,
-    IconButton,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
@@ -106,47 +105,50 @@ export default function BannerDetail() {
 
     return (
         <Box>
-            {/* Header */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton
-                        onClick={() => navigate(-1)}
-                        sx={{
-                            color: 'text.secondary',
-                        }}
-                    >
-                        <ArrowBackIcon />
-                    </IconButton>
-                    <Typography variant="h4" sx={{ fontWeight: 600, color: '#333' }}>
-                        Banner Details
-                    </Typography>
+            <Paper sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Button
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => navigate(-1)}
+                            sx={{
+                                color: 'text.secondary',
+                                textTransform: 'none',
+                                '&:hover': { bgcolor: 'transparent' }
+                            }}
+                        >
+                            Back
+                        </Button>
+                        <Typography variant="h4" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                            Banner
+                        </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<EditIcon />}
+                            onClick={() => navigate(`/banners/edit/${id}`)}
+                            sx={{ textTransform: 'none' }}
+                        >
+                            Edit
+                        </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<DeleteIcon />}
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            sx={{
+                                bgcolor: 'error.main',
+                                textTransform: 'none',
+                                '&:hover': { bgcolor: 'error.dark' }
+                            }}
+                        >
+                            {deleting ? 'Deleting...' : 'Delete'}
+                        </Button>
+                    </Stack>
                 </Box>
-                <Stack direction="row" spacing={1}>
-                    <Button
-                        variant="outlined"
-                        startIcon={<EditIcon />}
-                        onClick={() => navigate(`/banners/edit/${id}`)}
-                        sx={{ textTransform: 'none' }}
-                    >
-                        Edit
-                    </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<DeleteIcon />}
-                        onClick={handleDelete}
-                        disabled={deleting}
-                        sx={{
-                            bgcolor: 'error.main',
-                            textTransform: 'none',
-                            '&:hover': { bgcolor: 'error.dark' }
-                        }}
-                    >
-                        {deleting ? 'Deleting...' : 'Delete'}
-                    </Button>
-                </Stack>
-            </Box>
 
-            <Grid container spacing={3}>
+                <Grid container spacing={3} sx={{ mt: 3 }}>
                 {/* Image Preview */}
                 <Grid item xs={12} md={6}>
                     <Card>
@@ -360,6 +362,7 @@ export default function BannerDetail() {
                     </Card>
                 </Grid>
             </Grid>
+            </Paper>
         </Box>
     );
 }

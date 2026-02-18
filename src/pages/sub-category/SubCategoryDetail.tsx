@@ -787,25 +787,25 @@ export default function SubCategoryDetail() {
 
     return (
         <Box>
-            {/* Header */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Button
-                        startIcon={<ArrowBackIcon />}
-                        onClick={() => navigate(-1)}
-                        sx={{
-                            color: 'text.secondary',
-                            textTransform: 'none',
-                            '&:hover': { bgcolor: 'transparent' }
-                        }}
-                    >
-                        Back
-                    </Button>
-                    <Typography variant="h4" sx={{ fontWeight: 600, color: '#333' }}>
-                        Sub Category Details
-                    </Typography>
-                </Box>
-                <Stack direction="row" spacing={1}>
+            <Paper sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Button
+                            startIcon={<ArrowBackIcon />}
+                            onClick={() => navigate(-1)}
+                            sx={{
+                                color: 'text.secondary',
+                                textTransform: 'none',
+                                '&:hover': { bgcolor: 'transparent' }
+                            }}
+                        >
+                            Back
+                        </Button>
+                        <Typography variant="h4" sx={{ fontWeight: 600, color: '#333' }}>
+                            {subCategory.title || 'Sub Category'}
+                        </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1}>
                     <Button
                         variant="outlined"
                         startIcon={<EditIcon />}
@@ -827,12 +827,11 @@ export default function SubCategoryDetail() {
                         Delete
                     </Button>
                 </Stack>
-            </Box>
+                </Box>
 
-            <Grid container spacing={3}>
-                {/* Single Column - Tabs */}
+            <Grid container spacing={3} sx={{ mt: 2 }}>
                 <Grid size={{ xs: 12 }}>
-                    <Paper sx={{ p: 3 }}>
+                    <Box sx={{ pt: 2 }}>
                         <Tabs value={tabValue} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider' }}>
                             <Tab label="Overview" />
                             <Tab label="Products" />
@@ -843,10 +842,6 @@ export default function SubCategoryDetail() {
                         {/* Overview Tab */}
                         <TabPanel value={tabValue} index={0}>
                             <Box sx={{ mb: 3 }}>
-                                <Typography variant="h5" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                                    {subCategory.title}
-                                </Typography>
-
                                 {/* Image Section */}
                                 <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
                                     {subCategory.image ? (
@@ -1127,9 +1122,10 @@ export default function SubCategoryDetail() {
                                 </>
                             )}
                         </TabPanel>
-                    </Paper>
+                    </Box>
                 </Grid>
             </Grid>
+            </Paper>
         </Box>
     );
 }

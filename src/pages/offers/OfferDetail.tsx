@@ -3,6 +3,7 @@ import {
   Box,
   Typography,
   Button,
+  Paper,
   Grid,
   Avatar,
   Chip,
@@ -10,7 +11,6 @@ import {
   CircularProgress,
   Card,
   CardContent,
-  IconButton,
   List,
   ListItem,
   ListItemIcon,
@@ -69,26 +69,35 @@ export default function OfferDetail() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <IconButton onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h4" sx={{ fontWeight: 600, color: 'text.primary' }}>
-            Offer Details
-          </Typography>
+      <Paper sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() => navigate(-1)}
+              sx={{
+                color: 'text.secondary',
+                textTransform: 'none',
+                '&:hover': { bgcolor: 'transparent' }
+              }}
+            >
+              Back
+            </Button>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: 'text.primary' }}>
+              {offer.code || 'Offer'}
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<EditIcon />}
+            onClick={() => navigate(`/offers/edit/${id}`)}
+            sx={{ textTransform: 'none' }}
+          >
+            Edit
+          </Button>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<EditIcon />}
-          onClick={() => navigate(`/offers/edit/${id}`)}
-          sx={{ textTransform: 'none' }}
-        >
-          Edit
-        </Button>
-      </Box>
 
-      <Grid container spacing={3}>
+        <Grid container spacing={3} sx={{ mt: 3 }}>
         {imageUrl && (
           <Grid size={{ xs: 12, md: 5 }}>
             <Card>
@@ -245,6 +254,7 @@ export default function OfferDetail() {
           </Card>
         </Grid>
       </Grid>
+      </Paper>
     </Box>
   );
 }

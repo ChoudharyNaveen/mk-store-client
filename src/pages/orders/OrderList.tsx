@@ -33,7 +33,7 @@ export default function OrderList() {
             render: (row: Order) => (
                 <Typography
                     component="button"
-                    onClick={() => navigate(`/orders/detail/${row.id}`)}
+                    onClick={() => navigate(`/orders/detail/${row.id}`, { state: { orderIds: tableState.data.map((o) => o.id) } })}
                     sx={{
                         background: 'none',
                         border: 'none',
@@ -269,7 +269,7 @@ export default function OrderList() {
                     row={row}
                     ariaLabel="Order actions"
                     items={(r): RowActionItem<Order>[] => [
-                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: () => navigate(`/orders/detail/${r.id}`) },
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: () => navigate(`/orders/detail/${r.id}`, { state: { orderIds: tableState.data.map((o) => o.id) } }) },
                     ]}
                 />
             )

@@ -1,17 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import React from 'react';
-import { Box, Typography, Button, TextField, Popover, IconButton, Avatar, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress } from '@mui/material';
+import { Box, Typography, Button, TextField, Popover, IconButton, Avatar, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress, Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import InfoIcon from '@mui/icons-material/Info';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import KPICard from '../../components/KPICard';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
 import ListPageLayout from '../../components/ListPageLayout';
@@ -159,7 +163,7 @@ export default function ProductList() {
                         alt={row.title}
                         variant="rounded"
                         sx={{ width: 50, height: 50, py: 1 }}
-                        onClick={() => navigate(`/products/detail/${row.id}`)}
+                        onClick={() => navigate(`/products/detail/${row.id}`, { state: { productIds: tableState.data.map((p) => p.id) } })}
                     />  
                 );
             }
@@ -171,7 +175,7 @@ export default function ProductList() {
             render: (row: Product) => (
                 <Box
                     component="button"
-                    onClick={() => navigate(`/products/detail/${row.id}`)}
+                    onClick={() => navigate(`/products/detail/${row.id}`, { state: { productIds: tableState.data.map((p) => p.id) } })}
                     sx={{
                         width: '100%',
                         minWidth: 0,
@@ -289,7 +293,7 @@ export default function ProductList() {
                     row={row}
                     ariaLabel="Product actions"
                     items={(r): RowActionItem<Product>[] => [
-                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: () => navigate(`/products/detail/${r.id}`) },
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: () => navigate(`/products/detail/${r.id}`, { state: { productIds: tableState.data.map((p) => p.id) } }) },
                         { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: () => navigate(`/products/edit/${r.id}`, { state: { product: r } }) },
                         { type: 'item', label: 'Stock Update', icon: <InventoryIcon fontSize="small" />, onClick: () => setStockUpdateProduct(r) },
                         { type: 'item', label: 'Clone', icon: <ContentCopyIcon fontSize="small" />, onClick: () => navigate('/products/new', { state: { cloneFromProductId: r.id } }) },
@@ -490,6 +494,62 @@ export default function ProductList() {
             onFilterClose={() => setFilterAnchorEl(null)}
             filterPopoverTitle="Filter Products"
             filterPopoverWidth={340}
+            contentBeforeToolbar={
+                <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
+                    <Grid container spacing={1.5}>
+                        {[
+                            {
+                                label: 'Total Products',
+                                value: tableState.total.toLocaleString(),
+                                icon: <InventoryIcon />,
+                                iconBgColor: '#1976d2',
+                                bgColor: '#e3f2fd',
+                            },
+                        {
+                            label: 'Expired Products',
+                            value: '—',
+                            icon: <EventBusyIcon />,
+                            iconBgColor: '#d32f2f',
+                            bgColor: '#ffebee',
+                            valueColor: '#d32f2f',
+                        },
+                        {
+                            label: 'Low Stock Products',
+                            value: '—',
+                            icon: <WarningAmberIcon />,
+                            iconBgColor: '#ed6c02',
+                            bgColor: '#fff3e0',
+                            valueColor: '#ed6c02',
+                        },
+                        {
+                            label: 'Active / Inactive',
+                            value: '—',
+                            icon: <CompareArrowsIcon />,
+                            iconBgColor: '#7b1fa2',
+                            bgColor: '#f3e5f5',
+                            valueColor: '#7b1fa2',
+                        },
+                    ].map((kpi, index) => (
+                            <Grid key={index} size={{ xs: 6, sm: 4, md: 3 }}>
+                                <KPICard
+                                    label={kpi.label}
+                                    value={kpi.value}
+                                    icon={kpi.icon}
+                                    iconBgColor={kpi.iconBgColor}
+                                    bgColor={kpi.bgColor}
+                                    valueColor={kpi.valueColor}
+                                    loading={kpi.label === 'Total Products' ? tableState.loading : false}
+                                    sx={{
+                                        '& .MuiCardContent-root': { p: 1.5 },
+                                        '& .kpi-icon': { width: 40, height: 40, '& > svg': { fontSize: 20 } },
+                                        '& .MuiTypography-h5': { fontSize: '1.25rem' },
+                                    }}
+                                />
+                            </Grid>
+                        ))}
+                    </Grid>
+                </Box>
+            }
             filterPopoverContent={
                 <>
                     <Box sx={{ mb: 2 }}>

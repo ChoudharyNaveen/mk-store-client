@@ -9,39 +9,37 @@ const NOTIFICATION_SOUND_PATH = '/sounds/new-notification-025-380251.mp3';
 /**
  * Play a notification sound
  * Uses the audio file from public/sounds directory
+ * Repeats 3 times with 300ms delay between each play
  */
 export const playNotificationSound = (): void => {
-  try {
-    const audio = new Audio(NOTIFICATION_SOUND_PATH);
-    audio.volume = 1; // Set volume to 70%
-    
-    // Play the sound
-    audio.play().catch((err) => {
-      console.error('Error playing notification sound:', err);
-      // Some browsers require user interaction before playing audio
-      // This is expected behavior and will work after user interaction
-    });
-  } catch (error) {
-    console.error('Error initializing notification sound:', error);
+  const playOnce = (): void => {
+    try {
+      const audio = new Audio(NOTIFICATION_SOUND_PATH);
+      audio.volume = 1;
+      audio.play().catch((err) => {
+        console.error('Error playing notification sound:', err);
+      });
+    } catch (error) {
+      console.error('Error initializing notification sound:', error);
+    }
+  };
+
+  const repeatCount = 3;
+  const delayMs = 300;
+  for (let i = 0; i < repeatCount; i++) {
+    setTimeout(() => playOnce(), i * delayMs);
   }
 };
 
 /**
  * Play a more prominent notification sound (for important notifications)
- * Plays the notification sound twice with a slight delay
+ * Plays the notification sound 3 times (same as playNotificationSound)
  */
 export const playImportantNotificationSound = (): void => {
   try {
-    // Play first sound
     playNotificationSound();
-    
-    // Play second sound after a short delay
-    setTimeout(() => {
-      playNotificationSound();
-    }, 300); // 300ms delay between sounds
   } catch (error) {
     console.error('Error playing important notification sound:', error);
-    // Fallback to regular sound
     playNotificationSound();
   }
 };

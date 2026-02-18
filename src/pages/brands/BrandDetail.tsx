@@ -71,47 +71,39 @@ export default function BrandDetail() {
 
   return (
     <Box>
-      {/* Header - match SubCategoryDetail */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate(-1)}
-            sx={{
-              color: 'text.secondary',
-              textTransform: 'none',
-              '&:hover': { bgcolor: 'transparent' },
-            }}
-          >
-            Back
-          </Button>
-          <Typography variant="h4" sx={{ fontWeight: 600, color: '#333' }}>
-            Brand Details
-          </Typography>
+      <Paper sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Button
+              startIcon={<ArrowBackIcon />}
+              onClick={() => navigate(-1)}
+              sx={{
+                color: 'text.secondary',
+                textTransform: 'none',
+                '&:hover': { bgcolor: 'transparent' },
+              }}
+            >
+              Back
+            </Button>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: '#333' }}>
+              {brand.name || 'Brand'}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => navigate(`/brands/edit/${id}`)}
+              sx={{ textTransform: 'none' }}
+            >
+              Edit
+            </Button>
+          </Stack>
         </Box>
-        <Stack direction="row" spacing={1}>
-          <Button
-            variant="outlined"
-            startIcon={<EditIcon />}
-            onClick={() => navigate(`/brands/edit/${id}`)}
-            sx={{ textTransform: 'none' }}
-          >
-            Edit
-          </Button>
-        </Stack>
-      </Box>
 
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12 }}>
-          <Paper sx={{ p: 3 }}>
-            {/* Overview content (no main tabs) */}
-            <Box>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h5" sx={{ fontWeight: 600, mb: 3, color: '#333' }}>
-                  {brand.name}
-                </Typography>
-
-                {/* Logo Section - centered like SubCategory image */}
+        <Box sx={{ mt: 3 }}>
+          <Box sx={{ mb: 3 }}>
+            {/* Logo Section - centered like SubCategory image */}
                 <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
                   {imageUrl ? (
                     <Avatar
@@ -261,9 +253,7 @@ export default function BrandDetail() {
                 </List>
               </Box>
             </Box>
-          </Paper>
-        </Grid>
-      </Grid>
+      </Paper>
     </Box>
   );
 }
