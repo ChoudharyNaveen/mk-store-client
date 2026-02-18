@@ -8,7 +8,6 @@ import {
   Avatar,
   Chip,
   Divider,
-  CircularProgress,
   Card,
   CardContent,
   List,
@@ -25,6 +24,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { fetchOfferById, fetchOfferSummary } from '../../services/offer.service';
 import type { Offer, OfferSummary } from '../../types/offer';
 import KPICard from '../../components/KPICard';
+import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import { useDetailWithSummary } from '../../hooks/useDetailWithSummary';
 import { format } from 'date-fns';
 
@@ -51,11 +51,7 @@ export default function OfferDetail() {
   });
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!offer) {

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import SearchField from './SearchField';
 import DateRangePopover from './DateRangePopover';
 import type { DateRangeSelection } from './DateRangePopover';
@@ -43,6 +44,8 @@ export interface ListPageLayoutProps {
     filterPopoverContent: React.ReactNode;
     /** Optional content rendered inside the container above the toolbar (e.g. CustomTabs) */
     contentBeforeToolbar?: React.ReactNode;
+    /** Optional export handler - when provided, shows Export CSV button */
+    onExport?: () => void;
     /** Table section (e.g. DataTable wrapped in Box) */
     children: React.ReactNode;
 }
@@ -120,6 +123,7 @@ export default function ListPageLayout({
     filterPopoverWidth = 300,
     filterPopoverContent,
     contentBeforeToolbar,
+    onExport,
     children,
 }: ListPageLayoutProps) {
     return (
@@ -167,6 +171,17 @@ export default function ListPageLayout({
                                 <RefreshIcon />
                             </IconButton>
                         </Tooltip>
+                        {onExport && (
+                            <Tooltip title="Export to CSV">
+                                <IconButton
+                                    onClick={onExport}
+                                    size="small"
+                                    sx={refreshButtonSx}
+                                >
+                                    <FileDownloadIcon />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                         <Button
                             variant="outlined"
                             startIcon={<FilterListIcon />}

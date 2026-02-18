@@ -7,7 +7,6 @@ import {
   Grid,
   Avatar,
   Chip,
-  CircularProgress,
   Card,
   CardContent,
   Stack,
@@ -27,6 +26,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { fetchBrandById, fetchBrandSummary } from '../../services/brand.service';
 import type { Brand, BrandSummary } from '../../types/brand';
 import KPICard from '../../components/KPICard';
+import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import { useDetailWithSummary } from '../../hooks/useDetailWithSummary';
 import { format } from 'date-fns';
 
@@ -53,11 +53,7 @@ export default function BrandDetail() {
   });
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!brand) {

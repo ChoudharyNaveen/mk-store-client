@@ -7,7 +7,6 @@ import {
     Grid,
     Avatar,
     Chip,
-    CircularProgress,
     Tabs,
     Tab,
     Stack,
@@ -37,6 +36,7 @@ import type { Address } from '../../types/address';
 import type { Column } from '../../types/table';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import KPICard from '../../components/KPICard';
 
@@ -617,11 +617,7 @@ export default function UserDetail() {
     };
 
     if (loading) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-                <CircularProgress />
-            </Box>
-        );
+        return <DetailPageSkeleton />;
     }
 
     if (!user) {

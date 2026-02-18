@@ -35,6 +35,7 @@ import type { ServerFilter } from '../../types/filter';
 import type { Column, TableState } from '../../types/table';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
+import { exportToCSV } from '../../utils/exportCsv';
 import { PRODUCT_STATUS_OPTIONS, PRODUCT_STOCK_STATUS_OPTIONS } from '../../constants/statusOptions';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import StockUpdateDialog from './StockUpdateDialog';
@@ -477,6 +478,22 @@ export default function ProductList() {
         // Effect [appliedAdvancedFilters, dateRange, hasComboActive] will run (dateRange changed) → setFilters + setPaginationModel → hook fetches
     };
 
+    const handleExport = () => {
+        exportToCSV<Product>(
+            tableState.data,
+            [
+                { id: 'title', label: 'Product Name' },
+                { id: 'category', label: 'Category', getExportValue: (row) => row.category?.title || 'N/A' },
+                { id: 'subCategory', label: 'Sub Category', getExportValue: (row) => row.subCategory?.title || 'N/A' },
+                { id: 'brand', label: 'Brand', getExportValue: (row) => row.brand?.name || 'N/A' },
+                { id: 'productType', label: 'Product Type', getExportValue: (row) => row.productType?.title ?? 'N/A' },
+                { id: 'quantity', label: 'Quantity', getExportValue: (row) => row.variants?.reduce((acc, v) => acc + (v.quantity || 0), 0) ?? 0 },
+                { id: 'status', label: 'Status' },
+            ],
+            `products-${format(new Date(), 'yyyy-MM-dd')}.csv`
+        );
+    };
+
     return (
         <ListPageLayout
             title="Products"
@@ -494,6 +511,7 @@ export default function ProductList() {
             onFilterClose={() => setFilterAnchorEl(null)}
             filterPopoverTitle="Filter Products"
             filterPopoverWidth={340}
+            onExport={handleExport}
             contentBeforeToolbar={
                 <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
                     <Grid container spacing={1.5}>

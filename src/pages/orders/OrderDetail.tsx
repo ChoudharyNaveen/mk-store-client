@@ -50,6 +50,7 @@ import { useAppSelector } from '../../store/hooks';
 import { mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useRecentlyViewed } from '../../contexts/RecentlyViewedContext';
 import DataTable from '../../components/DataTable';
+import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import type { Column, TableState } from '../../types/table';
 
 // Order detail data structure
@@ -832,21 +833,7 @@ export default function OrderDetail() {
     ];
 
     if (loading) {
-        return (
-            <Box sx={{ 
-                display: 'flex', 
-                flexDirection: 'column',
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                minHeight: '60vh',
-                gap: 2
-            }}>
-                <CircularProgress size={60} thickness={4} />
-                <Typography variant="body1" sx={{ color: 'text.secondary' }}>
-                    Loading order details...
-                </Typography>
-            </Box>
-        );
+        return <DetailPageSkeleton />;
     }
 
     if (!order) {

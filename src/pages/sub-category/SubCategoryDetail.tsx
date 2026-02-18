@@ -44,6 +44,7 @@ import HighchartsReact from 'highcharts-react-official';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { setDateRange } from '../../store/dateRangeSlice';
 import DataTable from '../../components/DataTable';
+import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import KPICard from '../../components/KPICard';
 import { useServerPagination } from '../../hooks/useServerPagination';
 
@@ -693,11 +694,7 @@ export default function SubCategoryDetail() {
     }, [subCategory, tabValue, dateRangeState]);
 
     if (loading) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-                <CircularProgress />
-            </Box>
-        );
+        return <DetailPageSkeleton />;
     }
 
     if (!subCategory) {

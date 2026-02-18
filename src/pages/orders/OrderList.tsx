@@ -16,6 +16,7 @@ import type { ServerFilter } from '../../types/filter';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import { ORDER_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '../../constants/statusOptions';
+import { exportToCSV } from '../../utils/exportCsv';
 
 export default function OrderList() {
     const navigate = useNavigate();
@@ -345,6 +346,21 @@ export default function OrderList() {
         // Effect will run (appliedAdvancedFilters changed), setFilters + setPaginationModel → hook's filters effect fetches once with empty search/filters
     };
 
+    const handleExport = () => {
+        exportToCSV<Order>(
+            tableState.data,
+            [
+                { id: 'order_number', label: 'Order ID' },
+                { id: 'user', label: 'Customer', getExportValue: (row) => (row.user as { name?: string } | undefined)?.name || 'N/A' },
+                { id: 'created_at', label: 'Order Date', getExportValue: (row) => row.created_at ? format(new Date(row.created_at as string), 'MMM dd, yyyy') : 'N/A' },
+                { id: 'final_amount', label: 'Amount', getExportValue: (row) => `₹${row.final_amount?.toLocaleString() || '0.00'}` },
+                { id: 'status', label: 'Status' },
+                { id: 'payment_status', label: 'Payment Status' },
+            ],
+            `orders-${format(new Date(), 'yyyy-MM-dd')}.csv`
+        );
+    };
+
     return (
         <ListPageLayout
             title="Orders"
@@ -360,6 +376,7 @@ export default function OrderList() {
             onOpenFilterClick={(e) => setFilterAnchorEl(e.currentTarget)}
             onFilterClose={() => setFilterAnchorEl(null)}
             filterPopoverTitle="Filter Orders"
+            onExport={handleExport}
             filterPopoverContent={
                 <>
                     <TextField fullWidth size="small" label="Order Number" value={advancedFilters.orderNumber} onChange={(e) => setAdvancedFilters({ ...advancedFilters, orderNumber: e.target.value })} sx={{ mb: 2 }} />

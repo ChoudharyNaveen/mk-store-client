@@ -7,7 +7,6 @@ import {
     Grid,
     Avatar,
     Chip,
-    CircularProgress,
     Tabs,
     Tab,
     IconButton,
@@ -24,6 +23,7 @@ import { showErrorToast } from '../../utils/toast';
 import type { Category } from '../../types/category';
 import type { SubCategoryByCategoryIdItem } from '../../types/sub-category';
 import DataTable from '../../components/DataTable';
+import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import type { Column } from '../../types/table';
 
@@ -203,11 +203,7 @@ export default function CategoryDetail() {
     }, [id, navigate]);
 
     if (loading) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-                <CircularProgress />
-            </Box>
-        );
+        return <DetailPageSkeleton />;
     }
 
     if (!category) {

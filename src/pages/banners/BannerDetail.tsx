@@ -4,11 +4,10 @@ import {
     Typography,
     Button,
     Paper,
-    Grid,
+    Grid as Grid,
     Avatar,
     Chip,
     Divider,
-    CircularProgress,
     Card,
     CardContent,
     Stack,
@@ -21,6 +20,7 @@ import { fetchBannerDetails, deleteBanner } from '../../services/banner.service'
 import { showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { Banner } from '../../types/banner';
 import { format } from 'date-fns';
+import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 
 export default function BannerDetail() {
     const navigate = useNavigate();
@@ -85,20 +85,16 @@ export default function BannerDetail() {
     };
 
     if (loading) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-                <CircularProgress />
-            </Box>
-        );
+        return <DetailPageSkeleton />;
     }
 
     if (!banner) {
         return null;
     }
 
-    const imageUrl = banner.image_url || banner.imageUrl || '';
+    const imageUrl = banner.image_url || '';
     const status = banner.status;
-    const displayOrder = banner.display_order ?? banner.displayOrder ?? 0;
+    const displayOrder = banner.display_order ?? 0;
     const createdAt = banner.created_at ?? banner.createdAt;
     const updatedAt = banner.updated_at ?? banner.updatedAt;
     const concurrencyStamp = banner.concurrency_stamp || banner.concurrencyStamp;
@@ -150,7 +146,7 @@ export default function BannerDetail() {
 
                 <Grid container spacing={3} sx={{ mt: 3 }}>
                 {/* Image Preview */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -204,7 +200,7 @@ export default function BannerDetail() {
                 </Grid>
 
                 {/* Banner Information */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
@@ -213,7 +209,7 @@ export default function BannerDetail() {
 
                             <Grid container spacing={2}>
                                 {/* ID */}
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Box>
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                             Banner ID
@@ -227,7 +223,7 @@ export default function BannerDetail() {
                                 <Divider sx={{ width: '100%', my: 1 }} />
 
                                 {/* Status */}
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Box>
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                             Status
@@ -246,7 +242,7 @@ export default function BannerDetail() {
                                 <Divider sx={{ width: '100%', my: 1 }} />
 
                                 {/* Display Order */}
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Box>
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                             Display Order
@@ -260,7 +256,7 @@ export default function BannerDetail() {
                                 <Divider sx={{ width: '100%', my: 1 }} />
 
                                 {/* Vendor */}
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Box>
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                             Vendor
@@ -274,7 +270,7 @@ export default function BannerDetail() {
                                 <Divider sx={{ width: '100%', my: 1 }} />
 
                                 {/* Branch */}
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Box>
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                             Branch
@@ -288,7 +284,7 @@ export default function BannerDetail() {
                                 <Divider sx={{ width: '100%', my: 1 }} />
 
                                 {/* Subcategory */}
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Box>
                                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                             Subcategory
@@ -304,7 +300,7 @@ export default function BannerDetail() {
                                 {/* Created Date */}
                                 {createdAt && (
                                     <>
-                                        <Grid item xs={12}>
+                                        <Grid size={{ xs: 12 }}>
                                             <Box>
                                                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                                     Created Date
@@ -321,7 +317,7 @@ export default function BannerDetail() {
                                 {/* Updated Date */}
                                 {updatedAt && (
                                     <>
-                                        <Grid item xs={12}>
+                                        <Grid size={{ xs: 12 }}>
                                             <Box>
                                                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                                     Last Updated
@@ -337,7 +333,7 @@ export default function BannerDetail() {
 
                                 {/* Concurrency Stamp (for debugging/admin) */}
                                 {concurrencyStamp && (
-                                    <Grid item xs={12}>
+                                    <Grid size={{ xs: 12 }}>
                                         <Box>
                                             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                                                 Concurrency Stamp
