@@ -263,3 +263,16 @@ export interface InventoryMovementsResponse {
   };
 }
 
+export interface ProductsSummary {
+  total_products: number;
+  active_products: number;
+  inactive_products: number;
+  expired_variants: number;
+  low_stock_variants: number;
+}
+
+export interface ProductsSummaryResponse {
+  success: boolean;
+  doc: ProductsSummary;
+}
+

@@ -16,6 +16,8 @@ import type {
   ProductStatsResponse,
   InventoryMovement,
   InventoryMovementsResponse,
+  ProductsSummary,
+  ProductsSummaryResponse,
 } from "../types/product";
 import type { ServerFilter, ServerSorting } from "../types/filter";
 import { convertSimpleFiltersToServerFilters } from "../utils/filterBuilder";
@@ -34,6 +36,10 @@ export interface FetchParams {
   signal?: AbortSignal;
   /** When true, send hasActiveComboDiscounts: true in request body (not part of filters) */
   hasActiveComboDiscounts?: boolean;
+  /** When true, send expiredProducts: true in request body (not part of filters) */
+  expiredProducts?: boolean;
+  /** When true, send lowStockProducts: true in request body (not part of filters) */
+  lowStockProducts?: boolean;
 }
 
 /**
@@ -68,6 +74,8 @@ export const fetchProducts = async (
       filters?: ServerFilter[];
       sorting?: ServerSorting[];
       hasActiveComboDiscounts?: boolean;
+      expiredProducts?: boolean;
+      lowStockProducts?: boolean;
     } = {
       pageSize,
       pageNumber,
@@ -75,6 +83,12 @@ export const fetchProducts = async (
 
     if (params.hasActiveComboDiscounts === true) {
       requestBody.hasActiveComboDiscounts = true;
+    }
+    if (params.expiredProducts === true) {
+      requestBody.expiredProducts = true;
+    }
+    if (params.lowStockProducts === true) {
+      requestBody.lowStockProducts = true;
     }
 
     // Convert filters to ServerFilter array if needed
@@ -543,6 +557,30 @@ export const updateProduct = async (
   }
 };
 
+/**
+ * Fetch products summary (KPIs)
+ */
+export const fetchProductsSummary = async (params: {
+  branchId: number;
+  vendorId: number;
+}): Promise<ProductsSummary> => {
+  try {
+    const response = await http.post<ProductsSummaryResponse>(
+      API_URLS.PRODUCTS.GET_PRODUCTS_SUMMARY,
+      params
+    );
+
+    if (response.success && response.doc) {
+      return response.doc;
+    }
+
+    throw new Error("Invalid products summary response");
+  } catch (error) {
+    console.error("Error fetching products summary:", error);
+    throw error;
+  }
+};
+
 const productService = {
   fetchProducts,
   fetchProductDetails,
@@ -550,6 +588,7 @@ const productService = {
   fetchInventoryMovements,
   createProduct,
   updateProduct,
+  fetchProductsSummary,
 };
 
 export default productService;

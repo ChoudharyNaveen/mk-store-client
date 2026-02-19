@@ -4,7 +4,6 @@ import {
   Typography,
   Button,
   TextField,
-  Avatar,
   Select,
   MenuItem,
   FormControl,
@@ -18,6 +17,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import BlockIcon from "@mui/icons-material/Block";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DataTable from "../../components/DataTable";
+import ImagePreviewAvatar from "../../components/ImagePreviewAvatar";
 import RowActionsMenu from "../../components/RowActionsMenu";
 import type { RowActionItem } from "../../components/RowActionsMenu";
 import ListPageLayout from "../../components/ListPageLayout";
@@ -97,11 +97,11 @@ export default function SubCategoryList() {
       label: "Image",
       minWidth: 80,
       render: (row: SubCategory) => (
-        <Avatar
-          src={row.image}
+        <ImagePreviewAvatar
+          imageUrl={row.image}
           alt={row.title}
-          variant="rounded"
-          sx={{ width: 50, height: 50 }}
+          size={50}
+          onClick={() => navigate(`/sub-category/detail/${row.id}`)}
         />
       ),
     },

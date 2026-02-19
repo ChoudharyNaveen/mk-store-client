@@ -1,11 +1,12 @@
 import React from 'react';
-import { Box, Typography, Button, Avatar, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Box, Typography, Button, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DataTable from '../../components/DataTable';
+import ImagePreviewAvatar from '../../components/ImagePreviewAvatar';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
 import ListPageLayout from '../../components/ListPageLayout';
@@ -60,7 +61,19 @@ export default function CategoryPage() {
     }, [user?.id]);
 
     const columns = [
-        { id: 'image' as keyof Category, label: 'Image', minWidth: 80, render: (row: Category) => <Avatar src={row.image} alt={row.title} variant="rounded" sx={{ width: 50, height: 50 }} /> },
+        {
+            id: 'image' as keyof Category,
+            label: 'Image',
+            minWidth: 80,
+            render: (row: Category) => (
+                <ImagePreviewAvatar
+                    imageUrl={row.image}
+                    alt={row.title}
+                    size={50}
+                    onClick={() => navigate(`/category/detail/${row.id}`)}
+                />
+            )
+        },
         {
             id: 'title' as keyof Category,
             label: 'Category',

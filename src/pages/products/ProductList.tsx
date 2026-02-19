@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import React from 'react';
-import { Box, Typography, Button, TextField, Popover, IconButton, Avatar, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress, Grid } from '@mui/material';
+import { Box, Typography, Button, TextField, Popover, IconButton, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress, Grid } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -21,7 +21,7 @@ import type { RowActionItem } from '../../components/RowActionsMenu';
 import ListPageLayout from '../../components/ListPageLayout';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { useListPageDateRange } from '../../hooks/useListPageDateRange';
-import { fetchProducts, updateProduct, type FetchParams } from '../../services/product.service';
+import { fetchProducts, fetchProductsSummary, updateProduct, type FetchParams } from '../../services/product.service';
 import { fetchCategories } from '../../services/category.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
 import { getProductTypes } from '../../services/product-type.service';
@@ -38,6 +38,7 @@ import { useAppSelector } from '../../store/hooks';
 import { exportToCSV } from '../../utils/exportCsv';
 import { PRODUCT_STATUS_OPTIONS, PRODUCT_STOCK_STATUS_OPTIONS } from '../../constants/statusOptions';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import ImagePreviewAvatar from '../../components/ImagePreviewAvatar';
 import StockUpdateDialog from './StockUpdateDialog';
 import VariantsPopover from './VariantsPopover';
 
@@ -121,11 +122,17 @@ export default function ProductList() {
     // Variants hover preview
     const [variantsPreviewAnchor, setVariantsPreviewAnchor] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
     const variantsPreviewCloseTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    // Image hover preview
-    const [imagePreviewAnchor, setImagePreviewAnchor] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
-    const imagePreviewCloseTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     // Stock update dialog
     const [stockUpdateProduct, setStockUpdateProduct] = React.useState<Product | null>(null);
+    // Products summary KPIs
+    const [productsSummary, setProductsSummary] = React.useState<{
+        total_products: number;
+        active_products: number;
+        inactive_products: number;
+        expired_variants: number;
+        low_stock_variants: number;
+    } | null>(null);
+    const [summaryLoading, setSummaryLoading] = React.useState(false);
 
     const [updatingProductId, setUpdatingProductId] = React.useState<number | null>(null);
     const refreshTableRef = React.useRef<() => void>(() => {});
@@ -162,55 +169,14 @@ export default function ProductList() {
         {
             id: 'image' as keyof Product,
             label: 'Image',
-            render: (row: Product) => {
-                const imageUrl = getDefaultImage(row);
-                return (
-                    <Box
-                        onMouseEnter={(e) => {
-                            if (imagePreviewCloseTimeoutRef.current) {
-                                clearTimeout(imagePreviewCloseTimeoutRef.current);
-                                imagePreviewCloseTimeoutRef.current = null;
-                            }
-                            setImagePreviewAnchor({ el: e.currentTarget, product: row });
-                        }}
-                        onMouseLeave={() => {
-                            imagePreviewCloseTimeoutRef.current = setTimeout(() => setImagePreviewAnchor(null), 150);
-                        }}
-                        sx={{ display: 'inline-flex' }}
-                    >
-                        <Avatar
-                            src={imageUrl}
-                            alt={row.title}
-                            variant="rounded"
-                            sx={{ width: 50, height: 50, py: 1, cursor: 'pointer' }}
-                            onClick={() => navigate(`/products/detail/${row.id}`, { state: { productIds: tableState.data.map((p) => p.id) } })}
-                        />
-                        <Popover
-                            open={imagePreviewAnchor?.product?.id === row.id}
-                            anchorEl={imagePreviewAnchor?.el}
-                            onClose={() => setImagePreviewAnchor(null)}
-                            anchorOrigin={{ vertical: 'center', horizontal: 'right' }}
-                            transformOrigin={{ vertical: 'center', horizontal: 'left' }}
-                            disableRestoreFocus
-                            slotProps={{ root: { sx: { pointerEvents: 'none' } } } as object}
-                            PaperProps={{
-                                onMouseEnter: () => {
-                                    if (imagePreviewCloseTimeoutRef.current) {
-                                        clearTimeout(imagePreviewCloseTimeoutRef.current);
-                                        imagePreviewCloseTimeoutRef.current = null;
-                                    }
-                                },
-                                onMouseLeave: () => setImagePreviewAnchor(null),
-                                sx: { pointerEvents: 'auto', minWidth: 200, maxWidth: 280, p: 2, borderRadius: 2, boxShadow: 3, ml: 0.5 },
-                            }}
-                        >
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                                <Box component="img" src={imageUrl} alt={row.title} sx={{ width: '100%', maxHeight: 200, objectFit: 'contain', borderRadius: 1 }} />
-                            </Box>
-                        </Popover>
-                    </Box>
-                );
-            }
+            render: (row: Product) => (
+                <ImagePreviewAvatar
+                    imageUrl={getDefaultImage(row)}
+                    alt={row.title}
+                    size={50}
+                    onClick={() => navigate(`/products/detail/${row.id}`, { state: { productIds: tableState.data.map((p) => p.id) } })}
+                />
+            )
         },
         { 
             id: 'title' as keyof Product, 
@@ -455,8 +421,14 @@ export default function ProductList() {
     const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
     const [appliedAdvancedFilters, setAppliedAdvancedFilters] = React.useState<AdvancedFiltersState>(emptyAdvancedFilters);
     const [hasComboActive, setHasComboActive] = React.useState(false);
+    const [expiredProductsActive, setExpiredProductsActive] = React.useState(false);
+    const [lowStockProductsActive, setLowStockProductsActive] = React.useState(false);
     const hasComboActiveRef = React.useRef(hasComboActive);
+    const expiredProductsActiveRef = React.useRef(expiredProductsActive);
+    const lowStockProductsActiveRef = React.useRef(lowStockProductsActive);
     hasComboActiveRef.current = hasComboActive;
+    expiredProductsActiveRef.current = expiredProductsActive;
+    lowStockProductsActiveRef.current = lowStockProductsActive;
 
     // Options for advanced search autocompletes (fetched via API)
     const [categories, setCategories] = React.useState<Category[]>([]);
@@ -540,12 +512,13 @@ export default function ProductList() {
         return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId);
     }, [dateRange, appliedAdvancedFilters, vendorId, selectedBranchId]);
 
-    // Wrap fetchProducts to pass hasActiveComboDiscounts when "Has Combo" chip is active (not part of filters).
-    // Use ref so Clear button's refetch sees updated value immediately (avoids stale closure).
+    // Wrap fetchProducts to pass body-only params (not part of filters).
     const fetchProductsWithCombo = React.useCallback((params: FetchParams) => {
         return fetchProducts({
             ...params,
             hasActiveComboDiscounts: hasComboActiveRef.current ? true : undefined,
+            expiredProducts: expiredProductsActiveRef.current ? true : undefined,
+            lowStockProducts: lowStockProductsActiveRef.current ? true : undefined,
         });
     }, []);
 
@@ -572,13 +545,48 @@ export default function ProductList() {
         searchDebounceMs: 500,
     });
 
-    refreshTableRef.current = tableHandlers.refresh;
+    // Fetch products summary (KPIs)
+    const fetchSummary = React.useCallback(async () => {
+        if (!vendorId || !selectedBranchId) return;
+        setSummaryLoading(true);
+        try {
+            const summary = await fetchProductsSummary({
+                branchId: selectedBranchId,
+                vendorId,
+            });
+            setProductsSummary(summary);
+        } catch {
+            setProductsSummary(null);
+        } finally {
+            setSummaryLoading(false);
+        }
+    }, [vendorId, selectedBranchId]);
 
-    // Update filters when applied filters, date range, or Has Combo change (same pattern as SubCategoryList)
+    React.useEffect(() => {
+        fetchSummary();
+    }, [fetchSummary]);
+
+    refreshTableRef.current = () => {
+        tableHandlers.refresh();
+        fetchSummary();
+    };
+
+    // Update filters when applied filters or date range change
     React.useEffect(() => {
         setFilters(buildFilters());
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
-    }, [appliedAdvancedFilters, dateRange, hasComboActive, setFilters, buildFilters, setPaginationModel]);
+    }, [appliedAdvancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+
+    // When body-only filter chips toggle, refresh to refetch with updated request body
+    const bodyFiltersInitializedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!bodyFiltersInitializedRef.current) {
+            bodyFiltersInitializedRef.current = true;
+            return;
+        }
+        tableHandlers.refresh();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hasComboActive, expiredProductsActive, lowStockProductsActive]);
 
     React.useEffect(() => {
         if (filterAnchorEl) {
@@ -593,7 +601,11 @@ export default function ProductList() {
 
     const handleClearFilters = () => {
         hasComboActiveRef.current = false;
+        expiredProductsActiveRef.current = false;
+        lowStockProductsActiveRef.current = false;
         setHasComboActive(false);
+        setExpiredProductsActive(false);
+        setLowStockProductsActive(false);
         setSearchKeyword('');
         setAdvancedFilters(emptyAdvancedFilters);
         setAppliedAdvancedFilters(emptyAdvancedFilters);
@@ -632,7 +644,7 @@ export default function ProductList() {
             onClearAndRefresh={handleClearFilters}
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeApply}
-            onRefresh={() => tableHandlers.refresh()}
+            onRefresh={() => refreshTableRef.current()}
             filterAnchorEl={filterAnchorEl}
             onOpenFilterClick={(e) => setFilterAnchorEl(e.currentTarget)}
             onFilterClose={() => setFilterAnchorEl(null)}
@@ -645,36 +657,36 @@ export default function ProductList() {
                         {[
                             {
                                 label: 'Total Products',
-                                value: tableState.total.toLocaleString(),
+                                value: productsSummary != null ? productsSummary.total_products.toLocaleString() : '—',
                                 icon: <InventoryIcon />,
                                 iconBgColor: '#1976d2',
                                 bgColor: '#e3f2fd',
                             },
-                        {
-                            label: 'Expired Products',
-                            value: '—',
-                            icon: <EventBusyIcon />,
-                            iconBgColor: '#d32f2f',
-                            bgColor: '#ffebee',
-                            valueColor: '#d32f2f',
-                        },
-                        {
-                            label: 'Low Stock Products',
-                            value: '—',
-                            icon: <WarningAmberIcon />,
-                            iconBgColor: '#ed6c02',
-                            bgColor: '#fff3e0',
-                            valueColor: '#ed6c02',
-                        },
-                        {
-                            label: 'Active / Inactive',
-                            value: '—',
-                            icon: <CompareArrowsIcon />,
-                            iconBgColor: '#7b1fa2',
-                            bgColor: '#f3e5f5',
-                            valueColor: '#7b1fa2',
-                        },
-                    ].map((kpi, index) => (
+                            {
+                                label: 'Expired Variants',
+                                value: productsSummary != null ? productsSummary.expired_variants.toLocaleString() : '—',
+                                icon: <EventBusyIcon />,
+                                iconBgColor: '#d32f2f',
+                                bgColor: '#ffebee',
+                                valueColor: '#d32f2f',
+                            },
+                            {
+                                label: 'Low Stock Variants',
+                                value: productsSummary != null ? productsSummary.low_stock_variants.toLocaleString() : '—',
+                                icon: <WarningAmberIcon />,
+                                iconBgColor: '#ed6c02',
+                                bgColor: '#fff3e0',
+                                valueColor: '#ed6c02',
+                            },
+                            {
+                                label: 'Active / Inactive',
+                                value: productsSummary != null ? `${productsSummary.active_products} / ${productsSummary.inactive_products}` : '—',
+                                icon: <CompareArrowsIcon />,
+                                iconBgColor: '#7b1fa2',
+                                bgColor: '#f3e5f5',
+                                valueColor: '#7b1fa2',
+                            },
+                        ].map((kpi, index) => (
                             <Grid key={index} size={{ xs: 6, sm: 4, md: 3 }}>
                                 <KPICard
                                     label={kpi.label}
@@ -683,7 +695,7 @@ export default function ProductList() {
                                     iconBgColor={kpi.iconBgColor}
                                     bgColor={kpi.bgColor}
                                     valueColor={kpi.valueColor}
-                                    loading={kpi.label === 'Total Products' ? tableState.loading : false}
+                                    loading={summaryLoading}
                                     sx={{
                                         '& .MuiCardContent-root': { p: 1.5 },
                                         '& .kpi-icon': { width: 40, height: 40, '& > svg': { fontSize: 20 } },
@@ -697,7 +709,7 @@ export default function ProductList() {
             }
             filterPopoverContent={
                 <>
-                    <Box sx={{ mb: 2 }}>
+                    <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                         <Chip
                             label="Has Combo"
                             onClick={() => setHasComboActive((prev) => !prev)}
@@ -708,6 +720,30 @@ export default function ProductList() {
                                 fontWeight: 500,
                                 cursor: 'pointer',
                                 '&:hover': { bgcolor: hasComboActive ? 'primary.dark' : 'action.hover' },
+                            }}
+                        />
+                        <Chip
+                            label="Expired"
+                            onClick={() => setExpiredProductsActive((prev) => !prev)}
+                            color={expiredProductsActive ? 'error' : 'default'}
+                            variant={expiredProductsActive ? 'filled' : 'outlined'}
+                            size="small"
+                            sx={{
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                '&:hover': { bgcolor: expiredProductsActive ? 'error.dark' : 'action.hover' },
+                            }}
+                        />
+                        <Chip
+                            label="Low Stock"
+                            onClick={() => setLowStockProductsActive((prev) => !prev)}
+                            color={lowStockProductsActive ? 'warning' : 'default'}
+                            variant={lowStockProductsActive ? 'filled' : 'outlined'}
+                            size="small"
+                            sx={{
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                '&:hover': { bgcolor: lowStockProductsActive ? 'warning.dark' : 'action.hover' },
                             }}
                         />
                     </Box>

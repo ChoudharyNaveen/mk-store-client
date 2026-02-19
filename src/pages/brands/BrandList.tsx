@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Button, Avatar, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { Box, Typography, Button, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -7,6 +7,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import ImagePreviewAvatar from '../../components/ImagePreviewAvatar';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
 import ListPageLayout from '../../components/ListPageLayout';
@@ -65,16 +66,16 @@ export default function BrandList() {
             id: 'logo' as keyof Brand,
             label: 'Logo',
             minWidth: 80,
-            render: (row: Brand) => {
-                const logoUrl = row.logo || row.image;
-                return logoUrl ? (
-                    <Avatar src={logoUrl} alt={row.name} variant="rounded" sx={{ width: 50, height: 50 }} />
-                ) : (
-                    <Avatar variant="rounded" sx={{ width: 50, height: 50, bgcolor: 'primary.main', color: 'white', fontSize: '1.25rem', fontWeight: 600 }}>
-                        {row.name?.charAt(0)?.toUpperCase() || 'B'}
-                    </Avatar>
-                );
-            }
+            render: (row: Brand) => (
+                <ImagePreviewAvatar
+                    imageUrl={row.logo || row.image}
+                    alt={row.name}
+                    size={50}
+                    fallbackContent={row.name?.charAt(0)?.toUpperCase() || 'B'}
+                    onClick={() => navigate(`/brands/detail/${row.id}`)}
+                    avatarSx={!row.logo && !row.image ? { bgcolor: 'primary.main', color: 'white', fontSize: '1.25rem', fontWeight: 600 } : undefined}
+                />
+            )
         },
         {
             id: 'name' as keyof Brand,
