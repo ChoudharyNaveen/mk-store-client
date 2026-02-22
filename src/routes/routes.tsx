@@ -23,6 +23,7 @@ import OfferList from '../pages/offers/OfferList';
 import OfferDetail from '../pages/offers/OfferDetail';
 import NewOfferForm from '../pages/offers/NewOfferForm';
 import OrderList from '../pages/orders/OrderList';
+import OrderListWithDetail from '../pages/orders/OrderListWithDetail';
 import OrderDetail from '../pages/orders/OrderDetail';
 import LoginForm from '../pages/login/LoginForm';
 import BannerList from '../pages/banners/BannerList';
@@ -174,7 +175,7 @@ export const protectedRoutes: RouteObject[] = [
   // Order routes
   {
     path: '/orders',
-    element: <OrderList />,
+    element: <OrderListWithDetail />,
   },
   {
     path: '/orders/detail/:id',

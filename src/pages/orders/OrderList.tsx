@@ -20,7 +20,12 @@ import { exportToCSV } from '../../utils/exportCsv';
 import { getOrderStatusSx, getPaymentStatusColor } from '../../utils/statusColors';
 import { concatProductAndVariant } from '../../utils/orderHelpers';
 
-export default function OrderList() {
+interface OrderListProps {
+    /** When provided, clicking an order opens split view instead of navigating to detail page */
+    onRowSelect?: (order: Order) => void;
+}
+
+export default function OrderList({ onRowSelect }: OrderListProps) {
     const navigate = useNavigate();
     const { user } = useAppSelector((state) => state.auth);
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
@@ -28,6 +33,14 @@ export default function OrderList() {
 
     const { dateRange, handleDateRangeApply } = useListPageDateRange(30);
     
+    const handleOrderClick = (row: Order) => {
+        if (onRowSelect) {
+            onRowSelect(row);
+        } else {
+            navigate(`/orders/detail/${row.id}`, { state: { orderIds: tableState.data.map((o) => o.id) } });
+        }
+    };
+
     const columns = [
         {
             id: 'order_number' as keyof Order,
@@ -36,7 +49,7 @@ export default function OrderList() {
             render: (row: Order) => (
                 <Typography
                     component="button"
-                    onClick={() => navigate(`/orders/detail/${row.id}`, { state: { orderIds: tableState.data.map((o) => o.id) } })}
+                    onClick={() => handleOrderClick(row)}
                     sx={{
                         background: 'none',
                         border: 'none',
@@ -280,7 +293,7 @@ export default function OrderList() {
                     row={row}
                     ariaLabel="Order actions"
                     items={(r): RowActionItem<Order>[] => [
-                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: () => navigate(`/orders/detail/${r.id}`, { state: { orderIds: tableState.data.map((o) => o.id) } }) },
+                        { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: () => handleOrderClick(r) },
                     ]}
                 />
             )
