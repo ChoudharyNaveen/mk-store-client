@@ -19,6 +19,8 @@ interface FormDatePickerProps<T extends FieldValues> {
   variant?: 'outlined' | 'filled' | 'standard';
   sx?: any;
   slotProps?: any;
+  minDate?: Date;
+  maxDate?: Date;
 }
 
 // Type guard to check if value is a Date

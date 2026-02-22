@@ -41,6 +41,7 @@ import DiscountIcon from '@mui/icons-material/Discount';
 import ImageIcon from '@mui/icons-material/Image';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import HistoryIcon from '@mui/icons-material/History';
 import LabelIcon from '@mui/icons-material/Label';
@@ -133,6 +134,7 @@ const menuItems: MenuItem[] = [
         icon: <SettingsIcon />,
         path: '/settings',
         children: [
+            { text: 'Branch Address', path: '/settings/branch-address', icon: <LocationOnIcon /> },
             { text: 'Shipping Charges', path: '/settings/shipping-charges', icon: <LocalShippingIcon /> },
         ],
     },

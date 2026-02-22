@@ -102,6 +102,8 @@ export const API_URLS = {
   // Branch endpoints
   BRANCHES: {
     LIST: `${API_PREFIX}/get-branch`,
+    GET_BY_ID: (id: string | number) => `${API_PREFIX}/get-branch/${id}`,
+    UPDATE: (id: string | number) => `${API_PREFIX}/update-branch/${id}`,
   },
   
   // Brand endpoints

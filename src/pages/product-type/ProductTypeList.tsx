@@ -100,7 +100,7 @@ export default function ProductTypeList() {
   );
 
   const columns = [
-    { id: 'id' as keyof ProductType, label: 'ID', minWidth: 80 },
+    // { id: 'id' as keyof ProductType, label: 'ID', minWidth: 80 },
     { id: 'title' as keyof ProductType, label: 'Title', minWidth: 180 },
     {
       id: 'subCategory' as keyof ProductType,

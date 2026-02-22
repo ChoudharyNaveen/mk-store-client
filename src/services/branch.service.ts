@@ -6,7 +6,11 @@
 
 import http from '../utils/http';
 import { API_URLS } from '../constants/urls';
-import type { BranchListRequest, BranchListResponse } from '../types/branch';
+import type {
+  BranchListRequest,
+  BranchListResponse,
+  UpdateBranchRequest,
+} from '../types/branch';
 
 /**
  * Get branches list with pagination and filters
@@ -31,8 +35,23 @@ export const getBranches = async (
   }
 };
 
+/**
+ * Update branch (address and contact fields)
+ */
+export const updateBranch = async (
+  id: string | number,
+  data: UpdateBranchRequest
+): Promise<{ success: boolean; doc?: unknown }> => {
+  const response = await http.patch<{ success: boolean; doc?: unknown }>(
+    API_URLS.BRANCHES.UPDATE(id),
+    data
+  );
+  return response;
+};
+
 const branchService = {
   getBranches,
+  updateBranch,
 };
 
 export default branchService;

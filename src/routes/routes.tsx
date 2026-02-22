@@ -28,6 +28,7 @@ import LoginForm from '../pages/login/LoginForm';
 import BannerList from '../pages/banners/BannerList';
 import BannerForm from '../pages/banners/BannerForm';
 import BannerDetail from '../pages/banners/BannerDetail';
+import BranchAddress from '../pages/settings/BranchAddress';
 import ShippingCharges from '../pages/settings/ShippingCharges';
 import NotificationList from '../pages/notifications/NotificationList';
 import ProductTypeList from '../pages/product-type/ProductTypeList';
@@ -219,6 +220,10 @@ export const protectedRoutes: RouteObject[] = [
     element: <ProductTypeForm />,
   },
   // Settings routes
+  {
+    path: '/settings/branch-address',
+    element: <BranchAddress />,
+  },
   {
     path: '/settings/shipping-charges',
     element: <ShippingCharges />,

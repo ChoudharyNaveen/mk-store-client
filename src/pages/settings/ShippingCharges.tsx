@@ -33,6 +33,7 @@ const statusOptions = [
 ];
 
 const emptyFormValues: Record<string, string> = {
+  serviceDistanceKm: '0',
   distanceThresholdKm: '0',
   withinThresholdBaseCharge: '0',
   withinThresholdFreeAbove: '0',
@@ -70,14 +71,16 @@ function FieldRow({
   const strValue = value === '' || value === null || value === undefined ? '' : String(value);
   return (
     <Box sx={{ mb: 2, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-        {label}
-      </Typography>
-      {helperText && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontStyle: 'italic' }}>
-          {helperText}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+        <Typography variant="caption" color="text.secondary">
+          {label}
         </Typography>
-      )}
+        {helperText && (
+          <Tooltip title={helperText} arrow placement="top">
+            <InfoOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary', cursor: 'help' }} />
+          </Tooltip>
+        )}
+      </Box>
       {editMode ? (
         <TextField
           size="small"
@@ -130,6 +133,7 @@ export default function ShippingCharges() {
         const doc = res.doc;
         setConfig(doc);
         setForm({
+          serviceDistanceKm: String(doc.serviceDistanceKm ?? ''),
           distanceThresholdKm: String(doc.distanceThresholdKm ?? ''),
           withinThresholdBaseCharge: String(doc.withinThresholdBaseCharge ?? ''),
           withinThresholdFreeAbove: String(doc.withinThresholdFreeAbove ?? ''),
@@ -163,6 +167,7 @@ export default function ShippingCharges() {
   const handleCancelEdit = () => {
     if (config) {
       setForm({
+        serviceDistanceKm: String(config.serviceDistanceKm ?? ''),
         distanceThresholdKm: String(config.distanceThresholdKm ?? ''),
         withinThresholdBaseCharge: String(config.withinThresholdBaseCharge ?? ''),
         withinThresholdFreeAbove: String(config.withinThresholdFreeAbove ?? ''),
@@ -193,6 +198,7 @@ export default function ShippingCharges() {
     try {
       const payload = {
         branchId: selectedBranchId,
+        serviceDistanceKm: Number(form.serviceDistanceKm) || 0,
         distanceThresholdKm: Number(form.distanceThresholdKm) || 0,
         withinThresholdBaseCharge: Number(form.withinThresholdBaseCharge) || 0,
         withinThresholdFreeAbove: Number(form.withinThresholdFreeAbove) || 0,
@@ -352,21 +358,16 @@ export default function ShippingCharges() {
             </Typography>
           </Box>
 
-          {/* Distance threshold */}
+          {/* Service distance */}
           <Card variant="outlined" sx={{ borderRadius: 2, borderColor: 'divider' }}>
             <CardContent>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5, color: 'text.primary' }}>
-                Distance threshold
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                Orders within this distance (km) use the &quot;Within threshold&quot; charges. Beyond this, &quot;Above threshold&quot; same-day or next-day rules apply.
-              </Typography>
               <FieldRow
-                label="Distance threshold (km)"
-                value={form.distanceThresholdKm ?? ''}
+                label="Service distance (km)"
+                helperText="Online delivery will be available within this maximum distance."
+                value={form.serviceDistanceKm ?? ''}
                 editMode={editMode}
                 onChange={handleFormChange}
-                name="distanceThresholdKm"
+                name="serviceDistanceKm"
                 type="number"
                 min={0}
                 step={0.5}
@@ -377,15 +378,29 @@ export default function ShippingCharges() {
           {/* Within threshold */}
           <Card variant="outlined" sx={{ borderRadius: 2, borderColor: 'divider' }}>
             <CardContent>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5, color: 'text.primary' }}>
-                Within threshold (nearby delivery)
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                Applied when delivery distance is within the threshold above. Base charge is applied unless the order value reaches the free-shipping amount.
-              </Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, alignItems: 'start', minWidth: 0 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  Within threshold (nearby delivery)
+                </Typography>
+                <Tooltip title="Applied when delivery distance is within the threshold below. Base charge is applied unless the order value reaches the free-shipping amount." arrow placement="top">
+                  <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2, alignItems: 'start', minWidth: 0 }}>
+                <FieldRow
+                  label="Distance threshold (km)"
+                  helperText="Orders within this distance use &quot;Within threshold&quot; charges; beyond this, &quot;Above threshold&quot; same-day or next-day rules apply."
+                  value={form.distanceThresholdKm ?? ''}
+                  editMode={editMode}
+                  onChange={handleFormChange}
+                  name="distanceThresholdKm"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                />
                 <FieldRow
                   label="Base charge (₹)"
+                  helperText="Delivery charge applied for orders within the distance threshold."
                   value={form.withinThresholdBaseCharge ?? ''}
                   editMode={editMode}
                   onChange={handleFormChange}
@@ -414,15 +429,18 @@ export default function ShippingCharges() {
           {/* Above threshold – same day */}
           <Card variant="outlined" sx={{ borderRadius: 2, borderColor: 'divider' }}>
             <CardContent>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5, color: 'text.primary' }}>
-                Above threshold – same-day delivery
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                When delivery is beyond the distance threshold and fulfilled same day. Base or discounted charge applies; free above the given order value.
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  Above threshold – same-day delivery
+                </Typography>
+                <Tooltip title="When delivery is beyond the distance threshold and fulfilled same day. Base or discounted charge applies; free above the given order value." arrow placement="top">
+                  <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2, alignItems: 'start', minWidth: 0 }}>
                 <FieldRow
                   label="Same-day base charge (₹)"
+                  helperText="Base charge for same-day delivery beyond the distance threshold."
                   value={form.aboveThresholdSamedayBaseCharge ?? ''}
                   editMode={editMode}
                   onChange={handleFormChange}
@@ -434,6 +452,7 @@ export default function ShippingCharges() {
                 />
                 <FieldRow
                   label="Same-day discounted charge (₹)"
+                  helperText="Discounted charge for same-day delivery beyond the distance threshold."
                   value={form.aboveThresholdSamedayDiscountedCharge ?? ''}
                   editMode={editMode}
                   onChange={handleFormChange}
@@ -445,6 +464,7 @@ export default function ShippingCharges() {
                 />
                 <FieldRow
                   label="Same-day free above (₹)"
+                  helperText="Orders at or above this amount get free same-day delivery beyond the distance threshold."
                   value={form.aboveThresholdSamedayFreeAbove ?? ''}
                   editMode={editMode}
                   onChange={handleFormChange}
@@ -461,15 +481,18 @@ export default function ShippingCharges() {
           {/* Above threshold – next day */}
           <Card variant="outlined" sx={{ borderRadius: 2, borderColor: 'divider' }}>
             <CardContent>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5, color: 'text.primary' }}>
-                Above threshold – next-day delivery
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                When delivery is beyond the distance threshold and fulfilled next day. Base charge applies; free above the given order value.
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  Above threshold – next-day delivery
+                </Typography>
+                <Tooltip title="When delivery is beyond the distance threshold and fulfilled next day. Base charge applies; free above the given order value." arrow placement="top">
+                  <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, alignItems: 'start', minWidth: 0 }}>
                 <FieldRow
                   label="Next-day base charge (₹)"
+                  helperText="Base charge for next-day delivery beyond the distance threshold."
                   value={form.aboveThresholdNextdayBaseCharge ?? ''}
                   editMode={editMode}
                   onChange={handleFormChange}
@@ -481,6 +504,7 @@ export default function ShippingCharges() {
                 />
                 <FieldRow
                   label="Next-day free above (₹)"
+                  helperText="Orders at or above this amount get free next-day delivery beyond the distance threshold."
                   value={form.aboveThresholdNextdayFreeAbove ?? ''}
                   editMode={editMode}
                   onChange={handleFormChange}
@@ -497,12 +521,14 @@ export default function ShippingCharges() {
           {/* Status */}
           <Card variant="outlined" sx={{ borderRadius: 2, borderColor: 'divider' }}>
             <CardContent>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1.5, color: 'text.primary' }}>
-                Status
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
-                Inactive configuration will not be used for calculating shipping charges.
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  Status
+                </Typography>
+                <Tooltip title="Inactive configuration will not be used for calculating shipping charges." arrow placement="top">
+                  <InfoOutlinedIcon sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
               {editMode ? (
                 <TextField
                   select

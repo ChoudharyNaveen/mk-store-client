@@ -46,3 +46,19 @@ export interface BranchListResponse {
   };
 }
 
+/** Request body for update-branch (address and contact) */
+export interface UpdateBranchRequest {
+  address_line1?: string | null;
+  address_line2?: string | null;
+  street?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  latitude?: number;
+  longitude?: number;
+  phone?: string;
+  email?: string;
+  updatedBy: number;
+  concurrencyStamp: string;
+}
+

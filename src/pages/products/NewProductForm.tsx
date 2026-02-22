@@ -502,6 +502,27 @@ export default function ProductForm() {
     }, [categorySearchTerm]);
 
 
+    // Reset subCategoryId and productTypeId when category changes (user-initiated only)
+    const prevCategoryIdRef = React.useRef<number | null | undefined>(undefined);
+    const prevSubCategoryIdRef = React.useRef<number | null | undefined>(undefined);
+    React.useEffect(() => {
+        const prev = prevCategoryIdRef.current;
+        prevCategoryIdRef.current = selectedCategoryId ?? null;
+        if (prev !== undefined && prev !== selectedCategoryId) {
+            setValue('subCategoryId', 0);
+            setValue('productTypeId', null);
+            setSubCategories([]);
+            setProductTypes([]);
+        }
+    }, [selectedCategoryId, setValue]);
+    React.useEffect(() => {
+        const prev = prevSubCategoryIdRef.current;
+        prevSubCategoryIdRef.current = selectedSubCategoryId ?? null;
+        if (prev !== undefined && prev !== selectedSubCategoryId) {
+            setValue('productTypeId', null);
+        }
+    }, [selectedSubCategoryId, setValue]);
+
     // Fetch sub-categories when category is selected
     React.useEffect(() => {
         if (!selectedCategoryId || selectedCategoryId === 0) {
@@ -1283,7 +1304,7 @@ export default function ProductForm() {
                                             <FormAutocomplete
                                                 name="productTypeId"
                                                 label="Product Type"
-                                                disabled={loading || !selectedSubCategoryId || selectedSubCategoryId === 0}
+                                                disabled={loading || !selectedCategoryId || selectedCategoryId === 0 || !selectedSubCategoryId || selectedSubCategoryId === 0}
                                                 loading={loadingProductTypes}
                                                 options={[
                                                     ...(isEditMode && productData?.productType && !productTypes.some(pt => pt.id === productData.productType!.id)
@@ -1305,7 +1326,7 @@ export default function ProductForm() {
                                             size="small"
                                             startIcon={<AddIcon />}
                                             onClick={() => setProductTypeDialogOpen(true)}
-                                            disabled={loading || !selectedSubCategoryId || selectedSubCategoryId === 0}
+                                            disabled={loading || !selectedCategoryId || selectedCategoryId === 0 || !selectedSubCategoryId || selectedSubCategoryId === 0}
                                             sx={{ textTransform: 'none', mt: 0.5, flexShrink: 0 }}
                                         >
                                             Add

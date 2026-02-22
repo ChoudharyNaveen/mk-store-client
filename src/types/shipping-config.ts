@@ -12,6 +12,8 @@ export interface BranchShippingConfigBranch {
 export interface BranchShippingConfig {
   id: number;
   branchId: number;
+  /** Maximum distance (km) within which online delivery is available */
+  serviceDistanceKm?: number;
   distanceThresholdKm: number;
   withinThresholdBaseCharge: number;
   withinThresholdFreeAbove: number;
@@ -37,6 +39,7 @@ export interface BranchShippingConfigResponse {
 /** Request body for POST save-branch-shipping-config (create and update) */
 export interface SaveBranchShippingConfigRequest {
   branchId: number;
+  serviceDistanceKm?: number;
   distanceThresholdKm: number;
   withinThresholdBaseCharge: number;
   withinThresholdFreeAbove: number;
