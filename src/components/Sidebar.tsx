@@ -103,9 +103,10 @@ const menuItems: MenuItem[] = [
         text: 'Products',
         icon: <InventoryIcon />,
         path: '/products',
-        // children: [
-        //     { text: 'Product List', path: '/products' },
-        // ],
+        children: [
+            { text: 'Product List', path: '/products', icon: <InventoryIcon /> },
+            { text: 'Product Types', path: '/product-types', icon: <LabelIcon /> },
+        ],
     },
     {
         text: 'Orders List',
@@ -132,7 +133,6 @@ const menuItems: MenuItem[] = [
         icon: <SettingsIcon />,
         path: '/settings',
         children: [
-            { text: 'Product Types', path: '/product-types', icon: <LabelIcon /> },
             { text: 'Shipping Charges', path: '/settings/shipping-charges', icon: <LocalShippingIcon /> },
         ],
     },
