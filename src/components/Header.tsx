@@ -29,6 +29,7 @@ import { useThemeMode } from '../contexts/ThemeContext';
 import { RECENTLY_VIEWED_STORAGE_KEY } from '../contexts/RecentlyViewedContext';
 import NotificationPopover from './NotificationPopover';
 import NewOrderDialog from './NewOrderDialog';
+import GlobalSearch from './GlobalSearch';
 
 const drawerWidth = 260;
 const closedDrawerWidth = 70;
@@ -103,10 +104,13 @@ export default function Header({ open }: HeaderProps) {
                 }),
             }}
         >
-            <Toolbar sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-
-                {/* Right Icons */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Toolbar sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+                {/* Left: Global search */}
+                <Box sx={{ flex: 1, maxWidth: 480, minWidth: 200 }}>
+                    <GlobalSearch />
+                </Box>
+                {/* Right: Icons */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, ml: 'auto' }}>
                     <IconButton onClick={toggleMode} title={mode === 'light' ? 'Dark mode' : 'Light mode'} sx={{ color: '#204564' }}>
                         {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
                     </IconButton>
