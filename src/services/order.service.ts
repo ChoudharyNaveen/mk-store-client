@@ -249,6 +249,51 @@ export const fetchOrderStats = async (createdBy: string | number): Promise<Order
 };
 
 /**
+ * Daily order stats response (POST get-daily-order-stats)
+ */
+export interface DailyOrderStatsResponse {
+  success: boolean;
+  doc: {
+    totalOrders: number;
+    totalAmount: number;
+    pendingOrders: number;
+    deliveredOrders: number;
+  };
+}
+
+/**
+ * Fetch daily order stats by branch and date
+ */
+export const fetchDailyOrderStats = async (
+  branchId: number,
+  date: string
+): Promise<DailyOrderStatsResponse['doc']> => {
+  try {
+    const response = await http.post<DailyOrderStatsResponse>(
+      API_URLS.ORDERS.GET_DAILY_STATS,
+      { branchId, date }
+    );
+    if (response.success && response.doc) {
+      return response.doc;
+    }
+    return {
+      totalOrders: 0,
+      totalAmount: 0,
+      pendingOrders: 0,
+      deliveredOrders: 0,
+    };
+  } catch (error) {
+    console.error('Error fetching daily order stats:', error);
+    return {
+      totalOrders: 0,
+      totalAmount: 0,
+      pendingOrders: 0,
+      deliveredOrders: 0,
+    };
+  }
+};
+
+/**
  * Fetch order details by ID
  */
 export const fetchOrderDetails = async (id: string | number): Promise<OrderDetailsResponse['data']> => {
@@ -336,6 +381,7 @@ export const updateOrder = async (
 const orderService = {
   fetchOrders,
   fetchOrderStats,
+  fetchDailyOrderStats,
   fetchOrderDetails,
   updateOrder,
 };

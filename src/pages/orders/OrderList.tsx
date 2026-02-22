@@ -3,14 +3,18 @@ import { Box, Typography, Button, TextField, Popover, Chip, List, ListItem, List
 import { useNavigate } from 'react-router-dom';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
+import CollapsibleKPISection from '../../components/CollapsibleKPISection';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
 import ListPageLayout from '../../components/ListPageLayout';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { useListPageDateRange } from '../../hooks/useListPageDateRange';
-import { fetchOrders } from '../../services/order.service';
+import { fetchOrders, fetchDailyOrderStats } from '../../services/order.service';
 import type { Order } from '../../types/order';
 import type { ServerFilter } from '../../types/filter';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
@@ -45,7 +49,7 @@ export default function OrderList({ onRowSelect }: OrderListProps) {
         {
             id: 'order_number' as keyof Order,
             label: 'Order ID',
-            minWidth: 150,
+            minWidth: 250,
             render: (row: Order) => (
                 <Typography
                     component="button"
@@ -306,6 +310,42 @@ export default function OrderList({ onRowSelect }: OrderListProps) {
     const [advancedFilters, setAdvancedFilters] = React.useState(emptyAdvancedFilters);
     const [appliedAdvancedFilters, setAppliedAdvancedFilters] = React.useState(emptyAdvancedFilters);
 
+    // Daily order stats for KPI cards (from get-daily-order-stats)
+    const [orderStats, setOrderStats] = React.useState({
+        total_orders: 0,
+        total_amount: 0,
+        pending_orders: 0,
+        delivered_orders: 0,
+    });
+    const [statsLoading, setStatsLoading] = React.useState(false);
+
+    React.useEffect(() => {
+        if (selectedBranchId == null) return;
+        const date = format(new Date(), 'yyyy-MM-dd');
+        let cancelled = false;
+        setStatsLoading(true);
+        fetchDailyOrderStats(selectedBranchId, date)
+            .then((doc) => {
+                if (!cancelled) {
+                    setOrderStats({
+                        total_orders: doc.totalOrders ?? 0,
+                        total_amount: doc.totalAmount ?? 0,
+                        pending_orders: doc.pendingOrders ?? 0,
+                        delivered_orders: doc.deliveredOrders ?? 0,
+                    });
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setOrderStats({ total_orders: 0, total_amount: 0, pending_orders: 0, delivered_orders: 0 });
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setStatsLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [selectedBranchId]);
+
     // Build filters from applied values (so Apply button commits form state, then effect runs once)
     const buildFilters = React.useCallback((): ServerFilter[] => {
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
@@ -384,6 +424,44 @@ export default function OrderList({ onRowSelect }: OrderListProps) {
         );
     };
 
+    const orderKpis = [
+        {
+            label: 'Total Orders',
+            value: orderStats.total_orders.toLocaleString(),
+            helperText: 'Orders placed today',
+            icon: <ShoppingCartIcon />,
+            iconBgColor: '#1976d2',
+            bgColor: '#e3f2fd',
+        },
+        {
+            label: 'Total Amount',
+            value: `₹${orderStats.total_amount.toLocaleString()}`,
+            helperText: 'Revenue from today’s orders',
+            icon: <AttachMoneyIcon />,
+            iconBgColor: '#2e7d32',
+            bgColor: '#e8f5e9',
+            valueColor: '#2e7d32',
+        },
+        {
+            label: 'Pending',
+            value: orderStats.pending_orders.toLocaleString(),
+            helperText: 'Orders awaiting confirmation today',
+            icon: <ScheduleIcon />,
+            iconBgColor: '#ed6c02',
+            bgColor: '#fff3e0',
+            valueColor: '#ed6c02',
+        },
+        {
+            label: 'Delivered',
+            value: orderStats.delivered_orders.toLocaleString(),
+            helperText: 'Orders delivered today',
+            icon: <CheckCircleIcon />,
+            iconBgColor: '#2e7d32',
+            bgColor: '#e8f5e9',
+            valueColor: '#2e7d32',
+        },
+    ];
+
     return (
         <ListPageLayout
             title="Orders"
@@ -400,6 +478,13 @@ export default function OrderList({ onRowSelect }: OrderListProps) {
             onFilterClose={() => setFilterAnchorEl(null)}
             filterPopoverTitle="Filter Orders"
             onExport={handleExport}
+            contentBeforeToolbar={
+                <CollapsibleKPISection
+                    kpis={orderKpis}
+                    summaryText="Day-wise order stats — counts and amounts for today. Table below can be filtered by date range."
+                    loading={statsLoading}
+                />
+            }
             filterPopoverContent={
                 <>
                     <TextField fullWidth size="small" label="Order Number" value={advancedFilters.orderNumber} onChange={(e) => setAdvancedFilters({ ...advancedFilters, orderNumber: e.target.value })} sx={{ mb: 2 }} />

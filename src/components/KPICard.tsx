@@ -6,6 +6,8 @@ export interface KPICardProps {
     label: string;
     /** Main value to display */
     value: string | number;
+    /** Optional helper text shown below the value (e.g. "Orders placed today") */
+    helperText?: string;
     /** Optional icon component (e.g., <ShoppingCartIcon />) */
     icon?: React.ReactNode;
     /** Background color for the icon avatar (e.g., 'primary.main', '#1976d2') */
@@ -27,6 +29,7 @@ export interface KPICardProps {
 const KPICard: React.FC<KPICardProps> = ({
     label,
     value,
+    helperText,
     icon,
     iconBgColor = 'primary.main',
     bgColor,
@@ -127,6 +130,20 @@ const KPICard: React.FC<KPICardProps> = ({
                         >
                             {loading ? '...' : value}
                         </Typography>
+                        {helperText && (
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    display: 'block',
+                                    mt: 0.5,
+                                    color: 'text.secondary',
+                                    fontSize: '0.7rem',
+                                    lineHeight: 1.3,
+                                }}
+                            >
+                                {helperText}
+                            </Typography>
+                        )}
                     </Box>
                 </Box>
             </CardContent>

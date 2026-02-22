@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
 import React from 'react';
-import { Box, Typography, Button, TextField, Popover, IconButton, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress, Grid } from '@mui/material';
+import { Box, Typography, Button, TextField, Popover, IconButton, Chip, Select, MenuItem, FormControl, InputLabel, Autocomplete, CircularProgress } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -15,7 +15,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
-import KPICard from '../../components/KPICard';
+import CollapsibleKPISection from '../../components/CollapsibleKPISection';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
 import ListPageLayout from '../../components/ListPageLayout';
@@ -652,60 +652,42 @@ export default function ProductList() {
             filterPopoverWidth={340}
             onExport={handleExport}
             contentBeforeToolbar={
-                <Box sx={{ px: 2.5, pt: 2, pb: 1 }}>
-                    <Grid container spacing={1.5}>
-                        {[
-                            {
-                                label: 'Total Products',
-                                value: productsSummary != null ? productsSummary.total_products.toLocaleString() : '—',
-                                icon: <InventoryIcon />,
-                                iconBgColor: '#1976d2',
-                                bgColor: '#e3f2fd',
-                            },
-                            {
-                                label: 'Expired Variants',
-                                value: productsSummary != null ? productsSummary.expired_variants.toLocaleString() : '—',
-                                icon: <EventBusyIcon />,
-                                iconBgColor: '#d32f2f',
-                                bgColor: '#ffebee',
-                                valueColor: '#d32f2f',
-                            },
-                            {
-                                label: 'Low Stock Variants',
-                                value: productsSummary != null ? productsSummary.low_stock_variants.toLocaleString() : '—',
-                                icon: <WarningAmberIcon />,
-                                iconBgColor: '#ed6c02',
-                                bgColor: '#fff3e0',
-                                valueColor: '#ed6c02',
-                            },
-                            {
-                                label: 'Active / Inactive',
-                                value: productsSummary != null ? `${productsSummary.active_products} / ${productsSummary.inactive_products}` : '—',
-                                icon: <CompareArrowsIcon />,
-                                iconBgColor: '#7b1fa2',
-                                bgColor: '#f3e5f5',
-                                valueColor: '#7b1fa2',
-                            },
-                        ].map((kpi, index) => (
-                            <Grid key={index} size={{ xs: 6, sm: 4, md: 3 }}>
-                                <KPICard
-                                    label={kpi.label}
-                                    value={kpi.value}
-                                    icon={kpi.icon}
-                                    iconBgColor={kpi.iconBgColor}
-                                    bgColor={kpi.bgColor}
-                                    valueColor={kpi.valueColor}
-                                    loading={summaryLoading}
-                                    sx={{
-                                        '& .MuiCardContent-root': { p: 1.5 },
-                                        '& .kpi-icon': { width: 40, height: 40, '& > svg': { fontSize: 20 } },
-                                        '& .MuiTypography-h5': { fontSize: '1.25rem' },
-                                    }}
-                                />
-                            </Grid>
-                        ))}
-                    </Grid>
-                </Box>
+                <CollapsibleKPISection
+                    kpis={[
+                        {
+                            label: 'Total Products',
+                            value: productsSummary != null ? productsSummary.total_products.toLocaleString() : '—',
+                            icon: <InventoryIcon />,
+                            iconBgColor: '#1976d2',
+                            bgColor: '#e3f2fd',
+                        },
+                        {
+                            label: 'Expired Variants',
+                            value: productsSummary != null ? productsSummary.expired_variants.toLocaleString() : '—',
+                            icon: <EventBusyIcon />,
+                            iconBgColor: '#d32f2f',
+                            bgColor: '#ffebee',
+                            valueColor: '#d32f2f',
+                        },
+                        {
+                            label: 'Low Stock Variants',
+                            value: productsSummary != null ? productsSummary.low_stock_variants.toLocaleString() : '—',
+                            icon: <WarningAmberIcon />,
+                            iconBgColor: '#ed6c02',
+                            bgColor: '#fff3e0',
+                            valueColor: '#ed6c02',
+                        },
+                        {
+                            label: 'Active / Inactive',
+                            value: productsSummary != null ? `${productsSummary.active_products} / ${productsSummary.inactive_products}` : '—',
+                            icon: <CompareArrowsIcon />,
+                            iconBgColor: '#7b1fa2',
+                            bgColor: '#f3e5f5',
+                            valueColor: '#7b1fa2',
+                        },
+                    ]}
+                    loading={summaryLoading}
+                />
             }
             filterPopoverContent={
                 <>
