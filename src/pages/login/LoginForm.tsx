@@ -8,7 +8,6 @@ import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Link from '@mui/material/Link';
-import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -106,126 +105,95 @@ export default function LoginForm() {
                 justifyContent: 'center',
                 position: 'relative',
                 overflow: 'hidden',
-                // Complex gradient background to mimic the wavy pink design
-                background: 'linear-gradient(135deg, #FF5277 0%, #FF1744 100%)',
+                background: 'linear-gradient(145deg, #1a365d 0%, #2c5282 50%, #2b6cb0 100%)',
             }}
         >
-            {/* Decorative Wavy Background Elements */}
+            {/* Subtle overlay shapes */}
             <Box
                 sx={{
                     position: 'absolute',
-                    top: '-20%',
-                    left: '-10%',
-                    width: '60%',
-                    height: '140%',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    borderRadius: '40%',
-                    transform: 'rotate(25deg)',
-                    zIndex: 1,
-                }}
-            />
-            <Box
-                sx={{
-                    position: 'absolute',
-                    bottom: '-30%',
-                    right: '-10%',
-                    width: '70%',
-                    height: '140%',
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    borderRadius: '50%',
-                    transform: 'rotate(-25deg)',
-                    zIndex: 1,
-                }}
-            />
-            <Box
-                sx={{
-                    position: 'absolute',
-                    top: '20%',
-                    right: '-20%',
+                    top: '-15%',
+                    left: '-5%',
                     width: '50%',
-                    height: '80%',
-                    background: 'radial-gradient(circle, rgba(255,64,129,1) 0%, rgba(255,23,68,0) 70%)',
-                    opacity: 0.6,
+                    height: '60%',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    borderRadius: '50%',
+                    zIndex: 1,
+                }}
+            />
+            <Box
+                sx={{
+                    position: 'absolute',
+                    bottom: '-20%',
+                    right: '-5%',
+                    width: '55%',
+                    height: '55%',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: '50%',
                     zIndex: 1,
                 }}
             />
 
             {/* Login Card */}
             <Paper
-                elevation={6}
+                elevation={0}
                 sx={{
                     zIndex: 10,
-                    p: { xs: 3, md: 5 },
+                    p: { xs: 3, sm: 4 },
                     width: '100%',
-                    maxWidth: 480, // Approximate width from image
+                    maxWidth: 420,
+                    mx: 2,
                     borderRadius: 3,
                     backgroundColor: '#fff',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 2,
+                    gap: 0,
                 }}
             >
-                <Box sx={{ textAlign: 'center', mb: 2 }}>
-                    <Typography variant="h5" component="h1" fontWeight="700" color="text.primary">
-                        Login to Account
+                <Box sx={{ textAlign: 'center', mb: 3 }}>
+                    <Typography variant="h5" component="h1" fontWeight={600} color="text.primary" letterSpacing="-0.02em">
+                        Welcome back
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Please enter your email and password to continue
+                        Sign in with your email and password
                     </Typography>
                 </Box>
 
                 <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                    <Box>
-                        <Typography
-                            variant="subtitle2"
-                            component="label"
-                            htmlFor="email"
-                            sx={{ fontWeight: 500, display: 'block', mb: 0.5, color: '#333' }}
-                        >
-                            Email address:
-                        </Typography>
-                        <TextField
-                            id="email"
-                            type="email"
-                            fullWidth
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="admin@vendor.com"
-                            variant="outlined"
-                            size="small"
-                            disabled={loading}
-                            sx={{
-                                '& .MuiOutlinedInput-root': {
-                                    backgroundColor: '#f5f7fa',
-                                }
-                            }}
-                        />
-                    </Box>
+                    <TextField
+                        id="email"
+                        type="email"
+                        fullWidth
+                        required
+                        label="Email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        variant="outlined"
+                        size="medium"
+                        disabled={loading}
+                        sx={{
+                            '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: 'grey.50',
+                                '&:hover': { backgroundColor: 'grey.100' },
+                                '&.Mui-focused': { backgroundColor: '#fff' },
+                            },
+                        }}
+                    />
 
                     <Box>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
-                            <Typography
-                                variant="subtitle2"
-                                component="label"
-                                htmlFor="password"
-                                sx={{ fontWeight: 500, color: '#333' }}
-                            >
-                                Password
-                            </Typography>
-                            <Link href="#" underline="hover" variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                                Forget Password?
-                            </Link>
-                        </Stack>
                         <TextField
                             id="password"
                             type={showPassword ? 'text' : 'password'}
                             fullWidth
                             required
+                            label="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             variant="outlined"
-                            size="small"
+                            size="medium"
                             placeholder="••••••••"
                             disabled={loading}
                             InputProps={{
@@ -237,37 +205,46 @@ export default function LoginForm() {
                                             onMouseDown={(e) => e.preventDefault()}
                                             edge="end"
                                             disabled={loading}
+                                            size="small"
                                             sx={{ color: 'text.secondary' }}
                                         >
-                                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                                            {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                                         </IconButton>
                                     </InputAdornment>
                                 ),
                             }}
                             sx={{
                                 '& .MuiOutlinedInput-root': {
-                                    backgroundColor: '#f5f7fa',
-                                }
+                                    borderRadius: 2,
+                                    backgroundColor: 'grey.50',
+                                    '&:hover': { backgroundColor: 'grey.100' },
+                                    '&.Mui-focused': { backgroundColor: '#fff' },
+                                },
                             }}
                         />
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.5 }}>
+                            <Link href="#" underline="hover" variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                                Forgot password?
+                            </Link>
+                        </Box>
                     </Box>
 
                     <FormControlLabel
                         control={
-                            <Checkbox 
-                                size="small" 
+                            <Checkbox
+                                size="small"
                                 checked={rememberMe}
                                 onChange={(e) => setRememberMe(e.target.checked)}
                                 disabled={loading}
-                                sx={{ color: '#ccc' }} 
+                                sx={{ color: 'primary.main' }}
                             />
                         }
                         label={
                             <Typography variant="body2" color="text.secondary">
-                                Remember Password 
+                                Remember me
                             </Typography>
                         }
-                        sx={{ mt: -1 }}
+                        sx={{ mt: -0.5 }}
                     />
 
                     <Button
@@ -279,11 +256,13 @@ export default function LoginForm() {
                         disabled={loading}
                         sx={{
                             textTransform: 'none',
-                            fontWeight: 'bold',
+                            fontWeight: 600,
                             py: 1.5,
-                            position: 'relative',
+                            fontSize: '1rem',
+                            borderRadius: 2,
+                            boxShadow: '0 4px 14px rgba(32, 69, 100, 0.25)',
                             '&:hover': {
-                                // MUI handles hover based on primary color, but we can tune if needed
+                                boxShadow: '0 6px 20px rgba(32, 69, 100, 0.3)',
                             },
                         }}
                     >
@@ -293,15 +272,6 @@ export default function LoginForm() {
                             'Sign In'
                         )}
                     </Button>
-
-                    <Box sx={{ textAlign: 'center', mt: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                            Don&apos;t have an account?{' '}
-                            <Link href="#" underline="hover" sx={{ color: '#204564', fontWeight: 'bold' }}>
-                                Create Account
-                            </Link>
-                        </Typography>
-                    </Box>
                 </Box>
             </Paper>
         </Box>
