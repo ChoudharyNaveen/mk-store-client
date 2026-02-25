@@ -148,7 +148,7 @@ const createProductFormSchema = (isEditMode: boolean) => {
         ...baseProductFormSchema,
         images: imagesValidation,
         brandId: yup.number().optional().nullable(),
-        productTypeId: yup.number().optional().nullable(),
+        productTypeId: yup.number().required('Product type is required'),
         variants: yup.array().of(variantSchema).min(1, 'At least one variant is required'),
     });
 };
@@ -1304,6 +1304,7 @@ export default function ProductForm() {
                                             <FormAutocomplete
                                                 name="productTypeId"
                                                 label="Product Type"
+                                                required
                                                 disabled={loading || !selectedCategoryId || selectedCategoryId === 0 || !selectedSubCategoryId || selectedSubCategoryId === 0}
                                                 loading={loadingProductTypes}
                                                 options={[
@@ -1318,7 +1319,7 @@ export default function ProductForm() {
                                                 size="small"
                                             />
                                             <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block', fontSize: '0.75rem' }}>
-                                                Optional product type within the sub-category
+                                                Required product type within the sub-category
                                             </Typography>
                                         </Box>
                                         <Button
