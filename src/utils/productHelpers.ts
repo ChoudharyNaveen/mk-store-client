@@ -1,5 +1,4 @@
 import { format } from 'date-fns';
-import type { Product } from '../types/product';
 
 /**
  * Format item details for display
