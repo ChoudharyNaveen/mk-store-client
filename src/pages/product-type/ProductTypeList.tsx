@@ -23,7 +23,7 @@ import type { FetchParams } from '../../services/product-type.service';
 import type { ServerPaginationResponse } from '../../hooks/useServerPagination';
 import type { ProductType } from '../../types/product-type';
 import { useAppSelector } from '../../store/hooks';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
 
 export default function ProductTypeList() {
   const navigate = useNavigate();
@@ -81,6 +81,7 @@ export default function ProductTypeList() {
         return;
       }
       setUpdatingId(row.id);
+      showInfoToast(newStatus === 'ACTIVE' ? 'Activating...' : 'Deactivating...');
       try {
         await updateProductType(row.id, {
           title: row.title,

@@ -18,7 +18,7 @@ import type { ServerFilter } from '../../types/filter';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import { CATEGORY_STATUS_OPTIONS } from '../../constants/statusOptions';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
 
 export default function CategoryPage() {
     const navigate = useNavigate();
@@ -43,6 +43,7 @@ export default function CategoryPage() {
             return;
         }
         setUpdatingCategoryId(row.id);
+        showInfoToast(newStatus === 'ACTIVE' ? 'Activating...' : 'Deactivating...');
         try {
             await updateCategory(row.id, {
                 title: row.title,

@@ -37,7 +37,7 @@ import {
 } from "../../utils/filterBuilder";
 import { useAppSelector } from "../../store/hooks";
 import { SUBCATEGORY_STATUS_OPTIONS } from "../../constants/statusOptions";
-import { showSuccessToast, showErrorToast } from "../../utils/toast";
+import { showSuccessToast, showErrorToast, showInfoToast } from "../../utils/toast";
 
 export default function SubCategoryList() {
   const navigate = useNavigate();
@@ -72,6 +72,7 @@ export default function SubCategoryList() {
         return;
       }
       setUpdatingSubCategoryId(row.id);
+      showInfoToast(newStatus === "ACTIVE" ? "Activating..." : "Deactivating...");
       try {
         await updateSubCategory(row.id, {
           title: row.title,

@@ -45,7 +45,11 @@ import { buildFiltersFromDateRangeAndAdvanced } from "../../utils/filterBuilder"
 import { useAppSelector, useAppDispatch } from "../../store/hooks";
 import { setDateRange as setDateRangeAction } from "../../store/dateRangeSlice";
 import { Column } from "../../types/table";
-import { showSuccessToast, showErrorToast } from "../../utils/toast";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showInfoToast,
+} from "../../utils/toast";
 import {
   USER_STATUS_OPTIONS,
   PROFILE_STATUS_OPTIONS,
@@ -83,6 +87,9 @@ export default function UserList() {
     }
     return getLastNDaysRangeForDatePicker(30);
   });
+  const [updatingUserId, setUpdatingUserId] = React.useState<
+    string | number | null
+  >(null);
   const [filterAnchorEl, setFilterAnchorEl] =
     React.useState<null | HTMLElement>(null);
   const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFilters>(
@@ -246,6 +253,10 @@ export default function UserList() {
     const newStatus = currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
     const action = newStatus === "ACTIVE" ? "activate" : "deactivate";
 
+    setUpdatingUserId(user.id);
+    showInfoToast(
+      newStatus === "ACTIVE" ? "Activating..." : "Deactivating...",
+    );
     try {
       await updateUserStatus(
         user.id,
@@ -254,10 +265,11 @@ export default function UserList() {
         user.concurrencyStamp,
       );
       showSuccessToast(`User ${action}d successfully!`);
-      // Refresh the table to reflect the changes
       tableHandlers.refresh();
     } catch {
       showErrorToast(`Failed to ${action} user. Please try again.`);
+    } finally {
+      setUpdatingUserId(null);
     }
   };
 
@@ -372,6 +384,7 @@ export default function UserList() {
                   <CheckCircleIcon fontSize="small" />
                 ),
                 onClick: (u) => handleToggleStatus(u),
+                disabled: updatingUserId === r.id,
               },
             ];
           }}

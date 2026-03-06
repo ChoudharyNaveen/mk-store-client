@@ -20,7 +20,7 @@ import type { ServerFilter } from '../../types/filter';
 import type { Column } from '../../types/table';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
 
 type AdvancedFiltersState = {
   status: string;
@@ -142,6 +142,7 @@ export default function BannerList() {
       return;
     }
     setUpdatingBannerId(row.id);
+    showInfoToast(newStatus === 'ACTIVE' ? 'Activating...' : 'Deactivating...');
     try {
       await updateBanner(row.id, {
         updatedBy: userId,

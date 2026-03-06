@@ -249,6 +249,8 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       {children}
       <Snackbar
         open={toast.open}
+        autoHideDuration={toast.duration}
+        onClose={() => handleClose()}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         sx={{ mt: 8 }}
       >

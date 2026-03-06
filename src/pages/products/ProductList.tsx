@@ -37,7 +37,7 @@ import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '.
 import { useAppSelector } from '../../store/hooks';
 import { exportToCSV } from '../../utils/exportCsv';
 import { PRODUCT_STATUS_OPTIONS, PRODUCT_STOCK_STATUS_OPTIONS } from '../../constants/statusOptions';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
 import ImagePreviewAvatar from '../../components/ImagePreviewAvatar';
 import StockUpdateDialog from './StockUpdateDialog';
 import VariantsPopover from './VariantsPopover';
@@ -150,6 +150,7 @@ export default function ProductList() {
             return;
         }
         setUpdatingProductId(row.id);
+        showInfoToast(newStatus === 'ACTIVE' ? 'Activating...' : 'Deactivating...');
         try {
             await updateProduct(row.id, {
                 updatedBy: userId,

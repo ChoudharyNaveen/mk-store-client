@@ -134,3 +134,17 @@ export const showErrorToast = (message: string, title?: string): void => {
   toastService.showErrorToast(message, title);
 };
 
+/**
+ * Show info/loading toast
+ */
+export const showInfoToast = (message: string, title?: string): void => {
+  const toastService = getToastService();
+
+  if (!toastService) {
+    console.log('Info:', message);
+    return;
+  }
+
+  toastService.showInfoToast(message, title);
+};
+

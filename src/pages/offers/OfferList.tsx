@@ -18,7 +18,7 @@ import type { ServerFilter } from '../../types/filter';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import { OFFER_STATUS_OPTIONS } from '../../constants/statusOptions';
-import { showSuccessToast, showErrorToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
 
 export default function OfferList() {
     const navigate = useNavigate();
@@ -43,6 +43,7 @@ export default function OfferList() {
             return;
         }
         setUpdatingOfferId(row.id);
+        showInfoToast(newStatus === 'ACTIVE' ? 'Activating...' : 'Deactivating...');
         try {
             await updateOffer(row.id, { concurrency_stamp: concurrencyStamp, status: newStatus, updated_by: userId });
             showSuccessToast(`Offer set to ${newStatus}.`);
