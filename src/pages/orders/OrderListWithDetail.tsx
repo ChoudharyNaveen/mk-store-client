@@ -34,7 +34,6 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { fetchOrders, fetchOrderDetails, updateOrder } from '../../services/order.service';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { useListPageDateRange } from '../../hooks/useListPageDateRange';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import type { Order } from '../../types/order';
@@ -43,9 +42,9 @@ import { getOrderStatusSx, getPaymentStatusColor } from '../../utils/statusColor
 import { concatProductAndVariant } from '../../utils/orderHelpers';
 import { ORDER_STATUS_API } from '../../constants/orderStatuses';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
-import DateRangePopover from '../../components/DateRangePopover';
 import OrderList from './OrderList';
 import { mapApiDataToOrderDetail, type OrderDetailData } from './orderDetailMapper';
+import DeliveryWindowHighlight from './DeliveryWindowHighlight';
 
 const LIST_WIDTH = 380;
 const MIN_RIGHT_WIDTH = 400;
@@ -65,16 +64,13 @@ export default function OrderListWithDetail() {
   const [validationError, setValidationError] = useState('');
   const [updating, setUpdating] = useState(false);
 
-  const { dateRange, handleDateRangeApply } = useListPageDateRange(30);
   const buildFilters = useCallback((): ServerFilter[] => {
     const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-      dateRange,
-      dateField: 'created_at',
       advancedFilters: {},
       filterMappings: {},
     });
     return mergeWithDefaultFilters(additionalFilters, vendorId, selectedBranchId ?? undefined);
-  }, [dateRange, vendorId, selectedBranchId]);
+  }, [vendorId, selectedBranchId]);
 
   const {
     setPaginationModel,
@@ -94,7 +90,7 @@ export default function OrderListWithDetail() {
   useEffect(() => {
     setFilters(buildFilters());
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
-  }, [dateRange, setFilters, buildFilters, setPaginationModel]);
+  }, [setFilters, buildFilters, setPaginationModel]);
 
   const handleOpenSplitView = useCallback((row: Order) => {
     setSelectedOrderId(row.id);
@@ -248,13 +244,6 @@ export default function OrderListWithDetail() {
               ),
             }}
           />
-          <DateRangePopover
-            value={dateRange}
-            onChange={handleDateRangeApply}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-            buttonSize="small"
-          />
         </Box>
         <List
           sx={{
@@ -386,7 +375,7 @@ export default function OrderListWithDetail() {
                   <Chip label={detailOrder.payment_status} size="small" color={getPaymentStatusColor(detailOrder.payment_status)} />
                 </Box>
               </Box>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
                   variant="outlined"
                   startIcon={<CloseIcon />}
@@ -407,6 +396,16 @@ export default function OrderListWithDetail() {
                 </Button>
               </Box>
             </Box>
+
+            {detailOrder.rawOrderStatus !== ORDER_STATUS_API.DELIVERED &&
+              detailOrder.status !== ORDER_STATUS_API.DELIVERED &&
+              (detailOrder.delivery_time_from || detailOrder.delivery_time_to) && (
+                <DeliveryWindowHighlight
+                  deliveryTimeFrom={detailOrder.delivery_time_from}
+                  deliveryTimeTo={detailOrder.delivery_time_to}
+                  compact
+                />
+              )}
 
             <Divider sx={{ my: 2 }} />
 
@@ -491,6 +490,14 @@ export default function OrderListWithDetail() {
                         .join(', ') || '—'}
                     </Typography>
                   </Box>
+                  {detailOrder.approx_distance != null && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, fontWeight: 500 }}>
+                      Approx. Distance:{' '}
+                      {detailOrder.approx_distance === Math.floor(detailOrder.approx_distance)
+                        ? `${detailOrder.approx_distance} km`
+                        : `${detailOrder.approx_distance.toFixed(1)} km`}
+                    </Typography>
+                  )}
                 </Box>
               </Box>
               {/* Right: Rider Details */}

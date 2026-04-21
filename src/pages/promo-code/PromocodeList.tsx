@@ -26,7 +26,8 @@ export default function PromocodeList() {
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
 
-    const { dateRange, handleDateRangeApply } = useListPageDateRange(30);
+    const { dateRange, handleDateRangeApply } = useListPageDateRange();
+
     const [updatingPromocodeId, setUpdatingPromocodeId] = React.useState<number | null>(null);
     const refreshTableRef = React.useRef<() => void>(() => {});
 
@@ -99,7 +100,7 @@ export default function PromocodeList() {
 
     const buildFilters = React.useCallback((): ServerFilter[] => {
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-            dateRange,
+            dateRange: dateRange ?? undefined,
             dateField: 'createdAt',
             advancedFilters: appliedAdvancedFilters,
             filterMappings: { code: { field: 'code', operator: 'iLike' }, type: { field: 'type', operator: 'eq' }, status: { field: 'status', operator: 'eq' } },
@@ -151,7 +152,7 @@ export default function PromocodeList() {
             onClearAndRefresh={handleClearFilters}
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeApply}
-            onRefresh={() => tableHandlers.refresh()}
+                        onRefresh={() => tableHandlers.refresh()}
             filterAnchorEl={filterAnchorEl}
             onOpenFilterClick={(e) => setFilterAnchorEl(e.currentTarget)}
             onFilterClose={() => setFilterAnchorEl(null)}

@@ -115,7 +115,8 @@ export default function ProductList() {
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
 
-    const { dateRange, handleDateRangeApply: baseHandleDateRangeApply } = useListPageDateRange(30);
+    const { dateRange, handleDateRangeApply } = useListPageDateRange();
+
 
     // Variants popover state
     const [variantsAnchorEl, setVariantsAnchorEl] = React.useState<{ el: HTMLElement; product: Product } | null>(null);
@@ -496,7 +497,7 @@ export default function ProductList() {
             brandIds: applied.brandIds?.length ? applied.brandIds : undefined,
         };
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-            dateRange,
+            dateRange: dateRange ?? undefined,
             dateField: 'createdAt',
             advancedFilters: advancedFiltersForBuild,
             filterMappings: {
@@ -613,11 +614,6 @@ export default function ProductList() {
         setFilterAnchorEl(null);
     };
 
-    const handleDateRangeApply = (newRange: Parameters<typeof baseHandleDateRangeApply>[0]) => {
-        baseHandleDateRangeApply(newRange);
-        // Effect [appliedAdvancedFilters, dateRange, hasComboActive] will run (dateRange changed) → setFilters + setPaginationModel → hook fetches
-    };
-
     const handleExport = () => {
         exportToCSV<Product>(
             tableState.data,
@@ -645,7 +641,7 @@ export default function ProductList() {
             onClearAndRefresh={handleClearFilters}
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeApply}
-            onRefresh={() => refreshTableRef.current()}
+                        onRefresh={() => refreshTableRef.current()}
             filterAnchorEl={filterAnchorEl}
             onOpenFilterClick={(e) => setFilterAnchorEl(e.currentTarget)}
             onFilterClose={() => setFilterAnchorEl(null)}

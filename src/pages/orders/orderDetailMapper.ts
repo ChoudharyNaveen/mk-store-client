@@ -40,6 +40,11 @@ export interface OrderDetailData extends Order {
     discount_amount: number;
     status: string;
   }>;
+  /** Scheduled customer delivery slot (ISO strings from API). */
+  delivery_time_from?: string | null;
+  delivery_time_to?: string | null;
+  /** `order_information.distance` — approximate distance to delivery (e.g. km). */
+  approx_distance?: number | null;
 }
 
 type OrderDetailsApiData = Awaited<ReturnType<typeof fetchOrderDetails>>;
@@ -54,6 +59,14 @@ export function mapApiDataToOrderDetail(apiData: OrderDetailsApiData): OrderDeta
     final_amount: apiData.summary.total,
     order_priority: apiData.order_information.priority as OrderPriority,
     estimated_delivery_time: apiData.order_information.estimated_delivery || null,
+    delivery_time_from: apiData.order_information.delivery_time_from ?? null,
+    delivery_time_to: apiData.order_information.delivery_time_to ?? null,
+    approx_distance: (() => {
+      const d = apiData.order_information.distance;
+      if (d == null) return null;
+      const n = Number(d);
+      return Number.isFinite(n) ? n : null;
+    })(),
     refund_amount: 0,
     refund_status: 'NONE',
     status: apiData.order_information.order_status as OrderStatus,
@@ -95,7 +108,7 @@ export function mapApiDataToOrderDetail(apiData: OrderDetailsApiData): OrderDeta
       discount_amount: item.discount,
       final_price: item.total,
       combo_id: item.combo_id || false,
-      subtotal: item.total,
+      subtotal: item.subtotal ?? item.total,
       combo_quantity: item.combo_quantity || 0,
     })),
     statusHistory:

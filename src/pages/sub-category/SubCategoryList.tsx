@@ -47,7 +47,8 @@ export default function SubCategoryList() {
   );
   const vendorId = user?.vendorId;
 
-  const { dateRange, handleDateRangeApply } = useListPageDateRange(30);
+    const { dateRange, handleDateRangeApply } = useListPageDateRange();
+
 
   const [updatingSubCategoryId, setUpdatingSubCategoryId] = React.useState<
     number | null
@@ -246,8 +247,8 @@ export default function SubCategoryList() {
         : undefined,
     };
     const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-      dateRange,
-      dateField: "createdAt",
+            dateRange: dateRange ?? undefined,
+            dateField: 'createdAt',
       advancedFilters: advancedFiltersForBuild,
       filterMappings: {
         categoryIds: { field: "categoryId", operator: "in" },
@@ -287,7 +288,6 @@ export default function SubCategoryList() {
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
   }, [
     appliedAdvancedFilters,
-    dateRange,
     setFilters,
     buildFilters,
     setPaginationModel,

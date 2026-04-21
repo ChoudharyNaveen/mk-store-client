@@ -31,6 +31,7 @@ import DateRangePopover from "../../components/DateRangePopover";
 import type { DateRangeSelection } from "../../components/DateRangePopover";
 import CustomTabs from "../../components/CustomTabs";
 import { useServerPagination } from "../../hooks/useServerPagination";
+import { useListPageDateRange } from "../../hooks/useListPageDateRange";
 import {
   fetchUsers,
   convertUserToRider,
@@ -40,10 +41,8 @@ import {
 } from "../../services/user.service";
 import type { User, UserRole } from "../../types/user";
 import type { ServerFilter } from "../../types/filter";
-import { getLastNDaysRangeForDatePicker } from "../../utils/date";
 import { buildFiltersFromDateRangeAndAdvanced } from "../../utils/filterBuilder";
-import { useAppSelector, useAppDispatch } from "../../store/hooks";
-import { setDateRange as setDateRangeAction } from "../../store/dateRangeSlice";
+import { useAppSelector } from "../../store/hooks";
 import { Column } from "../../types/table";
 import {
   showSuccessToast,
@@ -65,28 +64,12 @@ interface AdvancedFilters {
 
 export default function UserList() {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
   const currentUser = useAppSelector((state) => state.auth.user);
 
   // Tab State
   const [activeTab, setActiveTab] = React.useState<UserRole>("USER");
+  const { dateRange, handleDateRangeApply } = useListPageDateRange();
 
-  // Get date range from store, or use default
-  const storeStartDate = useAppSelector((state) => state.dateRange.startDate);
-  const storeEndDate = useAppSelector((state) => state.dateRange.endDate);
-
-  const [dateRange, setDateRange] = React.useState<DateRangeSelection>(() => {
-    if (storeStartDate && storeEndDate) {
-      return [
-        {
-          startDate: new Date(storeStartDate),
-          endDate: new Date(storeEndDate),
-          key: "selection",
-        },
-      ];
-    }
-    return getLastNDaysRangeForDatePicker(30);
-  });
   const [updatingUserId, setUpdatingUserId] = React.useState<
     string | number | null
   >(null);
@@ -117,10 +100,10 @@ export default function UserList() {
     [activeTab],
   );
 
-  // Helper function to build filters array with date range and default filters
+  // Helper function to build filters array
   const buildFilters = React.useCallback((): ServerFilter[] => {
     const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-      dateRange,
+      dateRange: dateRange ?? undefined,
       dateField: "created_at",
       advancedFilters: advancedFilters as unknown as Record<
         string,
@@ -174,24 +157,15 @@ export default function UserList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // Sync local date range with store when store dates change
-  React.useEffect(() => {
-    if (storeStartDate && storeEndDate) {
-      setDateRange([
-        {
-          startDate: new Date(storeStartDate),
-          endDate: new Date(storeEndDate),
-          key: "selection",
-        },
-      ]);
-    }
-  }, [storeStartDate, storeEndDate]);
-
-  // Update filters when advanced filters or date range change (same pattern as SubCategoryList)
+  // Update filters when advanced filters change
   React.useEffect(() => {
     setFilters(buildFilters());
     setPaginationModel((prev) => ({ ...prev, page: 0 }));
   }, [advancedFilters, dateRange, setFilters, buildFilters, setPaginationModel]);
+
+  const onDateRangeChange = (newRange: DateRangeSelection) => {
+    handleDateRangeApply(newRange);
+  };
 
   const handleApplyFilters = () => {
     setFilterAnchorEl(null);
@@ -208,19 +182,6 @@ export default function UserList() {
       status: "",
       profileStatus: "",
     });
-  };
-
-  const handleDateRangeApply = (newRange: DateRangeSelection) => {
-    setDateRange(newRange);
-    const range = newRange?.[0];
-    if (range) {
-      dispatch(
-        setDateRangeAction({
-          startDate: range.startDate,
-          endDate: range.endDate,
-        }),
-      );
-    }
   };
 
   const handleConvertToRider = async (userId: string | number) => {
@@ -514,10 +475,7 @@ export default function UserList() {
               flexWrap: "wrap",
             }}
           >
-            <DateRangePopover
-              value={dateRange}
-              onChange={handleDateRangeApply}
-            />
+            <DateRangePopover value={dateRange ?? null} onChange={onDateRangeChange} />
             <Tooltip title="Refresh table">
               <IconButton
                 onClick={() => tableHandlers.refresh()}

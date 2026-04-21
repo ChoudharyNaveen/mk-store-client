@@ -35,7 +35,8 @@ export default function OrderList({ onRowSelect }: OrderListProps) {
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
 
-    const { dateRange, handleDateRangeApply } = useListPageDateRange(30);
+    const { dateRange, handleDateRangeApply } = useListPageDateRange();
+
     
     const handleOrderClick = (row: Order) => {
         if (onRowSelect) {
@@ -349,7 +350,7 @@ export default function OrderList({ onRowSelect }: OrderListProps) {
     // Build filters from applied values (so Apply button commits form state, then effect runs once)
     const buildFilters = React.useCallback((): ServerFilter[] => {
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-            dateRange,
+            dateRange: dateRange ?? undefined,
             dateField: 'created_at',
             advancedFilters: appliedAdvancedFilters,
             filterMappings: {
@@ -385,7 +386,7 @@ export default function OrderList({ onRowSelect }: OrderListProps) {
         searchDebounceMs: 500,
     });
 
-    // Update filters when applied advanced filters or date range changes (single source → one fetch)
+    // Update filters when applied advanced filters or date range changes
     React.useEffect(() => {
         setFilters(buildFilters());
         setPaginationModel((prev) => ({ ...prev, page: 0 }));
@@ -472,7 +473,7 @@ export default function OrderList({ onRowSelect }: OrderListProps) {
             onClearAndRefresh={handleClearFilters}
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeApply}
-            onRefresh={() => tableHandlers.refresh()}
+                        onRefresh={() => tableHandlers.refresh()}
             filterAnchorEl={filterAnchorEl}
             onOpenFilterClick={(e) => setFilterAnchorEl(e.currentTarget)}
             onFilterClose={() => setFilterAnchorEl(null)}
@@ -481,7 +482,7 @@ export default function OrderList({ onRowSelect }: OrderListProps) {
             contentBeforeToolbar={
                 <CollapsibleKPISection
                     kpis={orderKpis}
-                    summaryText="Day-wise order stats — counts and amounts for today. Table below can be filtered by date range."
+                    summaryText="Day-wise order stats — counts and amounts for today."
                     loading={statsLoading}
                 />
             }

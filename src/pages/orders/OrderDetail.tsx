@@ -42,7 +42,6 @@ import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
-import type { Order, OrderStatus, PaymentStatus, OrderPriority } from '../../types/order';
 import { showSuccessToast, showErrorToast } from '../../utils/toast';
 import { fetchOrderDetails, fetchOrders, updateOrder } from '../../services/order.service';
 import { ORDER_STATUS_API } from '../../constants/orderStatuses';
@@ -55,6 +54,7 @@ import DataTable from '../../components/DataTable';
 import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import type { Column, TableState } from '../../types/table';
 import { mapApiDataToOrderDetail, type OrderDetailData, type OrderDetailOrderItem } from './orderDetailMapper';
+import DeliveryWindowHighlight from './DeliveryWindowHighlight';
 
 type OrderItem = OrderDetailOrderItem;
 
@@ -667,6 +667,10 @@ export default function OrderDetail() {
         );
     }
 
+    const isDelivered =
+        order.rawOrderStatus === ORDER_STATUS_API.DELIVERED ||
+        order.status === ORDER_STATUS_API.DELIVERED;
+
     return (
         <Paper sx={{ 
             display: 'flex', 
@@ -762,6 +766,13 @@ export default function OrderDetail() {
                     />
                 </Stack>
             </Box>
+
+            {!isDelivered && (order.delivery_time_from || order.delivery_time_to) && (
+                <DeliveryWindowHighlight
+                    deliveryTimeFrom={order.delivery_time_from}
+                    deliveryTimeTo={order.delivery_time_to}
+                />
+            )}
 
             {/* Action Buttons */}
             <Paper sx={{ 
@@ -1110,7 +1121,7 @@ export default function OrderDetail() {
                                         <Divider sx={{ my: 0.5 }} />
                                         <InfoField label="Phone" value={order.riderInformation.rider_phone_number} icon={<PhoneIcon fontSize="small" sx={{ color: 'text.secondary' }} />} />
                                         <InfoField label="Pickup time" value={order.riderInformation.rider_pickup_time ? format(new Date(order.riderInformation.rider_pickup_time), 'MMM dd, yyyy hh:mm a') : '—'} icon={<EventAvailableIcon fontSize="small" sx={{ color: 'text.secondary' }} />} />
-                                        {order.estimated_delivery_time && (
+                                        {(!order.delivery_time_from && !order.delivery_time_to) && order.estimated_delivery_time && (
                                             <InfoField label="Estimated arrival" value={format(new Date(order.estimated_delivery_time), 'MMM dd, yyyy hh:mm a')} />
                                         )}
                                     </>
@@ -1156,6 +1167,16 @@ export default function OrderDetail() {
                                     value={order.address?.mobile_number || 'N/A'} 
                                     icon={<PhoneIcon fontSize="small" sx={{ color: 'text.secondary' }} />}
                                 />
+                                {order.approx_distance != null && (
+                                    <InfoField
+                                        label="Approx. Distance"
+                                        value={
+                                            order.approx_distance === Math.floor(order.approx_distance)
+                                                ? `${order.approx_distance} km`
+                                                : `${order.approx_distance.toFixed(1)} km`
+                                        }
+                                    />
+                                )}
                             </Stack>
                         </InfoSection>
 
@@ -1166,11 +1187,44 @@ export default function OrderDetail() {
                                     label="Order Date" 
                                     value={format(new Date(order.created_at), 'MMM dd, yyyy HH:mm')} 
                                 />
-                                {order.estimated_delivery_time && (
+                                {(!order.delivery_time_from && !order.delivery_time_to) && order.estimated_delivery_time && (
                                     <InfoField 
                                         label="Estimated Delivery" 
                                         value={format(new Date(order.estimated_delivery_time), 'MMM dd, yyyy')} 
                                     />
+                                )}
+                                {!isDelivered && (order.delivery_time_from || order.delivery_time_to) && (
+                                    <>
+                                        {order.delivery_time_from && (
+                                            <InfoField
+                                                label="Delivery from"
+                                                value={format(new Date(order.delivery_time_from), 'MMM dd, yyyy hh:mm a')}
+                                            />
+                                        )}
+                                        {order.delivery_time_to && (
+                                            <InfoField
+                                                label="Delivery to"
+                                                value={format(new Date(order.delivery_time_to), 'MMM dd, yyyy hh:mm a')}
+                                            />
+                                        )}
+                                    </>
+                                )}
+                                {isDelivered && (order.delivery_time_from || order.delivery_time_to) && (
+                                    <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        sx={{ display: 'block', lineHeight: 1.6, fontStyle: 'italic' }}
+                                    >
+                                        Original delivery window:{' '}
+                                        {[
+                                            order.delivery_time_from &&
+                                                format(new Date(order.delivery_time_from), 'MMM d, yyyy h:mm a'),
+                                            order.delivery_time_to &&
+                                                format(new Date(order.delivery_time_to), 'MMM d, yyyy h:mm a'),
+                                        ]
+                                            .filter(Boolean)
+                                            .join(' → ')}
+                                    </Typography>
                                 )}
                                 <Box>
                                     <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>

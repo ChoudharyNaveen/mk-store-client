@@ -133,8 +133,8 @@ export interface OrderDetailsResponse {
         id: number;
         title: string;
         image?: string;
-        selling_price: number;
-        price: number;
+        selling_price?: number;
+        price?: number;
       };
       variant?: {
         id: number;
@@ -148,6 +148,7 @@ export interface OrderDetailsResponse {
       unit_price: number;
       discount: number;
       total: number;
+      subtotal?: number;
       combo_id?: boolean;
       combo_quantity?: number;
     }>;
@@ -189,6 +190,10 @@ export interface OrderDetailsResponse {
     order_information: {
       order_date: string;
       estimated_delivery?: string | null;
+      delivery_time_from?: string | null;
+      delivery_time_to?: string | null;
+      /** Approximate route distance to delivery address (e.g. km). */
+      distance?: number | null;
       priority: string;
       payment_status: string;
       order_status: string;

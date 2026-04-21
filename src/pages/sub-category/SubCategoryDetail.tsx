@@ -35,14 +35,13 @@ import type { ProductType } from '../../types/product-type';
 import type { Column, TableState } from '../../types/table';
 import NewProductTypeDialog from '../../components/NewProductTypeDialog';
 import AddIcon from '@mui/icons-material/Add';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { DateRange } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
-import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { setDateRange } from '../../store/dateRangeSlice';
+import { useAppSelector } from '../../store/hooks';
 import DataTable from '../../components/DataTable';
 import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import KPICard from '../../components/KPICard';
@@ -613,8 +612,6 @@ function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
 export default function SubCategoryDetail() {
     const navigate = useNavigate();
     const { id } = useParams<{ id: string }>();
-    const dispatch = useAppDispatch();
-    const { startDate, endDate } = useAppSelector((state) => state.dateRange);
     const [subCategory, setSubCategory] = React.useState<SubCategory | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [tabValue, setTabValue] = React.useState(0);
@@ -622,8 +619,8 @@ export default function SubCategoryDetail() {
     const [dateRangeAnchor, setDateRangeAnchor] = React.useState<HTMLButtonElement | null>(null);
     const [dateRangeState, setDateRangeState] = React.useState([
         {
-            startDate: startDate || subDays(new Date(), 30),
-            endDate: endDate || new Date(),
+            startDate: subDays(new Date(), 30),
+            endDate: new Date(),
             key: 'selection',
         },
     ]);
@@ -716,12 +713,6 @@ export default function SubCategoryDetail() {
     const handleDateRangeChange = (item: { selection: { startDate: Date; endDate: Date; key: string } }) => {
         setDateRangeState([item.selection]);
         if (item.selection.startDate && item.selection.endDate) {
-            dispatch(
-                setDateRange({
-                    startDate: startOfDay(item.selection.startDate),
-                    endDate: endOfDay(item.selection.endDate),
-                })
-            );
             // Stats will be refreshed automatically via useEffect when dateRangeState changes
         }
     };
@@ -1016,12 +1007,6 @@ export default function SubCategoryDetail() {
                                                             key: 'selection',
                                                         },
                                                     ]);
-                                                    dispatch(
-                                                        setDateRange({
-                                                            startDate: startOfDay(last30Days),
-                                                            endDate: endOfDay(today),
-                                                        })
-                                                    );
                                                 }}
                                             >
                                                 Last 30 Days

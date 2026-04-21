@@ -24,10 +24,10 @@ export interface ListPageLayoutProps {
     onSearchChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
     /** Called when user clears search (clear + refresh) */
     onClearAndRefresh: () => void;
-    /** Current date range for picker */
-    dateRange: DateRangeSelection;
-    /** When user applies a new date range */
-    onDateRangeChange: (range: DateRangeSelection) => void;
+    /** Optional current date range for picker */
+    dateRange?: DateRangeSelection | null;
+    /** Optional date range apply handler */
+    onDateRangeChange?: (range: DateRangeSelection) => void;
     /** Refresh table handler */
     onRefresh: () => void;
     /** Filter popover anchor (null when closed) */
@@ -46,6 +46,8 @@ export interface ListPageLayoutProps {
     contentBeforeToolbar?: React.ReactNode;
     /** Optional export handler - when provided, shows Export CSV button */
     onExport?: () => void;
+    /** Optional extra controls rendered in toolbar actions */
+    toolbarExtra?: React.ReactNode;
     /** Table section (e.g. DataTable wrapped in Box) */
     children: React.ReactNode;
 }
@@ -103,7 +105,7 @@ const refreshButtonSx = {
 };
 
 /**
- * Shared layout for list pages: header (title + optional Add), toolbar (search, date range, refresh, advanced search), filter popover, and table area.
+ * Shared layout for list pages: header (title + optional Add), toolbar (search, refresh, advanced search), filter popover, and table area.
  */
 export default function ListPageLayout({
     title,
@@ -124,6 +126,7 @@ export default function ListPageLayout({
     filterPopoverContent,
     contentBeforeToolbar,
     onExport,
+    toolbarExtra,
     children,
 }: ListPageLayoutProps) {
     return (
@@ -157,11 +160,15 @@ export default function ListPageLayout({
                         sx={{ flex: 1, minWidth: 280, maxWidth: 400 }}
                     />
                     <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <DateRangePopover
-                            value={dateRange}
-                            onChange={onDateRangeChange}
-                            moveRangeOnFirstSelection={false}
-                        />
+                        {dateRange !== undefined && onDateRangeChange && (
+                            <DateRangePopover
+                                value={dateRange ?? null}
+                                onChange={onDateRangeChange}
+                                moveRangeOnFirstSelection={false}
+                                buttonSx={{ textTransform: 'none' }}
+                            />
+                        )}
+                        {toolbarExtra}
                         <Tooltip title="Refresh table">
                             <IconButton
                                 onClick={onRefresh}

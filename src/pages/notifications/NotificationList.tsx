@@ -22,19 +22,19 @@ import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import DateRangePopover from '../../components/DateRangePopover';
-import SearchField from '../../components/SearchField';
 import type { DateRangeSelection } from '../../components/DateRangePopover';
+import SearchField from '../../components/SearchField';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { getNotifications } from '../../services/notification.service';
 import type { Notification } from '../../types/notification';
 import type { ServerFilter } from '../../types/filter';
 import type { ServerPaginationResponse } from '../../hooks/useServerPagination';
 import type { FetchParams } from '../../hooks/useServerPagination';
-import { getLastNDaysRangeForDatePicker } from '../../utils/date';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import { useNotifications } from '../../contexts/NotificationContext';
 import CustomTabs from '../../components/CustomTabs';
+import { useListPageDateRange } from '../../hooks/useListPageDateRange';
 
 export type NotificationCategoryTab = 'all' | 'orders' | 'users' | 'low_stock';
 
@@ -46,7 +46,7 @@ export default function NotificationList() {
   const vendorId = user?.vendorId;
 
   const [categoryTab, setCategoryTab] = React.useState<NotificationCategoryTab>('all');
-  const [dateRange, setDateRange] = React.useState<DateRangeSelection>(getLastNDaysRangeForDatePicker(30));
+  const { dateRange, handleDateRangeApply } = useListPageDateRange();
   const [readFilter, setReadFilter] = React.useState<'all' | 'read' | 'unread'>('all');
   const [markingAllRead, setMarkingAllRead] = React.useState(false);
   const [deleteConfirm, setDeleteConfirm] = React.useState<Notification | null>(null);
@@ -56,7 +56,7 @@ export default function NotificationList() {
 
   const buildFilters = useCallback((): ServerFilter[] => {
     const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-      dateRange,
+      dateRange: dateRange ?? undefined,
       dateField: 'created_at',
     });
     if (readFilter === 'read') {
@@ -123,15 +123,10 @@ export default function NotificationList() {
     return () => clearTimeout(t);
   }, [categoryTab, readFilter, dateRange, setFilters, buildFilters, setPaginationModel]);
 
-  const handleDateRangeApply = (newRange: DateRangeSelection) => {
-    setDateRange(newRange);
-  };
-
   const handleClearFilters = () => {
     setSearchKeyword('');
     setCategoryTab('all');
     setReadFilter('all');
-    setDateRange(getLastNDaysRangeForDatePicker(30));
   };
 
   const handleMarkAllRead = async () => {
@@ -349,18 +344,18 @@ export default function NotificationList() {
             onClearAndRefresh={handleClearFilters}
             sx={{ minWidth: 220 }}
           />
-
           <DateRangePopover
-            value={dateRange}
-            onChange={handleDateRangeApply}
+            value={dateRange ?? null}
+            onChange={(newRange: DateRangeSelection) => handleDateRangeApply(newRange)}
             moveRangeOnFirstSelection={false}
             months={2}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-            formatLabel={(start, end) => `${format(start, 'MMM d, yyyy')} – ${format(end, 'MMM d, yyyy')}`}
+            formatLabel={(start, end) => `${format(start, 'MMM d, yyyy')} - ${format(end, 'MMM d, yyyy')}`}
             buttonSize="small"
             buttonSx={{ textTransform: 'none' }}
           />
+
           <Box
             component="span"
             sx={{

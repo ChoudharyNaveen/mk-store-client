@@ -27,7 +27,8 @@ export default function BrandList() {
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
 
-    const { dateRange, handleDateRangeApply } = useListPageDateRange(30);
+    const { dateRange, handleDateRangeApply } = useListPageDateRange();
+
     const [updatingBrandId, setUpdatingBrandId] = React.useState<number | null>(null);
     const refreshTableRef = React.useRef<() => void>(() => {});
 
@@ -118,7 +119,7 @@ export default function BrandList() {
 
     const buildFilters = React.useCallback((): ServerFilter[] => {
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-            dateRange,
+            dateRange: dateRange ?? undefined,
             dateField: 'createdAt',
             advancedFilters: appliedAdvancedFilters,
             filterMappings: { status: { field: 'status', operator: 'eq' } },
@@ -170,7 +171,7 @@ export default function BrandList() {
             onClearAndRefresh={handleClearFilters}
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeApply}
-            onRefresh={() => tableHandlers.refresh()}
+                        onRefresh={() => tableHandlers.refresh()}
             filterAnchorEl={filterAnchorEl}
             onOpenFilterClick={(e) => setFilterAnchorEl(e.currentTarget)}
             onFilterClose={() => setFilterAnchorEl(null)}

@@ -20,7 +20,7 @@ export type DateRangeSelection = Array<{
 
 export interface DateRangePopoverProps {
   /** Current applied date range (react-date-range format) */
-  value: DateRangeSelection;
+  value: DateRangeSelection | null;
   /** Called when user clicks Apply with valid start and end date */
   onChange: (range: DateRangeSelection) => void;
   /** Optional format for the trigger button label. Default: "MMM dd, yyyy - MMM dd, yyyy" */
@@ -42,6 +42,14 @@ export interface DateRangePopoverProps {
 const defaultFormatLabel = (start: Date, end: Date) =>
   `${format(start, 'MMM dd, yyyy')} - ${format(end, 'MMM dd, yyyy')}`;
 
+const getDefaultSelection = (): DateRangeSelection => [
+  {
+    startDate: new Date(),
+    endDate: new Date(),
+    key: 'selection',
+  },
+];
+
 export default function DateRangePopover({
   value,
   onChange,
@@ -55,13 +63,14 @@ export default function DateRangePopover({
   buttonSx,
 }: DateRangePopoverProps) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
-  const [pendingRange, setPendingRange] = React.useState<DateRangeSelection>(value);
-  const pendingRangeRef = React.useRef<DateRangeSelection>(value);
+  const [pendingRange, setPendingRange] = React.useState<DateRangeSelection>(value ?? getDefaultSelection());
+  const pendingRangeRef = React.useRef<DateRangeSelection>(value ?? getDefaultSelection());
 
   React.useEffect(() => {
     if (anchorEl) {
-      setPendingRange(value);
-      pendingRangeRef.current = value;
+      const nextRange = value ?? getDefaultSelection();
+      setPendingRange(nextRange);
+      pendingRangeRef.current = nextRange;
     }
   }, [anchorEl, value]);
 

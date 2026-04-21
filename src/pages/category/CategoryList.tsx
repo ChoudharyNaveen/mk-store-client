@@ -26,7 +26,8 @@ export default function CategoryPage() {
     const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
     const vendorId = user?.vendorId;
 
-    const { dateRange, handleDateRangeApply: baseHandleDateRangeApply } = useListPageDateRange(30);
+    const { dateRange, handleDateRangeApply } = useListPageDateRange();
+
     const [updatingCategoryId, setUpdatingCategoryId] = React.useState<number | null>(null);
     const refreshTableRef = React.useRef<() => void>(() => {});
 
@@ -115,7 +116,7 @@ export default function CategoryPage() {
 
     const buildFilters = React.useCallback((): ServerFilter[] => {
         const additionalFilters = buildFiltersFromDateRangeAndAdvanced({
-            dateRange,
+            dateRange: dateRange ?? undefined,
             dateField: 'createdAt',
             advancedFilters: { status: appliedAdvancedFilters.status || undefined },
             filterMappings: { status: { field: 'status', operator: 'eq' } },
@@ -156,10 +157,6 @@ export default function CategoryPage() {
         setFilterAnchorEl(null);
     };
 
-    const handleDateRangeApply = (newRange: Parameters<typeof baseHandleDateRangeApply>[0]) => {
-        baseHandleDateRangeApply(newRange);
-    };
-
     return (
         <ListPageLayout
             title="Categories"
@@ -171,7 +168,7 @@ export default function CategoryPage() {
             onClearAndRefresh={handleClearFilters}
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeApply}
-            onRefresh={() => tableHandlers.refresh()}
+                        onRefresh={() => tableHandlers.refresh()}
             filterAnchorEl={filterAnchorEl}
             onOpenFilterClick={(e) => setFilterAnchorEl(e.currentTarget)}
             onFilterClose={() => setFilterAnchorEl(null)}

@@ -33,7 +33,6 @@ const emptyAdvancedFilters: AdvancedFiltersState = {
 
 export default function BannerList() {
   const navigate = useNavigate();
-  const { dateRange, handleDateRangeApply } = useListPageDateRange(30);
   const [viewDialogOpen, setViewDialogOpen] = React.useState(false);
   const [bannerToView, setBannerToView] = React.useState<Banner | null>(null);
 
@@ -125,6 +124,8 @@ export default function BannerList() {
   const { user } = useAppSelector((state) => state.auth);
   const selectedBranchId = useAppSelector((state) => state.branch.selectedBranchId);
   const vendorId = user?.vendorId;
+
+    const { dateRange, handleDateRangeApply } = useListPageDateRange();
 
   const [updatingBannerId, setUpdatingBannerId] = React.useState<number | null>(null);
   const refreshTableRef = React.useRef<() => void>(() => {});
