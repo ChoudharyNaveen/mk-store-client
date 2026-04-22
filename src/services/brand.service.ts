@@ -174,7 +174,9 @@ export const createBrand = async (
     formData.append('branchId', String(data.branchId));
     formData.append('vendorId', String(data.vendorId));
     formData.append('status', data.status);
-    formData.append('file', data.file);
+    if (data.file) {
+      formData.append('file', data.file);
+    }
 
     // Make API call with FormData using httpRequest
     const response = await http.post<CreateBrandResponse>(

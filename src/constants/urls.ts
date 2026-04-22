@@ -60,6 +60,7 @@ export const API_URLS = {
     GET_PRODUCTS_SUMMARY: `${API_PREFIX}/get-products-summary`,
     GET_INVENTORY_MOVEMENTS: `${API_PREFIX}/get-inventory-movements`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-product/${id}`,
+    DELETE_BULK: `${API_PREFIX}/delete-product`,
     DELETE: (id: string | number) => `${API_PREFIX}/products/${id}`,
   },
   

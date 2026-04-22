@@ -33,7 +33,7 @@ export interface CreateBrandRequest {
   branchId: string | number;
   vendorId: string | number;
   status: BrandStatus;
-  file: File;
+  file?: File;
 }
 
 export interface CreateBrandResponse {

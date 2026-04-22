@@ -11,7 +11,7 @@ import {
 export interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  message: string;
+  message: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   confirmColor?: 'primary' | 'error' | 'warning';

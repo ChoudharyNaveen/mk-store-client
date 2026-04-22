@@ -38,19 +38,13 @@ const fileSizeTest = (value: File | null, isOptional: boolean) => {
 };
 
 // Create validation schema factory
-const createBrandFormSchema = (isEditMode: boolean) => {
-    const fileValidation = isEditMode
-        ? yup
-              .mixed<File>()
-              .nullable()
-              .optional()
-              .test('fileType', 'File must be an image', (value) => fileTypeTest(value, true))
-              .test('fileSize', 'File size must be less than 5MB', (value) => fileSizeTest(value, true))
-        : yup
-              .mixed<File>()
-              .required('Image file is required')
-              .test('fileType', 'File must be an image', (value) => fileTypeTest(value, false))
-              .test('fileSize', 'File size must be less than 5MB', (value) => fileSizeTest(value, false));
+const createBrandFormSchema = (_isEditMode: boolean) => {
+    const fileValidation = yup
+        .mixed<File>()
+        .nullable()
+        .optional()
+        .test('fileType', 'File must be an image', (value) => fileTypeTest(value, true))
+        .test('fileSize', 'File size must be less than 5MB', (value) => fileSizeTest(value, true));
 
     return yup.object({
         ...baseBrandFormSchema,
@@ -167,7 +161,6 @@ export default function BrandForm() {
                 return;
             }
         } else {
-            if (!data.file) return;
             if (!selectedBranchId) {
                 showErrorToast('No branch selected. Please select a branch.');
                 return;
@@ -195,7 +188,7 @@ export default function BrandForm() {
                     branchId: selectedBranchId!,
                     vendorId: user?.vendorId || 1,
                     status: data.status as BrandStatus,
-                    file: data.file!,
+                    file: data.file || undefined,
                 });
                 showSuccessToast('Brand created successfully!');
             }
@@ -286,7 +279,7 @@ export default function BrandForm() {
                                 name="file"
                                 control={control}
                                 label="Upload cover image"
-                                required={!isEditMode}
+                                required={false}
                                 accept="image/*"
                                 disabled={loading}
                                 preview={filePreview}

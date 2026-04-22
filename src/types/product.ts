@@ -208,6 +208,15 @@ export interface UpdateProductResponse {
   doc?: Product;
 }
 
+export interface DeleteProductResponse {
+  success: boolean;
+  message?: string;
+}
+
+export interface DeleteProductsRequest {
+  productIds: number[];
+}
+
 export interface ProductStats {
   product_id: number;
   product_title: string;

@@ -13,6 +13,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
 import CollapsibleKPISection from '../../components/CollapsibleKPISection';
@@ -21,7 +22,7 @@ import type { RowActionItem } from '../../components/RowActionsMenu';
 import ListPageLayout from '../../components/ListPageLayout';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { useListPageDateRange } from '../../hooks/useListPageDateRange';
-import { fetchProducts, fetchProductsSummary, updateProduct, type FetchParams } from '../../services/product.service';
+import { fetchProducts, fetchProductsSummary, updateProduct, deleteProducts, type FetchParams } from '../../services/product.service';
 import { fetchCategories } from '../../services/category.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
 import { getProductTypes } from '../../services/product-type.service';
@@ -39,6 +40,7 @@ import { exportToCSV } from '../../utils/exportCsv';
 import { PRODUCT_STATUS_OPTIONS, PRODUCT_STOCK_STATUS_OPTIONS } from '../../constants/statusOptions';
 import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
 import ImagePreviewAvatar from '../../components/ImagePreviewAvatar';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import StockUpdateDialog from './StockUpdateDialog';
 import VariantsPopover from './VariantsPopover';
 
@@ -136,6 +138,9 @@ export default function ProductList() {
     const [summaryLoading, setSummaryLoading] = React.useState(false);
 
     const [updatingProductId, setUpdatingProductId] = React.useState<number | null>(null);
+    const [selectedProductIds, setSelectedProductIds] = React.useState<number[]>([]);
+    const [deleteRequest, setDeleteRequest] = React.useState<{ ids: number[]; title?: string } | null>(null);
+    const [deleting, setDeleting] = React.useState(false);
     const refreshTableRef = React.useRef<() => void>(() => {});
 
     const handleToggleStatus = React.useCallback(async (row: Product) => {
@@ -166,6 +171,24 @@ export default function ProductList() {
             setUpdatingProductId(null);
         }
     }, [user?.id]);
+
+    const handleDeleteProducts = React.useCallback(async () => {
+        if (!deleteRequest || deleteRequest.ids.length === 0) return;
+        setDeleting(true);
+        showInfoToast('Deleting product...');
+        try {
+            await deleteProducts(deleteRequest.ids);
+            const deletedCount = deleteRequest.ids.length;
+            showSuccessToast(deletedCount === 1 ? 'Product deleted successfully.' : `${deletedCount} products deleted successfully.`);
+            setSelectedProductIds((prev) => prev.filter((id) => !deleteRequest.ids.includes(id)));
+            setDeleteRequest(null);
+            refreshTableRef.current();
+        } catch {
+            showErrorToast('Failed to delete selected product(s).');
+        } finally {
+            setDeleting(false);
+        }
+    }, [deleteRequest]);
 
     const columns = [
         {
@@ -393,6 +416,7 @@ export default function ProductList() {
                         { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: () => navigate(`/products/edit/${r.id}`, { state: { product: r } }) },
                         { type: 'item', label: 'Stock Update', icon: <InventoryIcon fontSize="small" />, onClick: () => setStockUpdateProduct(r) },
                         { type: 'item', label: 'Clone', icon: <ContentCopyIcon fontSize="small" />, onClick: () => navigate('/products/new', { state: { cloneFromProductId: r.id } }) },
+                        { type: 'item', label: 'Delete', icon: <DeleteOutlineIcon fontSize="small" />, onClick: () => setDeleteRequest({ ids: [r.id], title: r.title }) },
                         { type: 'divider' },
                         { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: () => handleToggleStatus(r), disabled: updatingProductId === r.id },
                     ]}
@@ -547,6 +571,11 @@ export default function ProductList() {
         searchDebounceMs: 500,
     });
 
+    React.useEffect(() => {
+        const visibleIds = new Set(tableState.data.map((p) => p.id));
+        setSelectedProductIds((prev) => prev.filter((id) => visibleIds.has(id)));
+    }, [tableState.data]);
+
     // Fetch products summary (KPIs)
     const fetchSummary = React.useCallback(async () => {
         if (!vendorId || !selectedBranchId) return;
@@ -648,6 +677,40 @@ export default function ProductList() {
             filterPopoverTitle="Filter Products"
             filterPopoverWidth={340}
             onExport={handleExport}
+            toolbarExtra={
+                selectedProductIds.length > 0 ? (
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            px: 1.25,
+                            py: 0.5,
+                            borderRadius: 2,
+                            border: '1px solid',
+                            borderColor: 'error.light',
+                            bgcolor: '#fff5f5',
+                        }}
+                    >
+                        <Chip
+                            size="small"
+                            color="primary"
+                            label={`${selectedProductIds.length} selected`}
+                            sx={{ fontWeight: 600 }}
+                        />
+                        <Button
+                            size="small"
+                            color="error"
+                            variant="contained"
+                            startIcon={<DeleteOutlineIcon fontSize="small" />}
+                            onClick={() => setDeleteRequest({ ids: selectedProductIds })}
+                            sx={{ textTransform: 'none', fontWeight: 600 }}
+                        >
+                            Delete Selected
+                        </Button>
+                    </Box>
+                ) : null
+            }
             contentBeforeToolbar={
                 <CollapsibleKPISection
                     kpis={[
@@ -870,12 +933,42 @@ export default function ProductList() {
                 onSuccess={() => refreshTableRef.current()}
                 product={stockUpdateProduct}
             />
+            <ConfirmDialog
+                open={Boolean(deleteRequest)}
+                title={deleteRequest && deleteRequest.ids.length > 1 ? 'Delete Products' : 'Delete Product'}
+                message={
+                    deleteRequest && deleteRequest.ids.length > 1
+                        ? `Are you sure you want to delete ${deleteRequest.ids.length} selected products? This action cannot be undone.`
+                        : (
+                            <>
+                                Are you sure you want to delete <strong>"{deleteRequest?.title ?? ''}"</strong>? This action cannot be undone.
+                            </>
+                        )
+                }
+                confirmLabel={deleteRequest && deleteRequest.ids.length > 1 ? 'Delete Products' : 'Delete'}
+                cancelLabel="Keep Product"
+                confirmColor="error"
+                loading={deleting}
+                onCancel={() => {
+                    if (!deleting) {
+                        setDeleteRequest(null);
+                    }
+                }}
+                onConfirm={handleDeleteProducts}
+            />
             <DataTable
                 key={`product-table-${paginationModel.page}-${paginationModel.pageSize}`}
                 columns={columns}
                 state={tableState}
                 paginationModel={paginationModel}
                 onPaginationModelChange={setPaginationModel}
+                dataGridProps={{
+                    checkboxSelection: true,
+                    rowSelectionModel: selectedProductIds.map(String),
+                    onRowSelectionModelChange: (newSelection) => {
+                        setSelectedProductIds(newSelection.map((id) => Number(id)).filter((id) => Number.isFinite(id)));
+                    },
+                }}
                 emptyStateMessage="No products yet"
                 emptyStateActionLabel="Add Product"
                 emptyStateActionOnClick={() => navigate('/products/new')}

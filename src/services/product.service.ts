@@ -12,6 +12,8 @@ import type {
   CreateProductResponse,
   UpdateProductRequest,
   UpdateProductResponse,
+  DeleteProductsRequest,
+  DeleteProductResponse,
   ProductStats,
   ProductStatsResponse,
   InventoryMovement,
@@ -558,6 +560,28 @@ export const updateProduct = async (
 };
 
 /**
+ * Delete products
+ * Uses POST /delete-product with body: { productIds: number[] }
+ */
+export const deleteProducts = async (
+  productIds: Array<string | number>,
+): Promise<DeleteProductResponse> => {
+  try {
+    const payload: DeleteProductsRequest = {
+      productIds: productIds.map((id) => Number(id)),
+    };
+    const response = await http.post<DeleteProductResponse>(
+      API_URLS.PRODUCTS.DELETE_BULK,
+      payload,
+    );
+    return response;
+  } catch (error) {
+    console.error("Error deleting products:", error);
+    throw error;
+  }
+};
+
+/**
  * Fetch products summary (KPIs)
  */
 export const fetchProductsSummary = async (params: {
@@ -588,6 +612,7 @@ const productService = {
   fetchInventoryMovements,
   createProduct,
   updateProduct,
+  deleteProducts,
   fetchProductsSummary,
 };
 
