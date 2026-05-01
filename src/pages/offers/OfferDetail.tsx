@@ -14,17 +14,21 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  Stack,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchOfferById, fetchOfferSummary } from '../../services/offer.service';
+import { fetchOfferById, fetchOfferSummary, deleteOffer } from '../../services/offer.service';
+import { showApiErrorToast, showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { Offer, OfferSummary } from '../../types/offer';
 import KPICard from '../../components/KPICard';
 import DetailPageSkeleton from '../../components/DetailPageSkeleton';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { useDetailWithSummary } from '../../hooks/useDetailWithSummary';
 import { format } from 'date-fns';
 
@@ -49,6 +53,24 @@ export default function OfferDetail() {
     fetchEntity: fetchOfferById,
     fetchSummary: fetchOfferSummary,
   });
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+
+  const handleDelete = async () => {
+    if (!offer || !id) return;
+    try {
+      setDeleting(true);
+      await deleteOffer(id);
+      showSuccessToast('Offer deleted successfully');
+      setDeleteDialogOpen(false);
+      navigate('/offers');
+    } catch (error) {
+      console.error('Error deleting offer:', error);
+      showApiErrorToast(error, 'Failed to delete offer. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return <DetailPageSkeleton />;
@@ -83,15 +105,40 @@ export default function OfferDetail() {
               {offer.code || 'Offer'}
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<EditIcon />}
-            onClick={() => navigate(`/offers/edit/${id}`)}
-            sx={{ textTransform: 'none' }}
-          >
-            Edit
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<EditIcon />}
+              onClick={() => navigate(`/offers/edit/${id}`)}
+              sx={{ textTransform: 'none' }}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteDialogOpen(true)}
+              disabled={deleting}
+              sx={{
+                bgcolor: 'error.main',
+                textTransform: 'none',
+                '&:hover': { bgcolor: 'error.dark' },
+              }}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </Stack>
         </Box>
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          title="Delete Offer"
+          message={`Are you sure you want to delete offer "${offer.code}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          confirmColor="error"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteDialogOpen(false)}
+          loading={deleting}
+        />
 
         <Grid container spacing={3} sx={{ mt: 3 }}>
         {imageUrl && (

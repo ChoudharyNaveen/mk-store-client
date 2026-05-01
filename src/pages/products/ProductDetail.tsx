@@ -31,13 +31,15 @@ import {
   fetchProductStats,
   fetchInventoryMovements,
   fetchProducts,
+  deleteProducts,
 } from "../../services/product.service";
-import { showErrorToast, showSuccessToast } from "../../utils/toast";
+import { showApiErrorToast, showErrorToast, showSuccessToast } from "../../utils/toast";
 import type { Product, ProductVariant } from "../../types/product";
 import type { ProductStats, InventoryMovement } from "../../types/product";
 import DataTable from "../../components/DataTable";
 import DetailPageSkeleton from "../../components/DetailPageSkeleton";
 import KPICard from "../../components/KPICard";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import { useRecentlyViewed } from "../../contexts/RecentlyViewedContext";
 import { useServerPagination } from "../../hooks/useServerPagination";
 import type { Column, TableState } from "../../types/table";
@@ -89,6 +91,8 @@ export default function ProductDetail() {
     null,
   );
   const [loading, setLoading] = React.useState(true);
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [tabValue, setTabValue] = React.useState(0);
   const [overviewTabValue, setOverviewTabValue] = React.useState(0);
 
@@ -249,6 +253,22 @@ export default function ProductDetail() {
     navigate(`/products/detail/${productId}`, { state: { productIds } });
   };
 
+  const handleDeleteProduct = async () => {
+    if (!product || !id) return;
+    try {
+      setDeleting(true);
+      await deleteProducts([product.id]);
+      showSuccessToast("Product deleted successfully.");
+      setDeleteDialogOpen(false);
+      navigate("/products");
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      showApiErrorToast(error, "Failed to delete product. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const imageUrl = getDefaultImage(product);
 
   return (
@@ -368,16 +388,28 @@ export default function ProductDetail() {
             <Button
               variant="contained"
               startIcon={<DeleteIcon />}
+              onClick={() => setDeleteDialogOpen(true)}
+              disabled={deleting}
               sx={{
                 bgcolor: "error.main",
                 textTransform: "none",
                 "&:hover": { bgcolor: "error.dark" },
               }}
             >
-              Delete
+              {deleting ? "Deleting..." : "Delete"}
             </Button>
           </Stack>
         </Box>
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          title="Delete Product"
+          message={`Are you sure you want to delete "${product.title}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          confirmColor="error"
+          onConfirm={handleDeleteProduct}
+          onCancel={() => setDeleteDialogOpen(false)}
+          loading={deleting}
+        />
 
         {/* Summary Cards */}
         <Grid container spacing={2} sx={{ mb: 3, mt: 3 }}>

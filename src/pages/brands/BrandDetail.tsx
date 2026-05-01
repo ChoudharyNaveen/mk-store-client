@@ -7,8 +7,6 @@ import {
   Grid,
   Avatar,
   Chip,
-  Card,
-  CardContent,
   Stack,
   List,
   Divider,
@@ -18,15 +16,18 @@ import {
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchBrandById, fetchBrandSummary } from '../../services/brand.service';
+import { fetchBrandById, fetchBrandSummary, deleteBrand } from '../../services/brand.service';
+import { showApiErrorToast, showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { Brand, BrandSummary } from '../../types/brand';
 import KPICard from '../../components/KPICard';
 import DetailPageSkeleton from '../../components/DetailPageSkeleton';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { useDetailWithSummary } from '../../hooks/useDetailWithSummary';
 import { format } from 'date-fns';
 
@@ -51,6 +52,24 @@ export default function BrandDetail() {
     fetchEntity: fetchBrandById,
     fetchSummary: fetchBrandSummary,
   });
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+
+  const handleDelete = async () => {
+    if (!brand || !id) return;
+    try {
+      setDeleting(true);
+      await deleteBrand(id);
+      showSuccessToast('Brand deleted successfully');
+      setDeleteDialogOpen(false);
+      navigate('/brands');
+    } catch (error) {
+      console.error('Error deleting brand:', error);
+      showApiErrorToast(error, 'Failed to delete brand. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) {
     return <DetailPageSkeleton />;
@@ -94,8 +113,31 @@ export default function BrandDetail() {
             >
               Edit
             </Button>
+            <Button
+              variant="contained"
+              startIcon={<DeleteIcon />}
+              onClick={() => setDeleteDialogOpen(true)}
+              disabled={deleting}
+              sx={{
+                bgcolor: 'error.main',
+                textTransform: 'none',
+                '&:hover': { bgcolor: 'error.dark' },
+              }}
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
           </Stack>
         </Box>
+        <ConfirmDialog
+          open={deleteDialogOpen}
+          title="Delete Brand"
+          message={`Are you sure you want to delete brand "${brand.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          confirmColor="error"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteDialogOpen(false)}
+          loading={deleting}
+        />
 
         <Box sx={{ mt: 3 }}>
           <Box sx={{ mb: 3 }}>

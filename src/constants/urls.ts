@@ -70,7 +70,7 @@ export const API_URLS = {
     CREATE: `${API_PREFIX}/save-Promocode`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/get-Promocode/${id}`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-Promocode/${id}`,
-    DELETE: (id: string | number) => `${API_PREFIX}/delete-Promocode/${id}`,
+    DELETE: (id: string | number) => `${API_PREFIX}/promocode/${id}`,
     GET_PROMOCODE_SUMMARY: `${API_PREFIX}/get-Promocode-summary`,
   },
   
@@ -80,7 +80,7 @@ export const API_URLS = {
     CREATE: `${API_PREFIX}/save-offer`,
     GET_BY_ID: (id: string | number) => `${API_PREFIX}/get-offer/${id}`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-offer/${id}`,
-    DELETE: (id: string | number) => `${API_PREFIX}/delete-offer/${id}`,
+    DELETE: (id: string | number) => `${API_PREFIX}/offer/${id}`,
     GET_OFFER_SUMMARY: `${API_PREFIX}/get-offer-summary`,
   },
   

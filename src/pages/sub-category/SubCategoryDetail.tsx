@@ -25,10 +25,10 @@ import DateRangeIcon from '@mui/icons-material/DateRange';
 import CancelIcon from '@mui/icons-material/Cancel';
 import InfoIcon from '@mui/icons-material/Info';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchSubCategories, fetchSubCategoryStats } from '../../services/sub-category.service';
+import { fetchSubCategories, fetchSubCategoryStats, deleteSubCategory } from '../../services/sub-category.service';
 import { fetchProducts } from '../../services/product.service';
 import { getProductTypes } from '../../services/product-type.service';
-import { showErrorToast } from '../../utils/toast';
+import { showApiErrorToast, showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { SubCategory, SubCategoryStats } from '../../types/sub-category';
 import type { Product, ProductVariant } from '../../types/product';
 import type { ProductType } from '../../types/product-type';
@@ -45,6 +45,7 @@ import { useAppSelector } from '../../store/hooks';
 import DataTable from '../../components/DataTable';
 import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import KPICard from '../../components/KPICard';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { useServerPagination } from '../../hooks/useServerPagination';
 
 interface TabPanelProps {
@@ -614,6 +615,8 @@ export default function SubCategoryDetail() {
     const { id } = useParams<{ id: string }>();
     const [subCategory, setSubCategory] = React.useState<SubCategory | null>(null);
     const [loading, setLoading] = React.useState(true);
+    const [deleting, setDeleting] = React.useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
     const [tabValue, setTabValue] = React.useState(0);
     const [overviewTabValue, setOverviewTabValue] = React.useState(0);
     const [dateRangeAnchor, setDateRangeAnchor] = React.useState<HTMLButtonElement | null>(null);
@@ -659,6 +662,22 @@ export default function SubCategoryDetail() {
 
         loadSubCategory();
     }, [id, navigate]);
+
+    const handleDelete = async () => {
+        if (!subCategory || !id) return;
+        try {
+            setDeleting(true);
+            await deleteSubCategory(id);
+            showSuccessToast('Sub-category deleted successfully');
+            setDeleteDialogOpen(false);
+            navigate('/sub-category');
+        } catch (error) {
+            console.error('Error deleting sub-category:', error);
+            showApiErrorToast(error, 'Failed to delete sub-category. Please try again.');
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     // Fetch stats when Reports tab is active and when date range changes
     React.useEffect(() => {
@@ -805,14 +824,15 @@ export default function SubCategoryDetail() {
                     <Button
                         variant="contained"
                         startIcon={<DeleteIcon />}
+                        onClick={() => setDeleteDialogOpen(true)}
+                        disabled={deleting}
                         sx={{
                             bgcolor: 'error.main',
                             textTransform: 'none',
                             '&:hover': { bgcolor: 'error.dark' }
                         }}
-                        disabled={false}
                     >
-                        Delete
+                        {deleting ? 'Deleting...' : 'Delete'}
                     </Button>
                 </Stack>
                 </Box>
@@ -1108,6 +1128,16 @@ export default function SubCategoryDetail() {
                 </Grid>
             </Grid>
             </Paper>
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                title="Delete Sub-category"
+                message={`Are you sure you want to delete sub-category "${subCategory.title}"? This action cannot be undone.`}
+                confirmLabel="Delete"
+                confirmColor="error"
+                onConfirm={handleDelete}
+                onCancel={() => setDeleteDialogOpen(false)}
+                loading={deleting}
+            />
         </Box>
     );
 }

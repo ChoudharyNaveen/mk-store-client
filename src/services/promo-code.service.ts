@@ -215,6 +215,18 @@ export const updatePromocode = async (
 };
 
 /**
+ * Delete a promo code
+ */
+export const deletePromocode = async (id: string | number): Promise<void> => {
+  try {
+    await http.delete(API_URLS.PROMO_CODES.DELETE(id));
+  } catch (error) {
+    console.error('Error deleting promo code:', error);
+    throw error;
+  }
+};
+
+/**
  * Fetch promo code summary (total redemptions and total discounts given)
  * POST /get-Promocode-summary with body { id: promocodeId }
  */
@@ -236,6 +248,7 @@ const promocodeService = {
   fetchPromocodeById,
   createPromocode,
   updatePromocode,
+  deletePromocode,
   fetchPromocodeSummary,
 };
 

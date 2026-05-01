@@ -233,6 +233,18 @@ export const updateOffer = async (
 };
 
 /**
+ * Delete an offer
+ */
+export const deleteOffer = async (id: string | number): Promise<void> => {
+  try {
+    await http.delete(API_URLS.OFFERS.DELETE(id));
+  } catch (error) {
+    console.error('Error deleting offer:', error);
+    throw error;
+  }
+};
+
+/**
  * Fetch offer summary (total redemptions and total discounts given)
  * POST /get-offer-summary with body { id: offerId }
  */
@@ -254,6 +266,7 @@ const offerService = {
   fetchOfferById,
   createOffer,
   updateOffer,
+  deleteOffer,
   fetchOfferSummary,
 };
 

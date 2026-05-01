@@ -235,6 +235,18 @@ export const updateBrand = async (
 };
 
 /**
+ * Delete a brand
+ */
+export const deleteBrand = async (id: string | number): Promise<void> => {
+  try {
+    await http.delete(API_URLS.BRANDS.DELETE(id));
+  } catch (error) {
+    console.error('Error deleting brand:', error);
+    throw error;
+  }
+};
+
+/**
  * Fetch brand summary (total products and active products for this brand)
  * POST /get-brand-summary with body { id: brandId }
  */
@@ -256,6 +268,7 @@ const brandService = {
   fetchBrandById,
   createBrand,
   updateBrand,
+  deleteBrand,
   fetchBrandSummary,
 };
 

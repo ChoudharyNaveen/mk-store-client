@@ -191,10 +191,23 @@ export const updateCategory = async (
   }
 };
 
+/**
+ * Delete a category
+ */
+export const deleteCategory = async (id: string | number): Promise<void> => {
+  try {
+    await http.delete(API_URLS.CATEGORIES.DELETE(id));
+  } catch (error) {
+    console.error('Error deleting category:', error);
+    throw error;
+  }
+};
+
 const categoryService = {
   fetchCategories,
   createCategory,
   updateCategory,
+  deleteCategory,
 };
 
 export default categoryService;

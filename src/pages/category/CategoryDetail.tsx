@@ -17,13 +17,14 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fetchCategories } from '../../services/category.service';
+import { fetchCategories, deleteCategory } from '../../services/category.service';
 import { fetchSubCategoriesByCategoryId } from '../../services/sub-category.service';
-import { showErrorToast } from '../../utils/toast';
+import { showApiErrorToast, showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { Category } from '../../types/category';
 import type { SubCategoryByCategoryIdItem } from '../../types/sub-category';
 import DataTable from '../../components/DataTable';
 import DetailPageSkeleton from '../../components/DetailPageSkeleton';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import type { Column } from '../../types/table';
 
@@ -166,6 +167,8 @@ export default function CategoryDetail() {
     const { id } = useParams<{ id: string }>();
     const [category, setCategory] = React.useState<Category | null>(null);
     const [loading, setLoading] = React.useState(true);
+    const [deleting, setDeleting] = React.useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
     const [tabValue, setTabValue] = React.useState(0);
     const [overviewTabValue, setOverviewTabValue] = React.useState(0);
 
@@ -201,6 +204,22 @@ export default function CategoryDetail() {
 
         loadCategory();
     }, [id, navigate]);
+
+    const handleDelete = async () => {
+        if (!category || !id) return;
+        try {
+            setDeleting(true);
+            await deleteCategory(id);
+            showSuccessToast('Category deleted successfully');
+            setDeleteDialogOpen(false);
+            navigate('/category');
+        } catch (error) {
+            console.error('Error deleting category:', error);
+            showApiErrorToast(error, 'Failed to delete category. Please try again.');
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     if (loading) {
         return <DetailPageSkeleton />;
@@ -254,14 +273,15 @@ export default function CategoryDetail() {
                     <Button
                         variant="contained"
                         startIcon={<DeleteIcon />}
+                        onClick={() => setDeleteDialogOpen(true)}
+                        disabled={deleting}
                         sx={{
                             bgcolor: 'error.main',
                             textTransform: 'none',
                             '&:hover': { bgcolor: 'error.dark' }
                         }}
-disabled={false}
                     >
-                        Delete
+                        {deleting ? 'Deleting...' : 'Delete'}
                     </Button>
                 </Stack>
                 </Box>
@@ -379,6 +399,16 @@ disabled={false}
                 </Grid>
             </Grid>
             </Paper>
+            <ConfirmDialog
+                open={deleteDialogOpen}
+                title="Delete Category"
+                message={`Are you sure you want to delete category "${category.title}"? This action cannot be undone.`}
+                confirmLabel="Delete"
+                confirmColor="error"
+                onConfirm={handleDelete}
+                onCancel={() => setDeleteDialogOpen(false)}
+                loading={deleting}
+            />
         </Box>
     );
 }

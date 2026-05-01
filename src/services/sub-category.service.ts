@@ -297,12 +297,25 @@ export const fetchSubCategoryStats = async (
   }
 };
 
+/**
+ * Delete a sub-category
+ */
+export const deleteSubCategory = async (id: string | number): Promise<void> => {
+  try {
+    await http.delete(API_URLS.SUB_CATEGORIES.DELETE(id));
+  } catch (error) {
+    console.error('Error deleting sub-category:', error);
+    throw error;
+  }
+};
+
 const subCategoryService = {
   fetchSubCategories,
   createSubCategory,
   updateSubCategory,
   fetchSubCategoriesByCategoryId,
   fetchSubCategoryStats,
+  deleteSubCategory,
 };
 
 export default subCategoryService;
