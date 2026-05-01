@@ -3,22 +3,24 @@ import { Box, Typography, Button, Select, MenuItem, FormControl, InputLabel } fr
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DataTable from '../../components/DataTable';
 import ImagePreviewAvatar from '../../components/ImagePreviewAvatar';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import ListPageLayout from '../../components/ListPageLayout';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { useListPageDateRange } from '../../hooks/useListPageDateRange';
-import { fetchCategories, updateCategory } from '../../services/category.service';
+import { fetchCategories, updateCategory, deleteCategory } from '../../services/category.service';
 import type { Category } from '../../types/category';
 import type { ServerFilter } from '../../types/filter';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import { CATEGORY_STATUS_OPTIONS } from '../../constants/statusOptions';
-import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast, showApiErrorToast } from '../../utils/toast';
 
 export default function CategoryPage() {
     const navigate = useNavigate();
@@ -29,6 +31,8 @@ export default function CategoryPage() {
     const { dateRange, handleDateRangeApply } = useListPageDateRange();
 
     const [updatingCategoryId, setUpdatingCategoryId] = React.useState<number | null>(null);
+    const [deleteRequest, setDeleteRequest] = React.useState<{ id: number; title: string } | null>(null);
+    const [deleting, setDeleting] = React.useState(false);
     const refreshTableRef = React.useRef<() => void>(() => {});
 
     const handleToggleStatus = React.useCallback(async (row: Category) => {
@@ -61,6 +65,22 @@ export default function CategoryPage() {
             setUpdatingCategoryId(null);
         }
     }, [user?.id]);
+
+    const handleDeleteCategory = React.useCallback(async () => {
+        if (!deleteRequest) return;
+        setDeleting(true);
+        showInfoToast('Deleting category...');
+        try {
+            await deleteCategory(deleteRequest.id);
+            showSuccessToast('Category deleted successfully.');
+            setDeleteRequest(null);
+            refreshTableRef.current();
+        } catch (error) {
+            showApiErrorToast(error, 'Failed to delete category. Please try again.');
+        } finally {
+            setDeleting(false);
+        }
+    }, [deleteRequest]);
 
     const columns = [
         {
@@ -100,6 +120,7 @@ export default function CategoryPage() {
                     items={(r): RowActionItem<Category>[] => [
                         { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (c) => navigate(`/category/detail/${c.id}`) },
                         { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (c) => navigate(`/category/edit/${c.id}`) },
+                        { type: 'item', label: 'Delete', icon: <DeleteOutlineIcon fontSize="small" />, onClick: (c) => setDeleteRequest({ id: c.id, title: c.title }) },
                         { type: 'divider' },
                         { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (c) => handleToggleStatus(c), disabled: updatingCategoryId === r.id },
                     ]}
@@ -192,6 +213,20 @@ export default function CategoryPage() {
             }
         >
             <DataTable key={`category-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
+            <ConfirmDialog
+                open={Boolean(deleteRequest)}
+                title="Delete Category"
+                message={
+                    <>
+                        Are you sure you want to delete <strong>"{deleteRequest?.title ?? ''}"</strong>? This action cannot be undone.
+                    </>
+                }
+                confirmLabel="Delete"
+                confirmColor="error"
+                onConfirm={handleDeleteCategory}
+                onCancel={() => setDeleteRequest(null)}
+                loading={deleting}
+            />
         </ListPageLayout>
     );
 }

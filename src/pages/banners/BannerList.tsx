@@ -3,16 +3,18 @@ import { Box, Typography, Button, TextField, Chip, Select, MenuItem, FormControl
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import ListPageLayout from '../../components/ListPageLayout';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { useListPageDateRange } from '../../hooks/useListPageDateRange';
-import { fetchBanners, updateBanner } from '../../services/banner.service';
+import { fetchBanners, updateBanner, deleteBanner } from '../../services/banner.service';
 import { fetchSubCategories } from '../../services/sub-category.service';
 import type { Banner } from '../../types/banner';
 import type { SubCategory } from '../../types/sub-category';
@@ -20,7 +22,7 @@ import type { ServerFilter } from '../../types/filter';
 import type { Column } from '../../types/table';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
-import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast, showApiErrorToast } from '../../utils/toast';
 
 type AdvancedFiltersState = {
   status: string;
@@ -105,6 +107,23 @@ export default function BannerList() {
           items={(r): RowActionItem<Banner>[] => [
             { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (b) => { setBannerToView(b); setViewDialogOpen(true); } },
             { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (b) => navigate(`/banners/edit/${b.id}`) },
+            {
+              type: 'item',
+              label: 'Delete',
+              icon: <DeleteOutlineIcon fontSize="small" />,
+              onClick: (b) => {
+                const concurrencyStamp = b.concurrencyStamp ?? b.concurrency_stamp ?? '';
+                if (!concurrencyStamp) {
+                  showErrorToast('Cannot delete: missing concurrency stamp.');
+                  return;
+                }
+                setDeleteRequest({
+                  id: b.id,
+                  concurrencyStamp,
+                  title: b.subCategory?.title ? `banner for ${b.subCategory.title}` : `banner #${b.id}`,
+                });
+              },
+            },
             { type: 'divider' },
             { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (b) => handleToggleStatus(b), disabled: updatingBannerId === r.id },
           ]}
@@ -128,6 +147,12 @@ export default function BannerList() {
     const { dateRange, handleDateRangeApply } = useListPageDateRange();
 
   const [updatingBannerId, setUpdatingBannerId] = React.useState<number | null>(null);
+  const [deleteRequest, setDeleteRequest] = React.useState<{
+    id: number;
+    concurrencyStamp: string;
+    title: string;
+  } | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
   const refreshTableRef = React.useRef<() => void>(() => {});
 
   const handleToggleStatus = React.useCallback(async (row: Banner) => {
@@ -158,6 +183,22 @@ export default function BannerList() {
       setUpdatingBannerId(null);
     }
   }, [user?.id]);
+
+  const handleDeleteBanner = React.useCallback(async () => {
+    if (!deleteRequest) return;
+    setDeleting(true);
+    showInfoToast('Deleting banner...');
+    try {
+      await deleteBanner(deleteRequest.id, deleteRequest.concurrencyStamp);
+      showSuccessToast('Banner deleted successfully.');
+      setDeleteRequest(null);
+      refreshTableRef.current();
+    } catch (error) {
+      showApiErrorToast(error, 'Failed to delete banner. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteRequest]);
 
   React.useEffect(() => {
     if (!filterAnchorEl || filterOptionsLoadedRef.current) return;
@@ -321,6 +362,20 @@ export default function BannerList() {
         }
       >
         <DataTable key={`banner-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
+        <ConfirmDialog
+          open={Boolean(deleteRequest)}
+          title="Delete Banner"
+          message={
+            <>
+              Are you sure you want to delete <strong>"{deleteRequest?.title ?? ''}"</strong>? This action cannot be undone.
+            </>
+          }
+          confirmLabel="Delete"
+          confirmColor="error"
+          onConfirm={handleDeleteBanner}
+          onCancel={() => setDeleteRequest(null)}
+          loading={deleting}
+        />
       </ListPageLayout>
 
       {/* View Banner Image Dialog - full XL */}

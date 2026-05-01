@@ -11,24 +11,31 @@ import { useNavigate } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EditIcon from '@mui/icons-material/EditOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DataTable from '../../components/DataTable';
 import SearchField from '../../components/SearchField';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { useServerPagination } from '../../hooks/useServerPagination';
-import { getProductTypes, updateProductType } from '../../services/product-type.service';
+import { getProductTypes, updateProductType, deleteProductType } from '../../services/product-type.service';
 import type { FetchParams } from '../../services/product-type.service';
 import type { ServerPaginationResponse } from '../../hooks/useServerPagination';
 import type { ProductType } from '../../types/product-type';
 import { useAppSelector } from '../../store/hooks';
-import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast, showApiErrorToast } from '../../utils/toast';
 
 export default function ProductTypeList() {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const [updatingId, setUpdatingId] = React.useState<number | null>(null);
+  const [deleteRequest, setDeleteRequest] = React.useState<{
+    id: number;
+    title: string;
+  } | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
   const refreshTableRef = useRef<() => void>(() => {});
 
   const fetchProductTypesForTable = useCallback(
@@ -49,6 +56,22 @@ export default function ProductTypeList() {
     },
     []
   );
+
+  const handleDeleteProductType = useCallback(async () => {
+    if (!deleteRequest) return;
+    setDeleting(true);
+    showInfoToast('Deleting product type...');
+    try {
+      await deleteProductType(deleteRequest.id);
+      showSuccessToast('Product type deleted successfully.');
+      setDeleteRequest(null);
+      refreshTableRef.current();
+    } catch (error) {
+      showApiErrorToast(error, 'Failed to delete product type. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteRequest]);
 
   const {
     paginationModel,
@@ -134,6 +157,7 @@ export default function ProductTypeList() {
           ariaLabel="Product type actions"
           items={(r): RowActionItem<ProductType>[] => [
             { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (pt) => navigate(`/product-types/edit/${pt.id}`) },
+            { type: 'item', label: 'Delete', icon: <DeleteOutlineIcon fontSize="small" />, onClick: (pt) => setDeleteRequest({ id: pt.id, title: pt.title }) },
             { type: 'divider' },
             { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (pt) => handleToggleStatus(pt), disabled: updatingId === r.id },
           ]}
@@ -193,6 +217,20 @@ export default function ProductTypeList() {
         emptyStateMessage="No product types yet"
         emptyStateActionLabel="Add Product Type"
         emptyStateActionOnClick={() => navigate('/product-types/new')}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteRequest)}
+        title="Delete Product Type"
+        message={
+          <>
+            Are you sure you want to delete <strong>"{deleteRequest?.title ?? ''}"</strong>? This action cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        confirmColor="error"
+        onConfirm={handleDeleteProductType}
+        onCancel={() => setDeleteRequest(null)}
+        loading={deleting}
       />
     </Paper>
   );

@@ -23,10 +23,12 @@ import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import BlockIcon from "@mui/icons-material/Block";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { format } from "date-fns";
 import DataTable from "../../components/DataTable";
 import RowActionsMenu from "../../components/RowActionsMenu";
 import type { RowActionItem } from "../../components/RowActionsMenu";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import DateRangePopover from "../../components/DateRangePopover";
 import type { DateRangeSelection } from "../../components/DateRangePopover";
 import CustomTabs from "../../components/CustomTabs";
@@ -36,6 +38,7 @@ import {
   fetchUsers,
   convertUserToRider,
   convertRiderToUser,
+  deleteUser,
   updateUserStatus,
   type FetchParams,
 } from "../../services/user.service";
@@ -48,6 +51,7 @@ import {
   showSuccessToast,
   showErrorToast,
   showInfoToast,
+  showApiErrorToast,
 } from "../../utils/toast";
 import {
   USER_STATUS_OPTIONS,
@@ -75,6 +79,11 @@ export default function UserList() {
   >(null);
   const [filterAnchorEl, setFilterAnchorEl] =
     React.useState<null | HTMLElement>(null);
+  const [deleteRequest, setDeleteRequest] = React.useState<{
+    id: string | number;
+    name: string;
+  } | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
   const [advancedFilters, setAdvancedFilters] = React.useState<AdvancedFilters>(
     {
       name: "",
@@ -234,6 +243,22 @@ export default function UserList() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!deleteRequest) return;
+    setDeleting(true);
+    showInfoToast("Deleting user...");
+    try {
+      await deleteUser(deleteRequest.id);
+      showSuccessToast("User deleted successfully.");
+      setDeleteRequest(null);
+      tableHandlers.refresh();
+    } catch (error) {
+      showApiErrorToast(error, "Failed to delete user. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const columns: Column<User>[] = [
     {
       id: "name" as keyof User,
@@ -315,6 +340,13 @@ export default function UserList() {
                 label: "View",
                 icon: <VisibilityIcon fontSize="small" />,
                 onClick: (u) => navigate(`/users/detail/${u.id}`),
+              },
+              {
+                type: "item",
+                label: "Delete",
+                icon: <DeleteOutlineIcon fontSize="small" />,
+                onClick: (u) =>
+                  setDeleteRequest({ id: u.id, name: u.name || "this user" }),
               },
               ...(activeTab === "USER"
                 ? [
@@ -638,6 +670,20 @@ export default function UserList() {
           />
         </Box>
       </Box>
+      <ConfirmDialog
+        open={Boolean(deleteRequest)}
+        title="Delete User"
+        message={
+          <>
+            Are you sure you want to delete <strong>"{deleteRequest?.name ?? ""}"</strong>? This action cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        confirmColor="error"
+        onConfirm={handleDeleteUser}
+        onCancel={() => setDeleteRequest(null)}
+        loading={deleting}
+      />
     </Paper>
   );
 }

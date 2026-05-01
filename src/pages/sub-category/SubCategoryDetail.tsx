@@ -27,7 +27,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchSubCategories, fetchSubCategoryStats, deleteSubCategory } from '../../services/sub-category.service';
 import { fetchProducts } from '../../services/product.service';
-import { getProductTypes } from '../../services/product-type.service';
+import { getProductTypes, deleteProductType } from '../../services/product-type.service';
 import { showApiErrorToast, showErrorToast, showSuccessToast } from '../../utils/toast';
 import type { SubCategory, SubCategoryStats } from '../../types/sub-category';
 import type { Product, ProductVariant } from '../../types/product';
@@ -41,7 +41,6 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import Highcharts from 'highcharts';
 import HighchartsReact from 'highcharts-react-official';
-import { useAppSelector } from '../../store/hooks';
 import DataTable from '../../components/DataTable';
 import DetailPageSkeleton from '../../components/DetailPageSkeleton';
 import KPICard from '../../components/KPICard';
@@ -477,6 +476,8 @@ interface ProductTypesTableProps {
 function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
     const [productTypeDialogOpen, setProductTypeDialogOpen] = React.useState(false);
     const [editingProductType, setEditingProductType] = React.useState<ProductType | null>(null);
+    const [deleteRequest, setDeleteRequest] = React.useState<ProductType | null>(null);
+    const [deletingProductType, setDeletingProductType] = React.useState(false);
 
     const fetchProductTypesBySubCategory = React.useCallback(
         async (params: {
@@ -544,25 +545,40 @@ function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
         {
             id: 'action' as keyof ProductType,
             label: 'Action',
-            minWidth: 80,
+            minWidth: 120,
             align: 'center' as const,
             render: (row: ProductType) => (
-                <IconButton
-                    size="small"
-                    onClick={() => {
-                        setEditingProductType(row);
-                        setProductTypeDialogOpen(true);
-                    }}
-                    sx={{
-                        border: '1px solid #e0e0e0',
-                        borderRadius: 2,
-                        color: 'text.secondary',
-                        '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' },
-                    }}
-                    aria-label="Edit product type"
-                >
-                    <EditIcon fontSize="small" />
-                </IconButton>
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                    <IconButton
+                        size="small"
+                        onClick={() => {
+                            setEditingProductType(row);
+                            setProductTypeDialogOpen(true);
+                        }}
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'text.secondary',
+                            '&:hover': { bgcolor: 'primary.light', color: 'primary.main', borderColor: 'primary.main' },
+                        }}
+                        aria-label="Edit product type"
+                    >
+                        <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                        size="small"
+                        onClick={() => setDeleteRequest(row)}
+                        sx={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 2,
+                            color: 'text.secondary',
+                            '&:hover': { bgcolor: 'error.light', color: 'error.main', borderColor: 'error.main' },
+                        }}
+                        aria-label="Delete product type"
+                    >
+                        <DeleteIcon fontSize="small" />
+                    </IconButton>
+                </Box>
             ),
         },
     ];
@@ -575,6 +591,22 @@ function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
     const handleProductTypeDialogClose = () => {
         setProductTypeDialogOpen(false);
         setEditingProductType(null);
+    };
+
+    const handleDeleteProductType = async () => {
+        if (!deleteRequest) return;
+        try {
+            setDeletingProductType(true);
+            await deleteProductType(deleteRequest.id);
+            showSuccessToast('Product type deleted successfully.');
+            setDeleteRequest(null);
+            tableHandlers.refresh();
+        } catch (error) {
+            console.error('Error deleting product type:', error);
+            showApiErrorToast(error, 'Failed to delete product type. Please try again.');
+        } finally {
+            setDeletingProductType(false);
+        }
     };
 
     return (
@@ -605,6 +637,20 @@ function ProductTypesTable({ subCategoryId }: ProductTypesTableProps) {
                 subCategoryId={subCategoryId}
                 productType={editingProductType}
                 onSuccess={handleProductTypeSuccess}
+            />
+            <ConfirmDialog
+                open={Boolean(deleteRequest)}
+                title="Delete Product Type"
+                message={
+                    <>
+                        Are you sure you want to delete <strong>"{deleteRequest?.title ?? ''}"</strong>? This action cannot be undone.
+                    </>
+                }
+                confirmLabel="Delete"
+                confirmColor="error"
+                onConfirm={handleDeleteProductType}
+                onCancel={() => setDeleteRequest(null)}
+                loading={deletingProductType}
             />
         </>
     );

@@ -3,22 +3,24 @@ import { Box, Typography, Button, TextField, Select, MenuItem, FormControl, Inpu
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import DataTable from '../../components/DataTable';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import ListPageLayout from '../../components/ListPageLayout';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { useListPageDateRange } from '../../hooks/useListPageDateRange';
-import promocodeService, { fetchPromocodes } from '../../services/promo-code.service';
+import promocodeService, { fetchPromocodes, deletePromocode } from '../../services/promo-code.service';
 import type { Promocode } from '../../types/promo-code';
 import type { ServerFilter } from '../../types/filter';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import { PROMOCODE_STATUS_OPTIONS } from '../../constants/statusOptions';
-import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast, showApiErrorToast } from '../../utils/toast';
 
 export default function PromocodeList() {
     const navigate = useNavigate();
@@ -29,6 +31,8 @@ export default function PromocodeList() {
     const { dateRange, handleDateRangeApply } = useListPageDateRange();
 
     const [updatingPromocodeId, setUpdatingPromocodeId] = React.useState<number | null>(null);
+    const [deleteRequest, setDeleteRequest] = React.useState<{ id: number; code: string } | null>(null);
+    const [deleting, setDeleting] = React.useState(false);
     const refreshTableRef = React.useRef<() => void>(() => {});
 
     const handleToggleStatus = React.useCallback(async (row: Promocode) => {
@@ -55,6 +59,22 @@ export default function PromocodeList() {
             setUpdatingPromocodeId(null);
         }
     }, [user?.id]);
+
+    const handleDeletePromocode = React.useCallback(async () => {
+        if (!deleteRequest) return;
+        setDeleting(true);
+        showInfoToast('Deleting promocode...');
+        try {
+            await deletePromocode(deleteRequest.id);
+            showSuccessToast('Promocode deleted successfully.');
+            setDeleteRequest(null);
+            refreshTableRef.current();
+        } catch (error) {
+            showApiErrorToast(error, 'Failed to delete promocode. Please try again.');
+        } finally {
+            setDeleting(false);
+        }
+    }, [deleteRequest]);
 
     const columns = [
         { id: 'type' as keyof Promocode, label: 'Type', minWidth: 100 },
@@ -85,6 +105,7 @@ export default function PromocodeList() {
                     items={(r): RowActionItem<Promocode>[] => [
                         { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (p) => navigate(`/promo-code/detail/${p.id}`) },
                         { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (p) => navigate(`/promo-code/edit/${p.id}`) },
+                        { type: 'item', label: 'Delete', icon: <DeleteOutlineIcon fontSize="small" />, onClick: (p) => setDeleteRequest({ id: p.id, code: p.code }) },
                         { type: 'divider' },
                         { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (p) => handleToggleStatus(p), disabled: updatingPromocodeId === r.id },
                     ]}
@@ -178,6 +199,20 @@ export default function PromocodeList() {
             }
         >
             <DataTable key={`promocode-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
+            <ConfirmDialog
+                open={Boolean(deleteRequest)}
+                title="Delete Promocode"
+                message={
+                    <>
+                        Are you sure you want to delete <strong>"{deleteRequest?.code ?? ''}"</strong>? This action cannot be undone.
+                    </>
+                }
+                confirmLabel="Delete"
+                confirmColor="error"
+                onConfirm={handleDeletePromocode}
+                onCancel={() => setDeleteRequest(null)}
+                loading={deleting}
+            />
         </ListPageLayout>
     );
 }

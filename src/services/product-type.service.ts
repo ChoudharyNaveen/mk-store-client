@@ -148,3 +148,11 @@ export const updateProductType = async (
   );
   return response;
 };
+
+/**
+ * Delete a product type
+ * DELETE /api/product-type/:id
+ */
+export const deleteProductType = async (id: number): Promise<void> => {
+  await http.delete(API_URLS.PRODUCT_TYPES.DELETE(id));
+};

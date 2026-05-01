@@ -3,6 +3,7 @@ import { Box, Typography, Button, Select, MenuItem, FormControl, InputLabel } fr
 import { useNavigate } from 'react-router-dom';
 import EditIcon from '@mui/icons-material/EditOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
@@ -10,16 +11,17 @@ import DataTable from '../../components/DataTable';
 import ImagePreviewAvatar from '../../components/ImagePreviewAvatar';
 import RowActionsMenu from '../../components/RowActionsMenu';
 import type { RowActionItem } from '../../components/RowActionsMenu';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import ListPageLayout from '../../components/ListPageLayout';
 import { useServerPagination } from '../../hooks/useServerPagination';
 import { useListPageDateRange } from '../../hooks/useListPageDateRange';
-import { fetchBrands, updateBrand } from '../../services/brand.service';
+import { fetchBrands, updateBrand, deleteBrand } from '../../services/brand.service';
 import type { Brand } from '../../types/brand';
 import type { ServerFilter } from '../../types/filter';
 import { buildFiltersFromDateRangeAndAdvanced, mergeWithDefaultFilters } from '../../utils/filterBuilder';
 import { useAppSelector } from '../../store/hooks';
 import { BRAND_STATUS_OPTIONS } from '../../constants/statusOptions';
-import { showSuccessToast, showErrorToast, showInfoToast } from '../../utils/toast';
+import { showSuccessToast, showErrorToast, showInfoToast, showApiErrorToast } from '../../utils/toast';
 
 export default function BrandList() {
     const navigate = useNavigate();
@@ -30,6 +32,8 @@ export default function BrandList() {
     const { dateRange, handleDateRangeApply } = useListPageDateRange();
 
     const [updatingBrandId, setUpdatingBrandId] = React.useState<number | null>(null);
+    const [deleteRequest, setDeleteRequest] = React.useState<{ id: number; name: string } | null>(null);
+    const [deleting, setDeleting] = React.useState(false);
     const refreshTableRef = React.useRef<() => void>(() => {});
 
     const handleToggleStatus = React.useCallback(async (row: Brand) => {
@@ -62,6 +66,22 @@ export default function BrandList() {
             setUpdatingBrandId(null);
         }
     }, [user?.id]);
+
+    const handleDeleteBrand = React.useCallback(async () => {
+        if (!deleteRequest) return;
+        setDeleting(true);
+        showInfoToast('Deleting brand...');
+        try {
+            await deleteBrand(deleteRequest.id);
+            showSuccessToast('Brand deleted successfully.');
+            setDeleteRequest(null);
+            refreshTableRef.current();
+        } catch (error) {
+            showApiErrorToast(error, 'Failed to delete brand. Please try again.');
+        } finally {
+            setDeleting(false);
+        }
+    }, [deleteRequest]);
 
     const columns = [
         {
@@ -104,6 +124,7 @@ export default function BrandList() {
                     items={(r): RowActionItem<Brand>[] => [
                         { type: 'item', label: 'View', icon: <VisibilityIcon fontSize="small" />, onClick: (b) => navigate(`/brands/detail/${b.id}`) },
                         { type: 'item', label: 'Edit', icon: <EditIcon fontSize="small" />, onClick: (b) => navigate(`/brands/edit/${b.id}`) },
+                        { type: 'item', label: 'Delete', icon: <DeleteOutlineIcon fontSize="small" />, onClick: (b) => setDeleteRequest({ id: b.id, name: b.name }) },
                         { type: 'divider' },
                         { type: 'item', label: r.status === 'ACTIVE' ? 'Deactivate' : 'Activate', icon: r.status === 'ACTIVE' ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />, onClick: (b) => handleToggleStatus(b), disabled: updatingBrandId === r.id },
                     ]}
@@ -195,6 +216,20 @@ export default function BrandList() {
             }
         >
             <DataTable key={`brand-table-${paginationModel.page}-${paginationModel.pageSize}`} columns={columns} state={tableState} paginationModel={paginationModel} onPaginationModelChange={setPaginationModel} />
+            <ConfirmDialog
+                open={Boolean(deleteRequest)}
+                title="Delete Brand"
+                message={
+                    <>
+                        Are you sure you want to delete <strong>"{deleteRequest?.name ?? ''}"</strong>? This action cannot be undone.
+                    </>
+                }
+                confirmLabel="Delete"
+                confirmColor="error"
+                onConfirm={handleDeleteBrand}
+                onCancel={() => setDeleteRequest(null)}
+                loading={deleting}
+            />
         </ListPageLayout>
     );
 }

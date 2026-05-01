@@ -144,6 +144,7 @@ export const API_URLS = {
     LIST: `${API_PREFIX}/get-product-type`,
     CREATE: `${API_PREFIX}/save-product-type`,
     UPDATE: (id: string | number) => `${API_PREFIX}/update-product-type/${id}`,
+    DELETE: (id: string | number) => `/product-type/${id}`,
   },
 
   // Banner endpoints

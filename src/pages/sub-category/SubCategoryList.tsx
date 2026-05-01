@@ -14,18 +14,21 @@ import {
 import { useNavigate } from "react-router-dom";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import BlockIcon from "@mui/icons-material/Block";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import DataTable from "../../components/DataTable";
 import ImagePreviewAvatar from "../../components/ImagePreviewAvatar";
 import RowActionsMenu from "../../components/RowActionsMenu";
 import type { RowActionItem } from "../../components/RowActionsMenu";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import ListPageLayout from "../../components/ListPageLayout";
 import { useServerPagination } from "../../hooks/useServerPagination";
 import { useListPageDateRange } from "../../hooks/useListPageDateRange";
 import {
   fetchSubCategories,
   updateSubCategory,
+  deleteSubCategory,
 } from "../../services/sub-category.service";
 import { fetchCategories } from "../../services/category.service";
 import type { SubCategory } from "../../types/sub-category";
@@ -37,7 +40,12 @@ import {
 } from "../../utils/filterBuilder";
 import { useAppSelector } from "../../store/hooks";
 import { SUBCATEGORY_STATUS_OPTIONS } from "../../constants/statusOptions";
-import { showSuccessToast, showErrorToast, showInfoToast } from "../../utils/toast";
+import {
+  showSuccessToast,
+  showErrorToast,
+  showInfoToast,
+  showApiErrorToast,
+} from "../../utils/toast";
 
 export default function SubCategoryList() {
   const navigate = useNavigate();
@@ -53,6 +61,11 @@ export default function SubCategoryList() {
   const [updatingSubCategoryId, setUpdatingSubCategoryId] = React.useState<
     number | null
   >(null);
+  const [deleteRequest, setDeleteRequest] = React.useState<{
+    id: number;
+    title: string;
+  } | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
   const refreshTableRef = React.useRef<() => void>(() => {});
 
   const handleToggleStatus = React.useCallback(
@@ -92,6 +105,22 @@ export default function SubCategoryList() {
     },
     [user?.id],
   );
+
+  const handleDeleteSubCategory = React.useCallback(async () => {
+    if (!deleteRequest) return;
+    setDeleting(true);
+    showInfoToast("Deleting sub-category...");
+    try {
+      await deleteSubCategory(deleteRequest.id);
+      showSuccessToast("Sub-category deleted successfully.");
+      setDeleteRequest(null);
+      refreshTableRef.current();
+    } catch (error) {
+      showApiErrorToast(error, "Failed to delete sub-category. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteRequest]);
 
   const columns = [
     {
@@ -164,6 +193,12 @@ export default function SubCategoryList() {
               label: "Edit",
               icon: <EditIcon fontSize="small" />,
               onClick: (s) => navigate(`/sub-category/edit/${s.id}`),
+            },
+            {
+              type: "item",
+              label: "Delete",
+              icon: <DeleteOutlineIcon fontSize="small" />,
+              onClick: (s) => setDeleteRequest({ id: s.id, title: s.title }),
             },
             { type: "divider" },
             {
@@ -415,6 +450,20 @@ export default function SubCategoryList() {
         state={tableState}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteRequest)}
+        title="Delete Sub-category"
+        message={
+          <>
+            Are you sure you want to delete <strong>"{deleteRequest?.title ?? ""}"</strong>? This action cannot be undone.
+          </>
+        }
+        confirmLabel="Delete"
+        confirmColor="error"
+        onConfirm={handleDeleteSubCategory}
+        onCancel={() => setDeleteRequest(null)}
+        loading={deleting}
       />
     </ListPageLayout>
   );
