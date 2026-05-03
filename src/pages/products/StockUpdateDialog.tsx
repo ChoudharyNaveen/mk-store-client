@@ -177,6 +177,8 @@ export default function StockUpdateDialog({
         thresholdStock: (r as ProductVariant & { threshold_stock?: number; thresholdStock?: number }).threshold_stock
           ?? (r as ProductVariant & { threshold_stock?: number; thresholdStock?: number }).thresholdStock
           ?? undefined,
+        maxOrderQuantity:
+          r.max_order_quantity ?? r.maxOrderQuantity ?? undefined,
       };
     });
 

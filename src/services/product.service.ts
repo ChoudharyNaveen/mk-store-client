@@ -364,20 +364,26 @@ export const fetchProductDetails = async (
       ? (product.variants as unknown[]).map((variant: unknown) => {
           const v = variant as Record<string, unknown>;
 
-          // Map combo_discounts if present
-          const comboDiscounts = Array.isArray(v.combo_discounts)
-            ? (v.combo_discounts as unknown[]).map((discount: unknown) => {
-                const d = discount as Record<string, unknown>;
-                return {
-                  comboQuantity: d.combo_quantity ?? d.comboQuantity,
-                  discountType: d.discount_type ?? d.discountType,
-                  discountValue: d.discount_value ?? d.discountValue,
-                  startDate: d.start_date ?? d.startDate,
-                  endDate: d.end_date ?? d.endDate,
-                  status: d.status || "ACTIVE",
-                };
-              })
-            : undefined;
+          // API may send combo_discounts (snake) or comboDiscounts (camel)
+          const rawComboSource = Array.isArray(v.combo_discounts)
+            ? v.combo_discounts
+            : Array.isArray(v.comboDiscounts)
+              ? v.comboDiscounts
+              : [];
+          const combo_discounts =
+            rawComboSource.length > 0
+              ? (rawComboSource as unknown[]).map((discount: unknown) => {
+                  const d = discount as Record<string, unknown>;
+                  return {
+                    comboQuantity: d.combo_quantity ?? d.comboQuantity,
+                    discountType: d.discount_type ?? d.discountType,
+                    discountValue: d.discount_value ?? d.discountValue,
+                    startDate: d.start_date ?? d.startDate,
+                    endDate: d.end_date ?? d.endDate,
+                    status: d.status || "ACTIVE",
+                  };
+                })
+              : undefined;
 
           return {
             ...v,
@@ -386,7 +392,7 @@ export const fetchProductDetails = async (
             expiry_date: v.expiry_date ?? v.expiryDate ?? null,
             product_status: v.product_status ?? v.productStatus ?? "INSTOCK",
             concurrency_stamp: v.concurrency_stamp ?? v.concurrencyStamp,
-            combo_discounts: comboDiscounts,
+            combo_discounts,
           };
         })
       : product.variants || [];

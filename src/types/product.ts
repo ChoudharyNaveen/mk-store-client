@@ -52,11 +52,16 @@ export interface ProductVariant {
   description?: string | null;
   nutritional?: string | null;
   combo_discounts?: ComboDiscount[];
+  /** Some APIs return camelCase combo discounts on variants */
+  comboDiscounts?: ComboDiscount[];
   concurrency_stamp?: string;
   concurrencyStamp?: string;
   /** When stock (quantity) falls below this number, a low-stock notification is sent. */
   threshold_stock?: number | null;
   thresholdStock?: number | null;
+  /** Maximum quantity a customer may order per line item for this variant (API may return snake_case). */
+  max_order_quantity?: number | null;
+  maxOrderQuantity?: number | null;
 }
 
 export interface ProductImage {
@@ -154,6 +159,8 @@ export interface CreateProductRequest {
     comboDiscounts?: ComboDiscount[];
     /** When stock falls below this number, a low-stock notification is sent. */
     thresholdStock?: number | null;
+    /** Maximum quantity per order for this variant (sent as maxOrderQuantity in JSON). */
+    maxOrderQuantity?: number | null;
   }>;
 }
 
@@ -198,6 +205,7 @@ export interface UpdateProductRequest {
     comboDiscounts?: ComboDiscount[];
     concurrencyStamp?: string; // For existing variants
     thresholdStock?: number | null;
+    maxOrderQuantity?: number | null;
   }>;
   variantIdsToDelete?: number[];
 }

@@ -842,6 +842,20 @@ export default function ProductDetail() {
                           value?.toLocaleString() || "0",
                       },
                       {
+                        id: "max_order_quantity",
+                        label: "Max order qty",
+                        align: "right",
+                        render: (row: ProductVariant) => {
+                          const max =
+                            row.max_order_quantity ?? row.maxOrderQuantity;
+                          return (
+                            <Typography variant="body2">
+                              {max != null ? max.toLocaleString() : "—"}
+                            </Typography>
+                          );
+                        },
+                      },
+                      {
                         id: "units",
                         label: "Units",
                         format: (value: string | null) => value || "N/A",

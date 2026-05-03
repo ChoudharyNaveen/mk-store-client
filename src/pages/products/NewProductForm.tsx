@@ -27,10 +27,7 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import productService, {
-  fetchProducts,
-  fetchProductDetails,
-} from "../../services/product.service";
+import productService, { fetchProductDetails } from "../../services/product.service";
 import { fetchCategories } from "../../services/category.service";
 import { fetchSubCategories } from "../../services/sub-category.service";
 import { fetchBrands } from "../../services/brand.service";
@@ -215,6 +212,16 @@ const variantSchema = yup.object().shape({
     .optional()
     .integer("Must be a whole number")
     .min(0, "Must be 0 or more"),
+  maxOrderQuantity: yup
+    .number()
+    .nullable()
+    .optional()
+    .transform((value, originalValue) => {
+      if (originalValue === "" || originalValue == null) return null;
+      return value;
+    })
+    .integer("Must be a whole number")
+    .min(0, "Must be 0 or more"),
 });
 
 // Base validation schema - shared fields (removed price, sellingPrice, quantity, expiryDate, description, nutritional - now in variants)
@@ -326,6 +333,8 @@ interface VariantFormData {
   comboDiscounts?: ComboDiscountFormData[];
   /** When stock falls below this number, a low-stock notification is sent. */
   thresholdStock?: number | null;
+  /** Maximum quantity per order for this variant (API: maxOrderQuantity). */
+  maxOrderQuantity?: number | null;
 }
 
 interface ImageFormData {
@@ -348,6 +357,33 @@ interface ProductFormData {
   variants: VariantFormData[];
 }
 
+/** Normalize combo discounts whether API used snake_case arrays or camelCase (get-product-details). */
+function mapVariantComboDiscountsFromApi(
+  variant: ProductVariant,
+): ComboDiscountFormData[] {
+  const raw = variant.combo_discounts ?? variant.comboDiscounts;
+  if (!Array.isArray(raw) || raw.length === 0) return [];
+  return raw.map((discount) => {
+    const d = discount as unknown as Record<string, unknown>;
+    const startRaw = d.startDate ?? d.start_date;
+    const endRaw = d.endDate ?? d.end_date;
+    return {
+      comboQuantity: Number(d.comboQuantity ?? d.combo_quantity ?? 0),
+      discountType: (d.discountType ?? d.discount_type) as
+        | "PERCENT"
+        | "FLATOFF",
+      discountValue: Number(d.discountValue ?? d.discount_value ?? 0),
+      startDate:
+        startRaw != null && startRaw !== ""
+          ? new Date(String(startRaw))
+          : null,
+      endDate:
+        endRaw != null && endRaw !== "" ? new Date(String(endRaw)) : null,
+      status: (d.status as "ACTIVE" | "INACTIVE") || "ACTIVE",
+    };
+  });
+}
+
 export default function ProductForm() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -362,9 +398,6 @@ export default function ProductForm() {
     (state) => state.branch.selectedBranchId,
   );
   const vendorId = user?.vendorId;
-
-  // Get product data from navigation state
-  const productFromState = location.state?.product as Product | undefined;
 
   // Get user ID for update operations
   const userId = user?.id || 1;
@@ -401,6 +434,9 @@ export default function ProductForm() {
   const subCategorySearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const brandSearchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const hasFetchedRef = React.useRef(false);
+  React.useEffect(() => {
+    hasFetchedRef.current = false;
+  }, [id]);
   const selectedBrandIdRef = React.useRef<number | null>(null);
   const brandsFetchingRef = React.useRef(false);
 
@@ -430,6 +466,7 @@ export default function ProductForm() {
           nutritional: null,
           comboDiscounts: [],
           thresholdStock: null,
+          maxOrderQuantity: null,
         },
       ],
     },
@@ -506,6 +543,7 @@ export default function ProductForm() {
       nutritional: null,
       comboDiscounts: [],
       thresholdStock: null,
+      maxOrderQuantity: null,
     });
   };
 
@@ -745,6 +783,10 @@ export default function ProductForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categorySearchTerm]);
 
+  // When prefilling edit/clone, category/subCategory jump from initial 0 → API ids; skip cascade clears.
+  const suppressCategoryCascadeRef = React.useRef(false);
+  const suppressSubCategoryCascadeRef = React.useRef(false);
+
   // Reset subCategoryId and productTypeId when category changes (user-initiated only)
   const prevCategoryIdRef = React.useRef<number | null | undefined>(undefined);
   const prevSubCategoryIdRef = React.useRef<number | null | undefined>(
@@ -752,8 +794,13 @@ export default function ProductForm() {
   );
   React.useEffect(() => {
     const prev = prevCategoryIdRef.current;
-    prevCategoryIdRef.current = selectedCategoryId ?? null;
-    if (prev !== undefined && prev !== selectedCategoryId) {
+    const next = selectedCategoryId ?? null;
+    prevCategoryIdRef.current = next;
+    if (suppressCategoryCascadeRef.current) {
+      suppressCategoryCascadeRef.current = false;
+      return;
+    }
+    if (prev !== undefined && prev !== next) {
       setValue("subCategoryId", 0);
       setValue("productTypeId", null);
       setSubCategories([]);
@@ -762,8 +809,13 @@ export default function ProductForm() {
   }, [selectedCategoryId, setValue]);
   React.useEffect(() => {
     const prev = prevSubCategoryIdRef.current;
-    prevSubCategoryIdRef.current = selectedSubCategoryId ?? null;
-    if (prev !== undefined && prev !== selectedSubCategoryId) {
+    const next = selectedSubCategoryId ?? null;
+    prevSubCategoryIdRef.current = next;
+    if (suppressSubCategoryCascadeRef.current) {
+      suppressSubCategoryCascadeRef.current = false;
+      return;
+    }
+    if (prev !== undefined && prev !== next) {
       setValue("productTypeId", null);
     }
   }, [selectedSubCategoryId, setValue]);
@@ -948,38 +1000,19 @@ export default function ProductForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandSearchTerm]);
 
-  // Fetch product data on mount if in edit mode
+  // Fetch full product document for edit (list/nav state payloads are often incomplete)
   React.useEffect(() => {
     const loadProduct = async () => {
       if (!isEditMode || !id || hasFetchedRef.current) {
         return;
       }
 
-      // Mark as fetched to prevent duplicate calls
       hasFetchedRef.current = true;
 
       try {
         setFetchingProduct(true);
-
-        // First, try to use product from navigation state (faster, no API call)
-        if (productFromState) {
-          await processProductData(productFromState);
-        } else {
-          // Fallback: Fetch product from API (for page refresh or direct URL access)
-          const response = await fetchProducts({
-            filters: [{ key: "id", eq: id }],
-            page: 0,
-            pageSize: 1,
-          });
-
-          if (response.list && response.list.length > 0) {
-            const product = response.list[0];
-            await processProductData(product);
-          } else {
-            showErrorToast("Product not found");
-            navigate("/products");
-          }
-        }
+        const product = await fetchProductDetails(id);
+        await processProductData(product);
       } catch (error) {
         console.error("Error loading product:", error);
         showErrorToast("Failed to load product data");
@@ -991,7 +1024,7 @@ export default function ProductForm() {
 
     loadProduct();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, productFromState, processProductData]);
+  }, [id, processProductData]);
 
   // Helper function to build form reset data
   const buildFormResetData = React.useCallback((data: Product) => {
@@ -1023,15 +1056,7 @@ export default function ProductForm() {
         status: variant.status,
         description: variant.description ?? null,
         nutritional: variant.nutritional ?? null,
-        comboDiscounts:
-          variant.combo_discounts?.map((discount) => ({
-            comboQuantity: discount.comboQuantity,
-            discountType: discount.discountType,
-            discountValue: discount.discountValue,
-            startDate: discount.startDate ? new Date(discount.startDate) : null,
-            endDate: discount.endDate ? new Date(discount.endDate) : null,
-            status: discount.status || "ACTIVE",
-          })) || [],
+        comboDiscounts: mapVariantComboDiscountsFromApi(variant),
         thresholdStock:
           (
             variant as ProductVariant & {
@@ -1046,6 +1071,8 @@ export default function ProductForm() {
             }
           ).thresholdStock ??
           null,
+        maxOrderQuantity:
+          variant.max_order_quantity ?? variant.maxOrderQuantity ?? null,
       };
     }) || []) as VariantFormData[];
 
@@ -1100,6 +1127,7 @@ export default function ProductForm() {
                 nutritional: null,
                 comboDiscounts: [],
                 thresholdStock: null,
+                maxOrderQuantity: null,
               },
             ],
     };
@@ -1130,15 +1158,7 @@ export default function ProductForm() {
           status: (variant.status as "ACTIVE" | "INACTIVE") ?? "ACTIVE",
           description: variant.description ?? null,
           nutritional: variant.nutritional ?? null,
-          comboDiscounts:
-            variant.combo_discounts?.map((d) => ({
-              comboQuantity: d.comboQuantity,
-              discountType: d.discountType,
-              discountValue: d.discountValue,
-              startDate: d.startDate ? new Date(d.startDate) : null,
-              endDate: d.endDate ? new Date(d.endDate) : null,
-              status: (d.status as "ACTIVE" | "INACTIVE") ?? "ACTIVE",
-            })) ?? [],
+          comboDiscounts: mapVariantComboDiscountsFromApi(variant),
           thresholdStock:
             (
               variant as ProductVariant & {
@@ -1153,6 +1173,8 @@ export default function ProductForm() {
               }
             ).thresholdStock ??
             null,
+          maxOrderQuantity:
+            variant.max_order_quantity ?? variant.maxOrderQuantity ?? null,
         };
       }) ?? []) as VariantFormData[];
 
@@ -1183,6 +1205,7 @@ export default function ProductForm() {
                   nutritional: null,
                   comboDiscounts: [],
                   thresholdStock: null,
+                  maxOrderQuantity: null,
                 },
               ],
       };
@@ -1203,6 +1226,8 @@ export default function ProductForm() {
         const product = await fetchProductDetails(cloneFromProductId);
         await processProductData(product);
         const cloneFormData = buildCloneFormData(product);
+        suppressCategoryCascadeRef.current = true;
+        suppressSubCategoryCascadeRef.current = true;
         reset(cloneFormData as ProductFormData);
       } catch (error) {
         console.error("Error loading product for clone:", error);
@@ -1237,6 +1262,8 @@ export default function ProductForm() {
 
       if (categoryExists && subCategoryExists && brandExists) {
         const resetData = buildFormResetData(productData);
+        suppressCategoryCascadeRef.current = true;
+        suppressSubCategoryCascadeRef.current = true;
         reset(resetData as ProductFormData);
       }
     }
@@ -1278,6 +1305,7 @@ export default function ProductForm() {
         description?: string | null;
         nutritional?: string | null;
         thresholdStock?: number | null;
+        maxOrderQuantity?: number | null;
         comboDiscounts?: ComboDiscount[];
         concurrencyStamp?: string;
       } = {
@@ -1294,6 +1322,7 @@ export default function ProductForm() {
         description: variant.description ?? undefined,
         nutritional: variant.nutritional ?? undefined,
         thresholdStock: variant.thresholdStock ?? undefined,
+        maxOrderQuantity: variant.maxOrderQuantity ?? undefined,
         comboDiscounts:
           variant.comboDiscounts && variant.comboDiscounts.length > 0
             ? variant.comboDiscounts.map((discount) => {
@@ -2334,8 +2363,29 @@ export default function ProductForm() {
                         Get notified when stock drops below this level
                       </Typography>
                     </Grid>
-                    <Grid size={{ xs: 12, md: 4 }}></Grid>
-                    <Grid size={{ xs: 12, md: 4 }}></Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                      <FormNumberField
+                        name={`variants.${index}.maxOrderQuantity`}
+                        control={control}
+                        label="Max order quantity"
+                        placeholder="Optional — e.g. 5"
+                        variant="outlined"
+                        size="small"
+                        disabled={loading}
+                        inputProps={{ step: 1, min: 0 }}
+                      />
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "text.secondary",
+                          mt: 0.5,
+                          display: "block",
+                          fontSize: "0.7rem",
+                        }}
+                      >
+                        Maximum units per order (0 allowed). Leave empty for no limit
+                      </Typography>
+                    </Grid>
 
                     <Grid size={{ xs: 12, md: 6 }}>
                       <FormTextField
